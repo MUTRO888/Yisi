@@ -50,7 +50,8 @@ struct TranslationView: View {
                     Text("Translate").font(.system(size: 13, weight: .medium)).padding(.horizontal, 16).padding(.vertical, 6).background(Color.primary.opacity(0.8)).foregroundColor(Color(nsColor: .windowBackgroundColor)).cornerRadius(6)
                 }.buttonStyle(.plain).keyboardShortcut(.return, modifiers: .command)
             }.padding(16).background(Color.primary.opacity(0.03))
-        }.background(VisualEffectView(material: .hudWindow, blendingMode: .behindWindow)).cornerRadius(12).overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.primary.opacity(0.1), lineWidth: 0.5)).onExitCommand {
+        }.background(VisualEffectView(material: .hudWindow, blendingMode: .behindWindow))
+        .cornerRadius(12).overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.primary.opacity(0.1), lineWidth: 0.5)).onExitCommand {
             WindowManager.shared.close()
         }.task {
             if !originalText.isEmpty {

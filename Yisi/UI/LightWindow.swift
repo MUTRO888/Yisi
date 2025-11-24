@@ -43,33 +43,37 @@ class WindowManager: ObservableObject {
     private init() {}
     
     func show(text: String, error: String? = nil) {
-        if window == nil {
-            let contentView = TranslationView(originalText: text, errorMessage: error)
-            let hostingController = NSHostingController(rootView: contentView)
-            
-            let windowSize = NSSize(width: 750, height: 480)
-            let screenRect = NSScreen.main?.visibleFrame ?? NSRect.zero
-            let centerPoint = NSPoint(x: screenRect.midX - windowSize.width / 2,
-                                      y: screenRect.midY - windowSize.height / 2)
-            
-            window = LightWindow(
-                contentRect: NSRect(origin: centerPoint, size: windowSize),
-                backing: .buffered,
-                defer: false
-            )
-            window?.contentViewController = hostingController
-            
-            // Close on click outside
-            localMonitor = NSEvent.addLocalMonitorForEvents(matching: .leftMouseDown) { [weak self] event in
-                if let window = self?.window, event.window != window {
-                    self?.close()
-                    return nil
-                }
-                return event
+        // Close existing window if any to ensure fresh window with correct size
+        close()
+        
+        let contentView = TranslationView(originalText: text, errorMessage: error)
+        let hostingController = NSHostingController(rootView: contentView)
+        
+        let windowSize = NSSize(width: 400, height: 300)
+        let screenRect = NSScreen.main?.visibleFrame ?? NSRect.zero
+        let centerPoint = NSPoint(x: screenRect.midX - windowSize.width / 2,
+                                  y: screenRect.midY - windowSize.height / 2)
+        
+        window = LightWindow(
+            contentRect: NSRect(origin: centerPoint, size: windowSize),
+            backing: .buffered,
+            defer: false
+        )
+        window?.contentViewController = hostingController
+        
+        // Explicitly set the frame to ensure size is applied
+        window?.setFrame(NSRect(origin: centerPoint, size: windowSize), display: true)
+        
+        print("Window created with size: \(windowSize) - 400x300")
+        print("Window actual frame: \(window?.frame ?? .zero)")
+        
+        // Close on click outside
+        localMonitor = NSEvent.addLocalMonitorForEvents(matching: .leftMouseDown) { [weak self] event in
+            if let window = self?.window, event.window != window {
+                self?.close()
+                return nil
             }
-        } else {
-             let contentView = TranslationView(originalText: text, errorMessage: error)
-             window?.contentViewController = NSHostingController(rootView: contentView)
+            return event
         }
         
         window?.makeKeyAndOrderFront(nil)
