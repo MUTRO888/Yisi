@@ -23,25 +23,13 @@
 
 ### 1. Planning & Staging
 
-Break complex work into 3-5 stages. Document in `IMPLEMENTATION_PLAN.md`:
-
-```markdown
-## Stage N: [Name]
-**Goal**: [Specific deliverable]
-**Success Criteria**: [Testable outcomes]
-**Tests**: [Specific test cases]
-**Status**: [Not Started|In Progress|Complete]
-
-```
-
-- Update status as you progress
-- Remove file when all stages are done
+Break complex work into 3-5 stages. 
 
 ### 2. Implementation Flow
 
 1. **Understand** - Study existing patterns in codebase
-2. **Test** - Write test first (red)
-3. **Implement** - Minimal code to pass (green)
+2. **Test** - Write test first 
+3. **Implement** - Minimal code to pass 
 4. **Refactor** - Clean up with tests passing
 5. **Commit** - With clear message linking to plan
 
@@ -55,10 +43,10 @@ Break complex work into 3-5 stages. Document in `IMPLEMENTATION_PLAN.md`:
 - **Version History**: All commits and version iterations are user-driven
 
 **AI Behavior**:
-- ✅ **ALLOWED**: Modify, create, delete code files
-- ✅ **ALLOWED**: Suggest git commands when asked
-- ❌ **FORBIDDEN**: Execute `git add`, `git commit`, `git push` without explicit user request
-- ❌ **FORBIDDEN**: Any automatic repository synchronization
+- **ALLOWED**: Modify, create, delete code files
+- **ALLOWED**: Suggest git commands when asked
+- **FORBIDDEN**: Execute `git add`, `git commit`, `git push` without explicit user request
+- **FORBIDDEN**: Any automatic repository synchronization
 
 **Exceptions**: AI may execute git commands ONLY when:
 - User explicitly requests git operations

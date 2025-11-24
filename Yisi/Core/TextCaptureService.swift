@@ -1,4 +1,4 @@
-import Cocoa
+ import Cocoa
 
 class TextCaptureService {
     static let shared = TextCaptureService()
