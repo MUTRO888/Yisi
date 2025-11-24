@@ -47,7 +47,7 @@ class WindowManager: ObservableObject {
             let contentView = TranslationView(originalText: text, errorMessage: error)
             let hostingController = NSHostingController(rootView: contentView)
             
-            let windowSize = NSSize(width: 600, height: 400)
+            let windowSize = NSSize(width: 750, height: 480)
             let screenRect = NSScreen.main?.visibleFrame ?? NSRect.zero
             let centerPoint = NSPoint(x: screenRect.midX - windowSize.width / 2,
                                       y: screenRect.midY - windowSize.height / 2)
