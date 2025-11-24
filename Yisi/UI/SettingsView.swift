@@ -1,15 +1,17 @@
 import SwiftUI
 
 struct SettingsView: View {
-    @State private var apiKey: String = ""
+    @AppStorage("gemini_api_key") private var geminiKey: String = ""
+    @AppStorage("openai_api_key") private var openaiKey: String = ""
+    @AppStorage("api_provider") private var selectedProvider: String = "Gemini"
     @State private var selectedTab: Int = 0
     
     var body: some View {
-        VStack(spacing: 0) {
-            // Header
+        VStack(alignment: .leading, spacing: 20) {
             HStack {
-                Text("Yisi")
-                    .font(.system(size: 18, weight: .bold, design: .serif))
+                Text("Settings")
+                    .font(.system(size: 20, weight: .medium, design: .serif))
+                    .foregroundColor(.primary)
                 Spacer()
                 Button(action: {
                     NSApplication.shared.terminate(nil)
@@ -23,21 +25,23 @@ struct SettingsView: View {
             .padding()
             .background(Color.primary.opacity(0.05))
             
-            // Tabs
             HStack(spacing: 20) {
                 TabButton(title: "API", icon: "key", isSelected: selectedTab == 0) { selectedTab = 0 }
                 TabButton(title: "Shortcuts", icon: "command", isSelected: selectedTab == 1) { selectedTab = 1 }
                 TabButton(title: "Prompts", icon: "text.quote", isSelected: selectedTab == 2) { selectedTab = 2 }
             }
-            .padding(.vertical, 10)
+            .padding(.horizontal)
             
             Divider()
             
-            // Content
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
                     if selectedTab == 0 {
-                        ApiSection(apiKey: $apiKey)
+                        ApiSection(
+                            openaiKey: $openaiKey,
+                            geminiKey: $geminiKey,
+                            selectedProvider: $selectedProvider
+                        )
                     } else if selectedTab == 1 {
                         Text("Shortcut configuration coming soon.")
                             .foregroundColor(.secondary)
@@ -52,48 +56,58 @@ struct SettingsView: View {
         }
         .frame(width: 350)
         .background(VisualEffectView(material: .popover, blendingMode: .behindWindow))
-        .onAppear {
-            loadApiKey()
-        }
-    }
-    
-    private func loadApiKey() {
-        if let data = KeychainHelper.shared.read(service: "com.yisi.app", account: "openai_api_key"),
-           let key = String(data: data, encoding: .utf8) {
-            apiKey = key
-        }
-    }
-    
-    private func saveApiKey() {
-        if let data = apiKey.data(using: .utf8) {
-            KeychainHelper.shared.save(data, service: "com.yisi.app", account: "openai_api_key")
-        }
     }
 }
 
 struct ApiSection: View {
-    @Binding var apiKey: String
+    @Binding var openaiKey: String
+    @Binding var geminiKey: String
+    @Binding var selectedProvider: String
     
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Text("API Key")
+        VStack(alignment: .leading, spacing: 15) {
+            Text("API Provider")
                 .font(.headline)
             
-            SecureField("sk-...", text: $apiKey)
-                .textFieldStyle(.roundedBorder)
-                .onChange(of: apiKey) {
-                    saveApiKey()
-                }
+            Picker("", selection: $selectedProvider) {
+                Text("Gemini").tag("Gemini")
+                Text("OpenAI").tag("OpenAI")
+            }
+            .pickerStyle(.segmented)
             
-            Text("Your key is stored securely in the macOS Keychain.")
-                .font(.caption)
-                .foregroundColor(.secondary)
-        }
-    }
-    
-    private func saveApiKey() {
-        if let data = apiKey.data(using: .utf8) {
-            KeychainHelper.shared.save(data, service: "com.yisi.app", account: "openai_api_key")
+            Divider()
+                .padding(.vertical, 5)
+            
+            if selectedProvider == "Gemini" {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Gemini API Key")
+                        .font(.subheadline)
+                    
+                    SecureField("Enter your Gemini API key", text: $geminiKey)
+                        .textFieldStyle(.roundedBorder)
+                    
+                    Text("Get your key from Google AI Studio")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+            } else {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("OpenAI API Key")
+                        .font(.subheadline)
+                    
+                    SecureField("sk-...", text: $openaiKey)
+                        .textFieldStyle(.roundedBorder)
+                    
+                    Text("Get your key from OpenAI Platform")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+            }
+            
+            Text("Keys are stored in UserDefaults for development convenience.")
+                .font(.caption2)
+                .foregroundColor(.secondary.opacity(0.7))
+                .padding(.top, 5)
         }
     }
 }
@@ -117,3 +131,4 @@ struct TabButton: View {
         .buttonStyle(.plain)
     }
 }
+

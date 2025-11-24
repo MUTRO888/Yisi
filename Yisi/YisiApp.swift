@@ -21,12 +21,43 @@ struct YisiApp: App {
     private func handleShortcut() {
         print("Shortcut detected in App")
         
-        // Capture text or use empty string for manual input
-        let text = TextCaptureService.shared.captureSelectedText() ?? ""
-        print("Captured text: '\(text)'")
+        let result = TextCaptureService.shared.captureSelectedText()
+        
+        var text = ""
+        var error: String? = nil
+        
+        switch result {
+        case .success(let capturedText):
+            text = capturedText
+        case .failure(let captureError):
+            switch captureError {
+            case .permissionDenied:
+                error = "Accessibility permission required to capture text."
+            case .noFocusedElement, .noSelection:
+                // These are normal if no text is selected, just show empty window
+                break
+            case .other(let msg):
+                print("Capture error: \(msg)")
+            }
+        }
         
         DispatchQueue.main.async {
-            WindowManager.shared.show(text: text)
+            WindowManager.shared.show(text: text, error: error)
+        }
+    }
+    
+    init() {
+        checkAccessibilityPermissions()
+    }
+    
+    private func checkAccessibilityPermissions() {
+        let options: NSDictionary = [kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String : true]
+        let accessEnabled = AXIsProcessTrustedWithOptions(options)
+        
+        if !accessEnabled {
+            print("Accessibility access not granted. Prompting user...")
+            // In a real app, we might want to show a specific onboarding window here
+            // For now, the system prompt should appear, or we can rely on the user checking settings
         }
     }
 }
@@ -40,10 +71,4 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
 class AppState: ObservableObject {
     @Published var isThinking = false
-    @Published var menuBarIconName = "circle" // Standby icon
-    
-    func showSettings() {
-        // TODO: Implement Settings Window
-        print("Show Settings")
-    }
 }

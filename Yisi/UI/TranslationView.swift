@@ -2,6 +2,8 @@ import SwiftUI
 
 struct TranslationView: View {
     @State var originalText: String
+    var errorMessage: String? // Added error message property
+    
     @State private var translatedText: String = ""
     @State private var isTranslating: Bool = false
     @State private var sourceLanguage: String = "English"
@@ -10,94 +12,102 @@ struct TranslationView: View {
     
     var body: some View {
         VStack(spacing: 0) {
-            // Original Text Area
-            ZStack(alignment: .topLeading) {
-                if originalText.isEmpty {
-                    Text("Type to translate...")
-                        .foregroundColor(.secondary.opacity(0.5))
-                        .padding(.top, 8)
-                        .padding(.leading, 5)
-                }
-                
-                TextEditor(text: $originalText)
-                    .font(.system(size: 16, weight: .regular, design: .default))
-                    .lineSpacing(4)
-                    .foregroundColor(.primary.opacity(0.8))
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .scrollContentBackground(.hidden) // Remove default background
-                    .focused($isInputFocused)
-                    .onChange(of: originalText) {
-                        // Optional: Debounce auto-translate if desired, 
-                        // but for now we stick to explicit trigger or initial load
-                    }
-                    // Handle Command+Enter to translate
-                    .onReceive(NotificationCenter.default.publisher(for: NSTextView.didChangeSelectionNotification)) { obj in
-                         // This is a bit hacky in SwiftUI for key events in TextEditor.
-                         // A better way is usually using an NSViewRepresentable for NSTextView
-                         // to handle keyDown events properly.
-                         // For simplicity in this iteration, we'll rely on a button or the initial load.
-                    }
-            }
-            .padding(15)
-            .frame(height: 150)
-            
-            Divider()
-                .background(Color.primary.opacity(0.1))
-            
-            // Translated Text Area
-            ScrollView {
-                if isTranslating {
-                    HStack {
-                        Spacer()
-                        ProgressView()
-                            .scaleEffect(0.8)
-                            .frame(height: 50)
-                        Spacer()
-                    }
-                } else {
-                    Text(translatedText)
-                        .font(.system(size: 16, weight: .medium, design: .default))
-                        .lineSpacing(4)
+            // Permission Warning
+            if let errorMessage = errorMessage {
+                HStack {
+                    Image(systemName: "exclamationmark.triangle.fill")
+                        .foregroundColor(.orange)
+                    Text(errorMessage)
+                        .font(.system(size: 13, weight: .medium))
                         .foregroundColor(.primary)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(20)
-                        .textSelection(.enabled)
-                        .onTapGesture {
-                            copyToClipboard(translatedText)
+                    Spacer()
+                    Button("Open Settings") {
+                        if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility") {
+                            NSWorkspace.shared.open(url)
                         }
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .controlSize(.small)
                 }
+                .padding()
+                .background(Color.orange.opacity(0.1))
             }
-            .frame(maxHeight: 300)
             
-            // Footer / Controls
-            HStack {
-                LanguageButton(text: sourceLanguage)
+            // Main Content Area
+            HStack(spacing: 0) {
+                // Left: Input
+                VStack(alignment: .leading, spacing: 12) {
+                    LanguageSelector(selection: $sourceLanguage)
+                        .padding(.horizontal, 20)
+                        .padding(.top, 20)
+                    
+                    CustomTextEditor(text: $originalText, placeholder: "Type or paste text...")
+                        .font(.system(size: 16, weight: .light, design: .serif))
+                        .padding(.horizontal, 15)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
                 
-                Button(action: swapLanguages) {
-                    Image(systemName: "arrow.left.arrow.right")
+                // Divider
+                Rectangle()
+                    .fill(Color.primary.opacity(0.05))
+                    .frame(width: 1)
+                    .padding(.vertical, 20)
+                
+                // Right: Output
+                VStack(alignment: .leading, spacing: 12) {
+                    LanguageSelector(selection: $targetLanguage)
+                        .padding(.horizontal, 20)
+                        .padding(.top, 20)
+                    
+                    ScrollView {
+                        Text(translatedText.isEmpty ? "Translation will appear here..." : translatedText)
+                            .font(.system(size: 16, weight: .light, design: .serif))
+                            .foregroundColor(translatedText.isEmpty ? .secondary.opacity(0.5) : .primary)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(.horizontal, 20)
+                            .textSelection(.enabled)
+                    }
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .background(Color.primary.opacity(0.02))
+            }
+            
+            // Footer
+            HStack {
+                if isTranslating {
+                    ProgressView()
+                        .scaleEffect(0.6)
+                        .padding(.trailing, 8)
+                }
+                
+                Spacer()
+                
+                Button(action: {
+                    let pasteboard = NSPasteboard.general
+                    pasteboard.clearContents()
+                    pasteboard.setString(translatedText, forType: .string)
+                }) {
+                    Image(systemName: "doc.on.doc")
                         .font(.system(size: 12))
                         .foregroundColor(.secondary)
                 }
                 .buttonStyle(.plain)
-                .padding(.horizontal, 8)
+                .padding(.trailing, 16)
+                .opacity(translatedText.isEmpty ? 0 : 1)
                 
-                LanguageButton(text: targetLanguage)
-                
-                Spacer()
-                
-                if originalText.isEmpty || !translatedText.isEmpty {
-                    Text("Esc to close")
-                        .font(.caption2)
-                        .foregroundColor(.secondary.opacity(0.5))
-                } else {
-                    Button("Translate") {
-                        Task { await performTranslation() }
-                    }
-                    .keyboardShortcut(.return, modifiers: .command)
+                Button(action: { Task { await performTranslation() } }) {
+                    Text("Translate")
+                        .font(.system(size: 13, weight: .medium))
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 6)
+                        .background(Color.primary.opacity(0.8))
+                        .foregroundColor(Color(nsColor: .windowBackgroundColor))
+                        .cornerRadius(6)
                 }
+                .buttonStyle(.plain)
+                .keyboardShortcut(.return, modifiers: .command)
             }
-            .padding(.horizontal, 20)
-            .padding(.vertical, 12)
+            .padding(16)
             .background(Color.primary.opacity(0.03))
         }
         .background(VisualEffectView(material: .hudWindow, blendingMode: .behindWindow))
@@ -106,11 +116,12 @@ struct TranslationView: View {
             RoundedRectangle(cornerRadius: 12)
                 .stroke(Color.primary.opacity(0.1), lineWidth: 0.5)
         )
+        .onExitCommand {
+            WindowManager.shared.close()
+        }
         .task {
             if !originalText.isEmpty {
                 await performTranslation()
-            } else {
-                isInputFocused = true
             }
         }
     }
@@ -126,21 +137,55 @@ struct TranslationView: View {
         isTranslating = false
     }
     
-    private func swapLanguages() {
-        let temp = sourceLanguage
-        sourceLanguage = targetLanguage
-        targetLanguage = temp
-        if !originalText.isEmpty {
-            Task {
-                await performTranslation()
-            }
-        }
-    }
-    
     private func copyToClipboard(_ text: String) {
         let pasteboard = NSPasteboard.general
         pasteboard.clearContents()
         pasteboard.setString(text, forType: .string)
+    }
+}
+
+struct CustomTextEditor: View {
+    @Binding var text: String
+    var placeholder: String
+    
+    var body: some View {
+        ZStack(alignment: .topLeading) {
+            if text.isEmpty {
+                Text(placeholder)
+                    .foregroundColor(.secondary.opacity(0.5))
+                    .padding(.horizontal, 5)
+                    .padding(.vertical, 0)
+            }
+            
+            TextEditor(text: $text)
+                .scrollContentBackground(.hidden) // Removes white background
+                .background(Color.clear)
+        }
+    }
+}
+
+struct LanguageSelector: View {
+    @Binding var selection: String
+    
+    var body: some View {
+        Menu {
+            Button("English") { selection = "English" }
+            Button("简体中文") { selection = "简体中文" }
+            Button("Japanese") { selection = "Japanese" }
+            Button("French") { selection = "French" }
+            Button("Spanish") { selection = "Spanish" }
+        } label: {
+            HStack(spacing: 4) {
+                Text(selection)
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundColor(.secondary)
+                Image(systemName: "chevron.down")
+                    .font(.system(size: 8, weight: .bold))
+                    .foregroundColor(.secondary.opacity(0.7))
+            }
+        }
+        .menuStyle(.borderlessButton)
+        .fixedSize()
     }
 }
 
