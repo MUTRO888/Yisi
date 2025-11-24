@@ -88,6 +88,14 @@ struct CustomTextEditor: View {
     }
 }
 
+// Custom scroller that removes the background track
+class TransparentScroller: NSScroller {
+    override func drawKnobSlot(in slotRect: NSRect, highlight flag: Bool) {
+        // Override to prevent drawing the white background track
+        // We only want to draw the knob itself, not the track background
+    }
+}
+
 struct MacEditorView: NSViewRepresentable {
     @Binding var text: String
     func makeNSView(context: Context) -> NSScrollView {
@@ -103,9 +111,13 @@ struct MacEditorView: NSViewRepresentable {
         scrollView.hasHorizontalScroller = false
         scrollView.autohidesScrollers = true
         scrollView.scrollerStyle = .overlay
+        
+        // Use custom transparent scroller
+        scrollView.verticalScroller = TransparentScroller()
+        scrollView.verticalScroller?.controlSize = .mini
+
         let textView = NSTextView()
         textView.autoresizingMask = [.width, .height]
-        textView.delegate = context.coordinator
         textView.drawsBackground = false
         textView.backgroundColor = .clear
         let descriptor = NSFont.systemFont(ofSize: 16, weight: .light).fontDescriptor.withDesign(.serif)
@@ -119,6 +131,7 @@ struct MacEditorView: NSViewRepresentable {
         textView.isVerticallyResizable = true
         textView.isHorizontallyResizable = false
         textView.textContainerInset = NSSize(width: 20, height: 20)
+        textView.delegate = context.coordinator
         scrollView.documentView = textView
         return scrollView
     }
@@ -160,6 +173,10 @@ struct OutputTextView: NSViewRepresentable {
         scrollView.hasHorizontalScroller = false
         scrollView.autohidesScrollers = true
         scrollView.scrollerStyle = .overlay
+        
+        // Use custom transparent scroller
+        scrollView.verticalScroller = TransparentScroller()
+        scrollView.verticalScroller?.controlSize = .mini
 
         let textView = NSTextView()
         textView.autoresizingMask = [.width, .height]
