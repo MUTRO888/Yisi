@@ -10,14 +10,14 @@ class TranslationService: ObservableObject {
     
     private init() {}
     
-    func translate(_ text: String, targetLanguage: String = "Simplified Chinese") async throws -> String {
+    func translate(_ text: String, sourceLanguage: String = "Auto Detect", targetLanguage: String = "简体中文") async throws -> String {
         let provider = getAPIProvider()
         
         switch provider {
         case .openai:
-            return try await translateWithOpenAI(text, targetLanguage: targetLanguage)
+            return try await translateWithOpenAI(text, sourceLanguage: sourceLanguage, targetLanguage: targetLanguage)
         case .gemini:
-            return try await translateWithGemini(text, targetLanguage: targetLanguage)
+            return try await translateWithGemini(text, sourceLanguage: sourceLanguage, targetLanguage: targetLanguage)
         }
     }
     
@@ -30,12 +30,15 @@ class TranslationService: ObservableObject {
         return .gemini
     }
     
-    private func translateWithOpenAI(_ text: String, targetLanguage: String) async throws -> String {
+    private func translateWithOpenAI(_ text: String, sourceLanguage: String, targetLanguage: String) async throws -> String {
         guard let apiKey = UserDefaults.standard.string(forKey: "openai_api_key"), !apiKey.isEmpty else {
             return "Please set your OpenAI API Key in Settings."
         }
         
-        let prompt = "Translate the following text to \(targetLanguage). Only return the translated text, no explanations.\n\n\(text)"
+        var prompt = "Translate the following text to \(targetLanguage). Only return the translated text, no explanations.\n\n\(text)"
+        if sourceLanguage != "Auto Detect" {
+            prompt = "Translate the following text from \(sourceLanguage) to \(targetLanguage). Only return the translated text, no explanations.\n\n\(text)"
+        }
         
         let body: [String: Any] = [
             "model": "gpt-3.5-turbo",
@@ -74,12 +77,15 @@ class TranslationService: ObservableObject {
         return "Failed to parse translation."
     }
     
-    private func translateWithGemini(_ text: String, targetLanguage: String) async throws -> String {
+    private func translateWithGemini(_ text: String, sourceLanguage: String, targetLanguage: String) async throws -> String {
         guard let apiKey = UserDefaults.standard.string(forKey: "gemini_api_key"), !apiKey.isEmpty else {
             return "Please set your Gemini API Key in Settings."
         }
         
-        let prompt = "Translate the following text to \(targetLanguage). Only return the translated text, no explanations.\n\n\(text)"
+        var prompt = "Translate the following text to \(targetLanguage). Only return the translated text, no explanations.\n\n\(text)"
+        if sourceLanguage != "Auto Detect" {
+            prompt = "Translate the following text from \(sourceLanguage) to \(targetLanguage). Only return the translated text, no explanations.\n\n\(text)"
+        }
         
         let body: [String: Any] = [
             "contents": [

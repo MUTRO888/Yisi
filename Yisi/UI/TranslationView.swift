@@ -6,15 +6,24 @@ struct TranslationView: View {
     var errorMessage: String?
     @State private var translatedText: String = ""
     @State private var isTranslating: Bool = false
-    @State private var sourceLanguage: String = "English"
-    @State private var targetLanguage: String = "简体中文"
+    @State private var sourceLanguage: Language = .auto
+    @State private var targetLanguage: Language = .simplifiedChinese
     @FocusState private var isInputFocused: Bool
+    
     var body: some View {
         VStack(spacing: 0) {
             HStack(spacing: 12) {
-                LanguageSelector(selection: $sourceLanguage)
-                Image(systemName: "arrow.right").font(.system(size: 12, weight: .medium)).foregroundColor(.secondary.opacity(0.5))
-                LanguageSelector(selection: $targetLanguage)
+                LanguageSelector(selection: $sourceLanguage, languages: Language.sourceLanguages)
+                
+                Button(action: swapLanguages) {
+                    Image(systemName: "arrow.right.arrow.left")
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundColor(.secondary.opacity(0.5))
+                }
+                .buttonStyle(.plain)
+                .help("Swap languages")
+                
+                LanguageSelector(selection: $targetLanguage, languages: Language.targetLanguages)
                 Spacer()
             }.padding(.horizontal, 16).padding(.vertical, 12).background(Color.black.opacity(0.2))
             if let errorMessage = errorMessage {
@@ -59,16 +68,44 @@ struct TranslationView: View {
             }
         }
     }
+    
     private func performTranslation() async {
         guard !originalText.isEmpty else { return }
         isTranslating = true
         do {
-            translatedText = try await TranslationService.shared.translate(originalText, targetLanguage: targetLanguage)
+            translatedText = try await TranslationService.shared.translate(originalText, sourceLanguage: sourceLanguage.rawValue, targetLanguage: targetLanguage.rawValue)
         } catch {
             translatedText = "Error: \(error.localizedDescription)"
         }
         isTranslating = false
     }
+    
+    private func swapLanguages() {
+        if sourceLanguage == .auto {
+            sourceLanguage = targetLanguage
+            targetLanguage = .english
+        } else {
+            let temp = sourceLanguage
+            // Ensure the target language is valid for source (always true as source is superset)
+            // Ensure the source language is valid for target (Auto is not valid target)
+            if temp == .auto {
+                 // Should be covered by first if, but for safety
+                 sourceLanguage = targetLanguage
+                 targetLanguage = .english
+            } else {
+                // Check if the current source is a valid target (it should be unless it's auto)
+                if Language.targetLanguages.contains(temp) {
+                     sourceLanguage = targetLanguage
+                     targetLanguage = temp
+                } else {
+                    // Fallback if something weird happens
+                    sourceLanguage = targetLanguage
+                    targetLanguage = .english
+                }
+            }
+        }
+    }
+    
     private func copyToClipboard(_ text: String) {
         let pasteboard = NSPasteboard.general
         pasteboard.clearContents()
@@ -216,18 +253,19 @@ struct OutputTextView: NSViewRepresentable {
 }
 
 struct LanguageSelector: View {
-    @Binding var selection: String
+    @Binding var selection: Language
+    let languages: [Language]
+    
     var body: some View {
         Menu {
-            Button("English") { selection = "English" }
-            Button("简体中文") { selection = "简体中文" }
-            Button("Japanese") { selection = "Japanese" }
-            Button("French") { selection = "French" }
-            Button("Spanish") { selection = "Spanish" }
+            ForEach(languages) { language in
+                Button(language.rawValue) {
+                    selection = language
+                }
+            }
         } label: {
             HStack(spacing: 4) {
-                Text(selection).font(.system(size: 12, weight: .medium)).foregroundColor(.secondary)
-                Image(systemName: "chevron.down").font(.system(size: 8, weight: .bold)).foregroundColor(.secondary.opacity(0.7))
+                Text(selection.rawValue).font(.system(size: 12, weight: .medium)).foregroundColor(.secondary)
             }
         }.menuStyle(.borderlessButton).fixedSize()
     }
