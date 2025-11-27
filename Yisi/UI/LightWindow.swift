@@ -67,13 +67,31 @@ class WindowManager: ObservableObject {
         print("Window created with size: \(windowSize) - 400x300")
         print("Window actual frame: \(window?.frame ?? .zero)")
         
-        // Close on click outside
-        localMonitor = NSEvent.addLocalMonitorForEvents(matching: .leftMouseDown) { [weak self] event in
-            if let window = self?.window, event.window != window {
-                self?.close()
-                return nil
+        // Close on click outside if enabled
+        let closeMode = UserDefaults.standard.string(forKey: "close_mode") ?? "clickOutside"
+        print("DEBUG: Window created. Close mode: \(closeMode)")
+        
+        // IMPORTANT: Control whether the window hides (effectively closes) when the app loses focus (e.g. clicking desktop)
+        window?.hidesOnDeactivate = (closeMode == "clickOutside")
+        
+        // Ensure any existing monitor is removed first (though close() should have handled it)
+        if let monitor = localMonitor {
+            NSEvent.removeMonitor(monitor)
+            localMonitor = nil
+        }
+        
+        if closeMode == "clickOutside" {
+            print("DEBUG: Adding click outside monitor")
+            localMonitor = NSEvent.addLocalMonitorForEvents(matching: .leftMouseDown) { [weak self] event in
+                if let window = self?.window, event.window != window {
+                    print("DEBUG: Click outside detected. Closing.")
+                    self?.close()
+                    return nil
+                }
+                return event
             }
-            return event
+        } else {
+            print("DEBUG: Click outside monitor NOT added")
         }
         
         window?.makeKeyAndOrderFront(nil)

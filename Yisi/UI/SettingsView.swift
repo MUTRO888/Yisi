@@ -1,9 +1,24 @@
 import SwiftUI
 
+enum ClosingMode: String, CaseIterable, Identifiable {
+    case clickOutside = "clickOutside"
+    case xButton = "xButton"
+    case escKey = "escKey"
+    
+    var id: String { self.rawValue }
+    
+    var displayName: String {
+        switch self {
+        case .clickOutside: return "Click Outside"
+        case .xButton: return "X Button"
+        case .escKey: return "Esc Key"
+        }
+    }
+}
+
 struct SettingsView: View {
     @AppStorage("gemini_api_key") private var geminiKey: String = ""
-    @AppStorage("openai_api_key") private var openaiKey: String = ""
-    @AppStorage("api_provider") private var selectedProvider: String = "Gemini"
+    @AppStorage("close_mode") private var closeMode: String = "clickOutside"
     @State private var selectedTab: Int = 0
     
     var body: some View {
@@ -26,8 +41,8 @@ struct SettingsView: View {
             .background(Color.primary.opacity(0.05))
             
             HStack(spacing: 20) {
-                TabButton(title: "API", icon: "key", isSelected: selectedTab == 0) { selectedTab = 0 }
-                TabButton(title: "Shortcuts", icon: "command", isSelected: selectedTab == 1) { selectedTab = 1 }
+                TabButton(title: "General", icon: "gearshape", isSelected: selectedTab == 0) { selectedTab = 0 }
+                TabButton(title: "History", icon: "clock", isSelected: selectedTab == 1) { selectedTab = 1 }
                 TabButton(title: "Prompts", icon: "text.quote", isSelected: selectedTab == 2) { selectedTab = 2 }
             }
             .padding(.horizontal)
@@ -37,13 +52,12 @@ struct SettingsView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
                     if selectedTab == 0 {
-                        ApiSection(
-                            openaiKey: $openaiKey,
+                        GeneralSection(
                             geminiKey: $geminiKey,
-                            selectedProvider: $selectedProvider
+                            closeMode: $closeMode
                         )
                     } else if selectedTab == 1 {
-                        Text("Shortcut configuration coming soon.")
+                        Text("Translation history coming soon.")
                             .foregroundColor(.secondary)
                     } else {
                         Text("Prompt templates coming soon.")
@@ -59,55 +73,50 @@ struct SettingsView: View {
     }
 }
 
-struct ApiSection: View {
-    @Binding var openaiKey: String
+struct GeneralSection: View {
     @Binding var geminiKey: String
-    @Binding var selectedProvider: String
+    @Binding var closeMode: String
     
     var body: some View {
-        VStack(alignment: .leading, spacing: 15) {
-            Text("API Provider")
-                .font(.headline)
-            
-            Picker("", selection: $selectedProvider) {
-                Text("Gemini").tag("Gemini")
-                Text("OpenAI").tag("OpenAI")
+        VStack(alignment: .leading, spacing: 20) {
+            // API Configuration
+            VStack(alignment: .leading, spacing: 8) {
+                Text("API Configuration")
+                    .font(.headline)
+                
+                Text("Gemini API Key")
+                    .font(.subheadline)
+                
+                SecureField("Enter your Gemini API key", text: $geminiKey)
+                    .textFieldStyle(.roundedBorder)
+                
+                Text("Get your key from Google AI Studio")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
             }
-            .pickerStyle(.segmented)
             
             Divider()
-                .padding(.vertical, 5)
             
-            if selectedProvider == "Gemini" {
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("Gemini API Key")
-                        .font(.subheadline)
-                    
-                    SecureField("Enter your Gemini API key", text: $geminiKey)
-                        .textFieldStyle(.roundedBorder)
-                    
-                    Text("Get your key from Google AI Studio")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
+            // Window Behavior
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Window Behavior")
+                    .font(.headline)
+                
+                Text("Closing Method")
+                    .font(.subheadline)
+                
+                Picker("", selection: $closeMode) {
+                    ForEach(ClosingMode.allCases) { mode in
+                        Text(mode.displayName).tag(mode.rawValue)
+                    }
                 }
-            } else {
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("OpenAI API Key")
-                        .font(.subheadline)
-                    
-                    SecureField("sk-...", text: $openaiKey)
-                        .textFieldStyle(.roundedBorder)
-                    
-                    Text("Get your key from OpenAI Platform")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                }
+                .pickerStyle(.menu)
+                .labelsHidden()
+                
+                Text("Choose how you want to close the translation window.")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
             }
-            
-            Text("Keys are stored in UserDefaults for development convenience.")
-                .font(.caption2)
-                .foregroundColor(.secondary.opacity(0.7))
-                .padding(.top, 5)
         }
     }
 }

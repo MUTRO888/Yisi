@@ -9,6 +9,7 @@ struct TranslationView: View {
     @State private var sourceLanguage: Language = .auto
     @State private var targetLanguage: Language = .simplifiedChinese
     @FocusState private var isInputFocused: Bool
+    @AppStorage("close_mode") private var closeMode: String = "clickOutside"
     
     var body: some View {
         VStack(spacing: 0) {
@@ -26,6 +27,26 @@ struct TranslationView: View {
                 LanguageSelector(selection: $targetLanguage, languages: Language.targetLanguages)
                 Spacer()
             }.padding(.horizontal, 16).padding(.vertical, 12).background(Color.black.opacity(0.2))
+            
+            // Close button for X mode
+            if closeMode == "xButton" {
+                HStack {
+                    Spacer()
+                    Button(action: {
+                        WindowManager.shared.close()
+                    }) {
+                        Image(systemName: "xmark.circle.fill")
+                            .font(.system(size: 16))
+                            .foregroundColor(.secondary)
+                    }
+                    .buttonStyle(.plain)
+                    .padding(8)
+                }
+                .frame(height: 0) // Zero height to overlay without taking space
+                .offset(y: -20) // Adjust position to be in the corner
+                .zIndex(100)
+            }
+
             if let errorMessage = errorMessage {
                 HStack {
                     Image(systemName: "exclamationmark.triangle.fill").foregroundColor(.orange)
@@ -61,7 +82,9 @@ struct TranslationView: View {
             }.padding(16).background(Color.primary.opacity(0.03))
         }.background(VisualEffectView(material: .hudWindow, blendingMode: .behindWindow))
         .cornerRadius(12).overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.primary.opacity(0.1), lineWidth: 0.5)).onExitCommand {
-            WindowManager.shared.close()
+            if closeMode == "escKey" {
+                WindowManager.shared.close()
+            }
         }.task {
             if !originalText.isEmpty {
                 await performTranslation()
@@ -116,13 +139,26 @@ struct TranslationView: View {
 struct CustomTextEditor: View {
     @Binding var text: String
     var placeholder: String
+    @FocusState private var isFocused: Bool
+    
     var body: some View {
         ZStack(alignment: .topLeading) {
             MacEditorView(text: $text)
-            if text.isEmpty {
-                Text(placeholder).font(.system(size: 16, weight: .light, design: .serif)).foregroundColor(.secondary.opacity(0.5)).padding(.horizontal, 25).padding(.vertical, 20).allowsHitTesting(false)
+                .focused($isFocused)
+            
+            // Hide placeholder if text is not empty OR if the field is focused (to prevent overlap with input method candidates)
+            if text.isEmpty && !isFocused {
+                Text(placeholder)
+                    .font(.system(size: 16, weight: .light, design: .serif))
+                    .foregroundColor(.secondary.opacity(0.5))
+                    .padding(.horizontal, 25)
+                    .padding(.vertical, 20)
+                    .allowsHitTesting(false)
             }
         }.background(Color.clear)
+        .onTapGesture {
+            isFocused = true
+        }
     }
 }
 
@@ -136,6 +172,7 @@ class TransparentScroller: NSScroller {
 
 struct MacEditorView: NSViewRepresentable {
     @Binding var text: String
+    
     func makeNSView(context: Context) -> NSScrollView {
         let scrollView = NSScrollView()
         scrollView.drawsBackground = false
@@ -184,6 +221,7 @@ struct MacEditorView: NSViewRepresentable {
     }
     class Coordinator: NSObject, NSTextViewDelegate {
         @Binding var text: String
+        
         init(text: Binding<String>) {
             _text = text
         }
