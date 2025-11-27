@@ -18,6 +18,9 @@ enum ClosingMode: String, CaseIterable, Identifiable {
 
 struct SettingsView: View {
     @AppStorage("gemini_api_key") private var geminiKey: String = ""
+    @AppStorage("openai_api_key") private var openaiKey: String = ""
+    @AppStorage("zhipu_api_key") private var zhipuKey: String = ""
+    @AppStorage("api_provider") private var apiProvider: String = "Gemini"
     @AppStorage("close_mode") private var closeMode: String = "clickOutside"
     @State private var selectedTab: Int = 0
     
@@ -54,6 +57,9 @@ struct SettingsView: View {
                     if selectedTab == 0 {
                         GeneralSection(
                             geminiKey: $geminiKey,
+                            openaiKey: $openaiKey,
+                            zhipuKey: $zhipuKey,
+                            apiProvider: $apiProvider,
                             closeMode: $closeMode
                         )
                     } else if selectedTab == 1 {
@@ -75,6 +81,9 @@ struct SettingsView: View {
 
 struct GeneralSection: View {
     @Binding var geminiKey: String
+    @Binding var openaiKey: String
+    @Binding var zhipuKey: String
+    @Binding var apiProvider: String
     @Binding var closeMode: String
     
     var body: some View {
@@ -84,15 +93,38 @@ struct GeneralSection: View {
                 Text("API Configuration")
                     .font(.headline)
                 
-                Text("Gemini API Key")
-                    .font(.subheadline)
+                Picker("Provider", selection: $apiProvider) {
+                    Text("Gemini").tag("Gemini")
+                    Text("OpenAI").tag("OpenAI")
+                    Text("Zhipu AI").tag("Zhipu AI")
+                }
+                .pickerStyle(.menu)
                 
-                SecureField("Enter your Gemini API key", text: $geminiKey)
-                    .textFieldStyle(.roundedBorder)
-                
-                Text("Get your key from Google AI Studio")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
+                if apiProvider == "Gemini" {
+                    Text("Gemini API Key")
+                        .font(.subheadline)
+                    SecureField("Enter your Gemini API key", text: $geminiKey)
+                        .textFieldStyle(.roundedBorder)
+                    Text("Get your key from Google AI Studio")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                } else if apiProvider == "OpenAI" {
+                    Text("OpenAI API Key")
+                        .font(.subheadline)
+                    SecureField("Enter your OpenAI API key", text: $openaiKey)
+                        .textFieldStyle(.roundedBorder)
+                    Text("Get your key from OpenAI Platform")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                } else if apiProvider == "Zhipu AI" {
+                    Text("Zhipu AI API Key")
+                        .font(.subheadline)
+                    SecureField("Enter your Zhipu API key", text: $zhipuKey)
+                        .textFieldStyle(.roundedBorder)
+                    Text("Get your key from Zhipu AI Open Platform")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
             }
             
             Divider()
