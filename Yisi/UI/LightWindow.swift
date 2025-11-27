@@ -49,23 +49,30 @@ class WindowManager: ObservableObject {
         let contentView = TranslationView(originalText: text, errorMessage: error)
         let hostingController = NSHostingController(rootView: contentView)
         
-        let windowSize = NSSize(width: 400, height: 300)
-        let screenRect = NSScreen.main?.visibleFrame ?? NSRect.zero
-        let centerPoint = NSPoint(x: screenRect.midX - windowSize.width / 2,
-                                  y: screenRect.midY - windowSize.height / 2)
+        var contentRect: NSRect
+        
+        if let savedData = UserDefaults.standard.data(forKey: "popup_frame_rect"),
+           let savedRect = try? JSONDecoder().decode(CGRect.self, from: savedData) {
+            contentRect = savedRect
+        } else {
+            let windowSize = NSSize(width: 400, height: 300)
+            let screenRect = NSScreen.main?.visibleFrame ?? NSRect.zero
+            let centerPoint = NSPoint(x: screenRect.midX - windowSize.width / 2,
+                                      y: screenRect.midY - windowSize.height / 2)
+            contentRect = NSRect(origin: centerPoint, size: windowSize)
+        }
         
         window = LightWindow(
-            contentRect: NSRect(origin: centerPoint, size: windowSize),
+            contentRect: contentRect,
             backing: .buffered,
             defer: false
         )
         window?.contentViewController = hostingController
         
         // Explicitly set the frame to ensure size is applied
-        window?.setFrame(NSRect(origin: centerPoint, size: windowSize), display: true)
+        window?.setFrame(contentRect, display: true)
         
-        print("Window created with size: \(windowSize) - 400x300")
-        print("Window actual frame: \(window?.frame ?? .zero)")
+        print("Window created with frame: \(contentRect)")
         
         // Close on click outside if enabled
         let closeMode = UserDefaults.standard.string(forKey: "close_mode") ?? "clickOutside"
