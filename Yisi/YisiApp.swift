@@ -117,27 +117,32 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     private func handleShortcut() {
         print("Shortcut detected in App")
         
-        let result = TextCaptureService.shared.captureSelectedText()
-        
-        var text = ""
-        var error: String? = nil
-        
-        switch result {
-        case .success(let capturedText):
-            text = capturedText
-        case .failure(let captureError):
-            switch captureError {
-            case .permissionDenied:
-                error = "Accessibility permission required to capture text."
-            case .noFocusedElement, .noSelection:
-                break
-            case .other(let msg):
-                print("Capture error: \(msg)")
+        Task {
+            let result = await TextCaptureService.shared.captureSelectedText()
+            
+            var text = ""
+            var error: String? = nil
+            
+            switch result {
+            case .success(let capturedText):
+                text = capturedText
+            case .failure(let captureError):
+                switch captureError {
+                case .permissionDenied:
+                    error = "Accessibility permission required to capture text."
+                case .noFocusedElement, .noSelection:
+                    break
+                case .other(let msg):
+                    print("Capture error: \(msg)")
+                }
             }
-        }
-        
-        DispatchQueue.main.async {
-            WindowManager.shared.show(text: text, error: error)
+            
+            let finalText = text
+            let finalError = error
+            
+            await MainActor.run {
+                WindowManager.shared.show(text: finalText, error: finalError)
+            }
         }
     }
     
