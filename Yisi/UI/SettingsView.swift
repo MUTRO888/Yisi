@@ -30,8 +30,7 @@ struct SettingsView: View {
                 Spacer()
             }
             .padding(.horizontal, 24)
-            .padding(.horizontal, 24)
-            .padding(.vertical, 16)
+            .padding(.bottom, 16)
             // Removed opaque background to allow frosted effect
             
             Divider().opacity(0.2)
@@ -48,7 +47,7 @@ struct SettingsView: View {
             }
         }
         .frame(minWidth: 500, minHeight: 350)
-        .background(VisualEffectView(material: .headerView, blendingMode: .behindWindow))
+        .background(VisualEffectView(material: .sidebar, blendingMode: .behindWindow).edgesIgnoringSafeArea(.top))
         .preferredColorScheme(ColorScheme(from: appTheme))
     }
 }

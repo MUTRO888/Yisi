@@ -96,6 +96,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             window.titleVisibility = .hidden
             window.isMovableByWindowBackground = true
             window.isMovableByWindowBackground = true
+            window.isOpaque = false
+            window.backgroundColor = .clear
             
             let settingsView = SettingsView()
             
