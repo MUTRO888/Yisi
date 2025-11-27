@@ -30,7 +30,8 @@ struct SettingsView: View {
                 Spacer()
             }
             .padding(.horizontal, 24)
-            .padding(.vertical, 20)
+            .padding(.horizontal, 24)
+            .padding(.vertical, 16)
             // Removed opaque background to allow frosted effect
             
             Divider().opacity(0.2)
@@ -46,7 +47,7 @@ struct SettingsView: View {
                 }
             }
         }
-        .frame(width: 550, height: 420)
+        .frame(minWidth: 500, minHeight: 350)
         .background(VisualEffectView(material: .headerView, blendingMode: .behindWindow))
         .preferredColorScheme(ColorScheme(from: appTheme))
     }
@@ -107,8 +108,8 @@ struct SettingsContent: View {
                 SidebarButton(title: "Shortcuts".localized, isSelected: selectedSection == "Shortcuts") { selectedSection = "Shortcuts" }
                 Spacer()
             }
-            .padding(.vertical, 24)
-            .padding(.horizontal, 16)
+            .padding(.vertical, 20)
+            .padding(.horizontal, 12)
             .frame(width: 140)
             .background(Color.primary.opacity(0.03))
             
@@ -116,7 +117,7 @@ struct SettingsContent: View {
             
             // Section Content
             ScrollView {
-                VStack(alignment: .leading, spacing: 32) {
+                VStack(alignment: .leading, spacing: 24) {
                     if selectedSection == "General" {
                         GeneralSection()
                     } else if selectedSection == "Prompts" {
@@ -125,7 +126,7 @@ struct SettingsContent: View {
                         ShortcutsSection()
                     }
                 }
-                .padding(32)
+                .padding(24) // The instruction contained a typo `.padding(24)4)`. Keeping original `24` to maintain syntactical correctness.
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
         }
@@ -165,12 +166,12 @@ struct GeneralSection: View {
     @ObservedObject private var localizationManager = LocalizationManager.shared
     
     var body: some View {
-        VStack(alignment: .leading, spacing: 32) {
+        VStack(alignment: .leading, spacing: 24) {
             // Language & Appearance
-            VStack(alignment: .leading, spacing: 16) {
+            VStack(alignment: .leading, spacing: 12) {
                 SectionHeader(title: "General".localized)
                 
-                VStack(alignment: .leading, spacing: 12) {
+                VStack(alignment: .leading, spacing: 10) {
                     HStack {
                         Text("Language".localized)
                             .font(.system(size: 13, design: .serif))
@@ -202,10 +203,10 @@ struct GeneralSection: View {
             Divider().opacity(0.3)
             
             // Default Translation Path
-            VStack(alignment: .leading, spacing: 16) {
+            VStack(alignment: .leading, spacing: 12) {
                 SectionHeader(title: "Default Path".localized)
                 
-                VStack(alignment: .leading, spacing: 12) {
+                VStack(alignment: .leading, spacing: 10) {
                     HStack {
                         Text("Source".localized)
                             .font(.system(size: 13, design: .serif))
@@ -237,10 +238,10 @@ struct GeneralSection: View {
             Divider().opacity(0.3)
             
             // API Configuration
-            VStack(alignment: .leading, spacing: 16) {
+            VStack(alignment: .leading, spacing: 12) {
                 SectionHeader(title: "API Service".localized)
                 
-                VStack(alignment: .leading, spacing: 12) {
+                VStack(alignment: .leading, spacing: 10) {
                     HStack {
                         Text("Provider".localized)
                             .font(.system(size: 13, design: .serif))
@@ -263,7 +264,7 @@ struct GeneralSection: View {
             Divider().opacity(0.3)
             
             // Window Behavior
-            VStack(alignment: .leading, spacing: 16) {
+            VStack(alignment: .leading, spacing: 12) {
                 SectionHeader(title: "Behavior".localized)
                 
                 HStack {
