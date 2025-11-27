@@ -154,6 +154,8 @@ struct SidebarButton: View {
 }
 
 struct GeneralSection: View {
+    @AppStorage("default_source_language") private var defaultSourceLanguage: String = "Auto Detect"
+    @AppStorage("default_target_language") private var defaultTargetLanguage: String = "Simplified Chinese"
     @AppStorage("gemini_api_key") private var geminiKey: String = ""
     @AppStorage("openai_api_key") private var openaiKey: String = ""
     @AppStorage("zhipu_api_key") private var zhipuKey: String = ""
@@ -192,6 +194,41 @@ struct GeneralSection: View {
                             selection: $appTheme,
                             options: ["system", "light", "dark"],
                             displayNames: ["System".localized, "Light".localized, "Dark".localized]
+                        )
+                    }
+                }
+            }
+            
+            Divider().opacity(0.3)
+            
+            // Default Translation Path
+            VStack(alignment: .leading, spacing: 16) {
+                SectionHeader(title: "Default Path".localized)
+                
+                VStack(alignment: .leading, spacing: 12) {
+                    HStack {
+                        Text("Source".localized)
+                            .font(.system(size: 13, design: .serif))
+                            .foregroundColor(.secondary)
+                            .frame(width: 80, alignment: .leading)
+                        
+                        CustomDropdown(
+                            selection: $defaultSourceLanguage,
+                            options: Language.sourceLanguages.map { $0.rawValue },
+                            displayNames: Language.sourceLanguages.map { $0.displayName }
+                        )
+                    }
+                    
+                    HStack {
+                        Text("Target".localized)
+                            .font(.system(size: 13, design: .serif))
+                            .foregroundColor(.secondary)
+                            .frame(width: 80, alignment: .leading)
+                        
+                        CustomDropdown(
+                            selection: $defaultTargetLanguage,
+                            options: Language.targetLanguages.map { $0.rawValue },
+                            displayNames: Language.targetLanguages.map { $0.displayName }
                         )
                     }
                 }

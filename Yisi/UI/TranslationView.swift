@@ -6,11 +6,22 @@ struct TranslationView: View {
     var errorMessage: String?
     @State private var translatedText: String = ""
     @State private var isTranslating: Bool = false
-    @State private var sourceLanguage: Language = .auto
-    @State private var targetLanguage: Language = .simplifiedChinese
+    @State private var sourceLanguage: Language
+    @State private var targetLanguage: Language
     @FocusState private var isInputFocused: Bool
     @AppStorage("close_mode") private var closeMode: String = "clickOutside"
     @ObservedObject private var localizationManager = LocalizationManager.shared
+    
+    init(originalText: String, errorMessage: String? = nil) {
+        self.originalText = originalText
+        self.errorMessage = errorMessage
+        
+        let defaultSource = UserDefaults.standard.string(forKey: "default_source_language") ?? Language.auto.rawValue
+        let defaultTarget = UserDefaults.standard.string(forKey: "default_target_language") ?? Language.simplifiedChinese.rawValue
+        
+        _sourceLanguage = State(initialValue: Language(rawValue: defaultSource) ?? .auto)
+        _targetLanguage = State(initialValue: Language(rawValue: defaultTarget) ?? .simplifiedChinese)
+    }
     
     var body: some View {
         VStack(spacing: 0) {
