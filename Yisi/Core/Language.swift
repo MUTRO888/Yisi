@@ -15,6 +15,10 @@ enum Language: String, CaseIterable, Identifiable {
     case thai = "Thai"
     case vietnamese = "Vietnamese"
     
+    var displayName: String {
+        return self.rawValue.localized
+    }
+    
     var id: String { self.rawValue }
     
     // Languages available for source selection

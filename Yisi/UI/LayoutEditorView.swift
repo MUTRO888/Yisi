@@ -5,6 +5,7 @@ struct LayoutEditorView: View {
     @State private var screenFrame: CGRect
     @State private var showVerticalGuide = false
     @State private var showHorizontalGuide = false
+    @ObservedObject private var localizationManager = LocalizationManager.shared
     var onSave: (CGRect) -> Void
     var onCancel: () -> Void
     
@@ -43,11 +44,11 @@ struct LayoutEditorView: View {
             
             // Instructions
             VStack(spacing: 20) {
-                Text("Customize Popup Layout")
+                Text("Customize Popup Layout".localized)
                     .font(.system(size: 24, weight: .light, design: .serif))
                     .foregroundColor(.secondary)
                 
-                Text("Drag the window to position it. Drag the corner to resize.")
+                Text("Drag the window to position it. Drag the corner to resize.".localized)
                     .font(.system(size: 14, design: .serif))
                     .foregroundColor(.secondary.opacity(0.8))
                 
@@ -78,7 +79,7 @@ struct LayoutEditorView: View {
                                 
                                 HStack(spacing: 12) {
                                     Button(action: { onCancel() }) {
-                                        Text("Cancel")
+                                        Text("Cancel".localized)
                                             .font(.system(size: 12, design: .serif))
                                             .padding(.horizontal, 10)
                                             .padding(.vertical, 5)
@@ -89,7 +90,7 @@ struct LayoutEditorView: View {
                                     .keyboardShortcut(.escape, modifiers: [])
                                     
                                     Button(action: { onSave(frame) }) {
-                                        Text("Save")
+                                        Text("Save".localized)
                                             .font(.system(size: 12, design: .serif))
                                             .foregroundColor(Color(nsColor: .windowBackgroundColor))
                                             .padding(.horizontal, 10)

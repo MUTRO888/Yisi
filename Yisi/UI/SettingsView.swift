@@ -18,13 +18,15 @@ enum ClosingMode: String, CaseIterable, Identifiable {
 
 struct SettingsView: View {
     @State private var selectedTopTab: Int = 0 // 0: History, 1: Settings
+    @AppStorage("app_theme") private var appTheme: String = "system"
+    @ObservedObject private var localizationManager = LocalizationManager.shared
     
     var body: some View {
         VStack(spacing: 0) {
             // Top Navigation
             HStack(spacing: 32) {
-                TopTabButton(title: "History", isSelected: selectedTopTab == 0) { selectedTopTab = 0 }
-                TopTabButton(title: "Settings", isSelected: selectedTopTab == 1) { selectedTopTab = 1 }
+                TopTabButton(title: "History".localized, isSelected: selectedTopTab == 0) { selectedTopTab = 0 }
+                TopTabButton(title: "Settings".localized, isSelected: selectedTopTab == 1) { selectedTopTab = 1 }
                 Spacer()
             }
             .padding(.horizontal, 24)
@@ -45,7 +47,8 @@ struct SettingsView: View {
             }
         }
         .frame(width: 550, height: 420)
-        .background(VisualEffectView(material: .sidebar, blendingMode: .behindWindow))
+        .background(VisualEffectView(material: .headerView, blendingMode: .behindWindow))
+        .preferredColorScheme(ColorScheme(from: appTheme))
     }
 }
 
@@ -79,10 +82,10 @@ struct HistoryView: View {
             Image(systemName: "clock")
                 .font(.system(size: 32, weight: .light))
                 .foregroundColor(.secondary.opacity(0.3))
-            Text("No History")
+            Text("No History".localized)
                 .font(.system(size: 14, weight: .medium, design: .serif))
                 .foregroundColor(.secondary)
-            Text("Your recent translations will appear here.")
+            Text("Your recent translations will appear here.".localized)
                 .font(.system(size: 12, design: .serif))
                 .foregroundColor(.secondary.opacity(0.7))
             Spacer()
@@ -93,20 +96,21 @@ struct HistoryView: View {
 
 struct SettingsContent: View {
     @State private var selectedSection: String = "General"
+    @ObservedObject private var localizationManager = LocalizationManager.shared
     
     var body: some View {
         HStack(spacing: 0) {
             // Sidebar
             VStack(alignment: .leading, spacing: 12) {
-                SidebarButton(title: "General", isSelected: selectedSection == "General") { selectedSection = "General" }
-                SidebarButton(title: "Prompts", isSelected: selectedSection == "Prompts") { selectedSection = "Prompts" }
-                SidebarButton(title: "Shortcuts", isSelected: selectedSection == "Shortcuts") { selectedSection = "Shortcuts" }
+                SidebarButton(title: "General".localized, isSelected: selectedSection == "General") { selectedSection = "General" }
+                SidebarButton(title: "Prompts".localized, isSelected: selectedSection == "Prompts") { selectedSection = "Prompts" }
+                SidebarButton(title: "Shortcuts".localized, isSelected: selectedSection == "Shortcuts") { selectedSection = "Shortcuts" }
                 Spacer()
             }
             .padding(.vertical, 24)
             .padding(.horizontal, 16)
             .frame(width: 140)
-            .background(Color.primary.opacity(0.02))
+            .background(Color.primary.opacity(0.03))
             
             Divider().opacity(0.5)
             
@@ -155,16 +159,53 @@ struct GeneralSection: View {
     @AppStorage("zhipu_api_key") private var zhipuKey: String = ""
     @AppStorage("api_provider") private var apiProvider: String = "Gemini"
     @AppStorage("close_mode") private var closeMode: String = "clickOutside"
+    @AppStorage("app_theme") private var appTheme: String = "system"
+    @ObservedObject private var localizationManager = LocalizationManager.shared
     
     var body: some View {
         VStack(alignment: .leading, spacing: 32) {
-            // API Configuration
+            // Language & Appearance
             VStack(alignment: .leading, spacing: 16) {
-                SectionHeader(title: "API Service")
+                SectionHeader(title: "General".localized)
                 
                 VStack(alignment: .leading, spacing: 12) {
                     HStack {
-                        Text("Provider")
+                        Text("Language".localized)
+                            .font(.system(size: 13, design: .serif))
+                            .foregroundColor(.secondary)
+                            .frame(width: 80, alignment: .leading)
+                        
+                        CustomDropdown(
+                            selection: $localizationManager.language,
+                            options: ["en", "zh"],
+                            displayNames: ["English".localized, "Simplified Chinese".localized]
+                        )
+                    }
+                    
+                    HStack {
+                        Text("Appearance".localized)
+                            .font(.system(size: 13, design: .serif))
+                            .foregroundColor(.secondary)
+                            .frame(width: 80, alignment: .leading)
+                        
+                        CustomDropdown(
+                            selection: $appTheme,
+                            options: ["system", "light", "dark"],
+                            displayNames: ["System".localized, "Light".localized, "Dark".localized]
+                        )
+                    }
+                }
+            }
+            
+            Divider().opacity(0.3)
+            
+            // API Configuration
+            VStack(alignment: .leading, spacing: 16) {
+                SectionHeader(title: "API Service".localized)
+                
+                VStack(alignment: .leading, spacing: 12) {
+                    HStack {
+                        Text("Provider".localized)
                             .font(.system(size: 13, design: .serif))
                             .foregroundColor(.secondary)
                             .frame(width: 80, alignment: .leading)
@@ -173,11 +214,11 @@ struct GeneralSection: View {
                     }
                     
                     if apiProvider == "Gemini" {
-                        APIKeyInput(label: "API Key", text: $geminiKey, placeholder: "Gemini API Key")
+                        APIKeyInput(label: "API Key".localized, text: $geminiKey, placeholder: "Gemini API Key")
                     } else if apiProvider == "OpenAI" {
-                        APIKeyInput(label: "API Key", text: $openaiKey, placeholder: "OpenAI API Key")
+                        APIKeyInput(label: "API Key".localized, text: $openaiKey, placeholder: "OpenAI API Key")
                     } else if apiProvider == "Zhipu AI" {
-                        APIKeyInput(label: "API Key", text: $zhipuKey, placeholder: "Zhipu API Key")
+                        APIKeyInput(label: "API Key".localized, text: $zhipuKey, placeholder: "Zhipu API Key")
                     }
                 }
             }
@@ -186,21 +227,21 @@ struct GeneralSection: View {
             
             // Window Behavior
             VStack(alignment: .leading, spacing: 16) {
-                SectionHeader(title: "Behavior")
+                SectionHeader(title: "Behavior".localized)
                 
                 HStack {
-                    Text("Close Mode")
+                    Text("Close Mode".localized)
                         .font(.system(size: 13, design: .serif))
                         .foregroundColor(.secondary)
                         .frame(width: 80, alignment: .leading)
                     
-                    CustomDropdown(selection: $closeMode, options: ClosingMode.allCases.map { $0.rawValue }, displayNames: ClosingMode.allCases.map { $0.displayName })
+                    CustomDropdown(selection: $closeMode, options: ClosingMode.allCases.map { $0.rawValue }, displayNames: ClosingMode.allCases.map { $0.displayName.localized })
                 }
                 
                 Divider().opacity(0.2)
                 
                 HStack {
-                    Text("Layout")
+                    Text("Layout".localized)
                         .font(.system(size: 13, design: .serif))
                         .foregroundColor(.secondary)
                         .frame(width: 80, alignment: .leading)
@@ -208,7 +249,7 @@ struct GeneralSection: View {
                     Button(action: {
                         LayoutEditorManager.shared.openEditor()
                     }) {
-                        Text("Customize Popup Layout")
+                        Text("Customize Popup Layout".localized)
                             .font(.system(size: 13, design: .serif))
                             .foregroundColor(.primary)
                             .padding(.horizontal, 12)
@@ -335,13 +376,13 @@ struct APIKeyInput: View {
 struct PromptsSection: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            SectionHeader(title: "Prompts")
+            SectionHeader(title: "Prompts".localized)
             
-            Text("Customize the system prompts used for translation.")
+            Text("Customize the system prompts used for translation.".localized)
                 .font(.system(size: 13, design: .serif))
                 .foregroundColor(.secondary)
             
-            Text("Coming soon")
+            Text("Coming soon".localized)
                 .font(.system(size: 12, design: .serif))
                 .foregroundColor(.secondary.opacity(0.5))
                 .padding()
@@ -355,10 +396,10 @@ struct PromptsSection: View {
 struct ShortcutsSection: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            SectionHeader(title: "Shortcuts")
+            SectionHeader(title: "Shortcuts".localized)
             
             HStack {
-                Text("Activate")
+                Text("Activate".localized)
                     .font(.system(size: 13, design: .serif))
                     .foregroundColor(.secondary)
                     .frame(width: 80, alignment: .leading)
@@ -366,7 +407,7 @@ struct ShortcutsSection: View {
                 ShortcutRecorder()
             }
             
-            Text("Press the key combination you want to use to activate Yisi.")
+            Text("Press the key combination you want to use to activate Yisi.".localized)
                 .font(.system(size: 12, design: .serif))
                 .foregroundColor(.secondary.opacity(0.6))
                 .padding(.top, 4)
@@ -432,7 +473,7 @@ struct ShortcutRecorder: View {
         }) {
             HStack {
                 if isRecording {
-                    Text("Press keys...")
+                    Text("Press keys...".localized)
                         .font(.system(size: 13, design: .serif))
                         .foregroundColor(.accentColor)
                     Spacer()
@@ -441,7 +482,7 @@ struct ShortcutRecorder: View {
                         .foregroundColor(.accentColor)
                         .symbolEffect(.pulse)
                 } else {
-                    Text(currentShortcut.isEmpty ? "Record Shortcut" : currentShortcut)
+                    Text(currentShortcut.isEmpty ? "Record Shortcut".localized : currentShortcut)
                         .font(.system(size: 13, design: .serif))
                         .foregroundColor(.primary)
                     Spacer()

@@ -4,6 +4,8 @@ import SwiftUI
 struct YisiApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
     
+    @AppStorage("app_theme") private var appTheme: String = "system"
+    
     var body: some Scene {
         Settings {
             EmptyView()
@@ -93,7 +95,11 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             window.titlebarAppearsTransparent = true
             window.titleVisibility = .hidden
             window.isMovableByWindowBackground = true
-            window.contentView = NSHostingView(rootView: SettingsView())
+            window.isMovableByWindowBackground = true
+            
+            let settingsView = SettingsView()
+            
+            window.contentView = NSHostingView(rootView: settingsView)
             window.isReleasedWhenClosed = false
             
             settingsWindow = window
@@ -147,4 +153,14 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
 class AppState: ObservableObject {
     @Published var isThinking = false
+}
+
+extension ColorScheme {
+    init?(from string: String) {
+        switch string {
+        case "light": self = .light
+        case "dark": self = .dark
+        default: return nil
+        }
+    }
 }

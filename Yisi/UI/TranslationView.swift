@@ -10,6 +10,7 @@ struct TranslationView: View {
     @State private var targetLanguage: Language = .simplifiedChinese
     @FocusState private var isInputFocused: Bool
     @AppStorage("close_mode") private var closeMode: String = "clickOutside"
+    @ObservedObject private var localizationManager = LocalizationManager.shared
     
     var body: some View {
         VStack(spacing: 0) {
@@ -22,7 +23,7 @@ struct TranslationView: View {
                         .foregroundColor(.secondary.opacity(0.5))
                 }
                 .buttonStyle(.plain)
-                .help("Swap languages")
+                .help("Swap languages".localized)
                 
                 LanguageSelector(selection: $targetLanguage, languages: Language.targetLanguages)
                 Spacer()
@@ -52,7 +53,7 @@ struct TranslationView: View {
                     Image(systemName: "exclamationmark.triangle.fill").foregroundColor(.orange)
                     Text(errorMessage).font(.system(size: 13, weight: .medium)).foregroundColor(.primary)
                     Spacer()
-                    Button("Open Settings") {
+                    Button("Open Settings".localized) {
                         if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility") {
                             NSWorkspace.shared.open(url)
                         }
@@ -60,7 +61,7 @@ struct TranslationView: View {
                 }.padding().background(Color.orange.opacity(0.1))
             }
             HStack(spacing: 0) {
-                CustomTextEditor(text: $originalText, placeholder: "Type or paste text...").frame(maxWidth: .infinity, maxHeight: .infinity)
+                CustomTextEditor(text: $originalText, placeholder: "Type or paste text...".localized).frame(maxWidth: .infinity, maxHeight: .infinity)
                 Rectangle().fill(Color.primary.opacity(0.05)).frame(width: 1)
                 OutputTextView(text: translatedText, isEmpty: translatedText.isEmpty).frame(maxWidth: .infinity, maxHeight: .infinity).background(Color.primary.opacity(0.02))
             }
@@ -77,7 +78,7 @@ struct TranslationView: View {
                     Image(systemName: "doc.on.doc").font(.system(size: 12)).foregroundColor(.secondary)
                 }.buttonStyle(.plain).padding(.trailing, 16).opacity(translatedText.isEmpty ? 0 : 1)
                 Button(action: { Task { await performTranslation() } }) {
-                    Text("Translate").font(.system(size: 13, weight: .medium)).padding(.horizontal, 16).padding(.vertical, 6).background(Color.primary.opacity(0.8)).foregroundColor(Color(nsColor: .windowBackgroundColor)).cornerRadius(6)
+                    Text("Translate".localized).font(.system(size: 13, weight: .medium)).padding(.horizontal, 16).padding(.vertical, 6).background(Color.primary.opacity(0.8)).foregroundColor(Color(nsColor: .windowBackgroundColor)).cornerRadius(6)
                 }.buttonStyle(.plain).keyboardShortcut(.return, modifiers: .command)
             }.padding(16).background(Color.primary.opacity(0.03))
         }.background(VisualEffectView(material: .hudWindow, blendingMode: .behindWindow))
@@ -273,7 +274,8 @@ struct OutputTextView: NSViewRepresentable {
         textView.isVerticallyResizable = true
         textView.isHorizontallyResizable = false
         textView.textContainerInset = NSSize(width: 20, height: 20)
-        textView.string = isEmpty ? "Translation will appear here..." : text
+        textView.textContainerInset = NSSize(width: 20, height: 20)
+        textView.string = isEmpty ? "Translation will appear here...".localized : text
 
         if isEmpty {
             textView.textColor = .secondaryLabelColor
@@ -285,7 +287,7 @@ struct OutputTextView: NSViewRepresentable {
 
     func updateNSView(_ scrollView: NSScrollView, context: Context) {
         guard let textView = scrollView.documentView as? NSTextView else { return }
-        textView.string = isEmpty ? "Translation will appear here..." : text
+        textView.string = isEmpty ? "Translation will appear here...".localized : text
         textView.textColor = isEmpty ? .secondaryLabelColor : .labelColor
     }
 }
@@ -297,13 +299,13 @@ struct LanguageSelector: View {
     var body: some View {
         Menu {
             ForEach(languages) { language in
-                Button(language.rawValue) {
+                Button(language.displayName) {
                     selection = language
                 }
             }
         } label: {
             HStack(spacing: 4) {
-                Text(selection.rawValue).font(.system(size: 12, weight: .medium)).foregroundColor(.secondary)
+                Text(selection.displayName).font(.system(size: 12, weight: .medium)).foregroundColor(.secondary)
             }
         }.menuStyle(.borderlessButton).fixedSize()
     }

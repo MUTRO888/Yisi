@@ -46,7 +46,10 @@ class WindowManager: ObservableObject {
         // Close existing window if any to ensure fresh window with correct size
         close()
         
+        let appTheme = UserDefaults.standard.string(forKey: "app_theme") ?? "system"
         let contentView = TranslationView(originalText: text, errorMessage: error)
+            .preferredColorScheme(ColorScheme(from: appTheme))
+        
         let hostingController = NSHostingController(rootView: contentView)
         
         var contentRect: NSRect
