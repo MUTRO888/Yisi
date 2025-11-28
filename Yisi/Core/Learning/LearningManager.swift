@@ -306,7 +306,7 @@ class LearningManager {
         let deleteQuery = "DELETE FROM learned_rules WHERE id = ?;"
         var statement: OpaquePointer?
         if sqlite3_prepare_v2(db, deleteQuery, -1, &statement, nil) == SQLITE_OK {
-            sqlite3_bind_text(statement, 1, id.uuidString, -1, nil)
+            sqlite3_bind_text(statement, 1, (id.uuidString as NSString).utf8String, -1, nil)
             if sqlite3_step(statement) != SQLITE_DONE {
                 throw NSError(domain: "LearningError", code: 6, userInfo: [NSLocalizedDescriptionKey: "Failed to delete rule"])
             }

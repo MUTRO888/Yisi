@@ -289,9 +289,7 @@ struct GeneralSection: View {
                         .foregroundColor(.secondary)
                         .frame(width: 80, alignment: .leading)
                     
-                    Toggle("", isOn: $enableImproveFeature)
-                        .labelsHidden()
-                        .toggleStyle(.switch)
+                    ElegantToggle(isOn: $enableImproveFeature)
                     
                     Text("Enable translation improvement".localized)
                         .font(.system(size: 12, design: .serif))
@@ -541,8 +539,13 @@ struct LearnedRulesSection: View {
     }
     
     private func deleteRule(_ rule: UserLearnedRule) {
-        try? LearningManager.shared.deleteRule(id: rule.id)
-        loadRules()
+        do {
+            try LearningManager.shared.deleteRule(id: rule.id)
+            print("DEBUG: Successfully deleted rule: \(rule.id)")
+            loadRules()
+        } catch {
+            print("ERROR: Failed to delete rule: \(error)")
+        }
     }
 }
 
@@ -613,7 +616,7 @@ struct RuleCard: View {
                             .foregroundColor(.secondary)
                         Text(rule.userCorrection)
                             .font(.system(size: 11, design: .serif))
-                            .foregroundColor(.primary)
+                            .foregroundColor(.secondary.opacity(0.8))
                     }
                 }
             }
@@ -696,6 +699,31 @@ struct CustomDropdown: View {
             return displayNames[index]
         }
         return option
+    }
+}
+
+struct ElegantToggle: View {
+    @Binding var isOn: Bool
+    
+    var body: some View {
+        Button(action: {
+            withAnimation(.easeInOut(duration: 0.2)) {
+                isOn.toggle()
+            }
+        }) {
+            ZStack(alignment: isOn ? .trailing : .leading) {
+                RoundedRectangle(cornerRadius: 10)
+                    .fill(isOn ? Color.primary.opacity(0.8) : Color.primary.opacity(0.1))
+                    .frame(width: 32, height: 18)
+                
+                Circle()
+                    .fill(Color(nsColor: .windowBackgroundColor))
+                    .padding(2)
+                    .frame(width: 18, height: 18)
+                    .shadow(color: .black.opacity(0.1), radius: 1, x: 0, y: 1)
+            }
+        }
+        .buttonStyle(.plain)
     }
 }
 

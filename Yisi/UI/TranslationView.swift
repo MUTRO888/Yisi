@@ -19,6 +19,7 @@ struct TranslationView: View {
     @AppStorage("enable_improve_feature") private var enableImproveFeature: Bool = false
     @State private var showAnalysisResult: Bool = false
     @State private var analysisReasoning: String = ""
+    @State private var showImproveSuccess: Bool = false
     
     init(originalText: String, errorMessage: String? = nil) {
         self.originalText = originalText
@@ -80,20 +81,8 @@ struct TranslationView: View {
                 }.padding().background(Color.orange.opacity(0.1))
             }
             
-            // Analysis Result Banner
-            if showAnalysisResult {
-                HStack(spacing: 8) {
-                    Image(systemName: "checkmark.circle.fill")
-                        .foregroundColor(.green)
-                        .font(.system(size: 13))
-                    Text("Rule Learned".localized)
-                        .font(.system(size: 13, weight: .medium))
-                        .foregroundColor(.primary)
-                }
-                .padding(.horizontal, 16)
-                .padding(.vertical, 10)
-                .background(Color.green.opacity(0.1))
-            }
+            // Analysis Result Banner - REMOVED
+
             
             HStack(spacing: 0) {
                 CustomTextEditor(text: $originalText, placeholder: "Type or paste text...".localized).frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -108,6 +97,17 @@ struct TranslationView: View {
             HStack {
                 if isTranslating || isImproving {
                     ProgressView().scaleEffect(0.6).padding(.trailing, 8)
+                } else if showImproveSuccess {
+                    HStack(spacing: 6) {
+                        Image(systemName: "checkmark")
+                            .font(.system(size: 12, weight: .bold))
+                            .foregroundColor(.green)
+                        Text("Success".localized)
+                            .font(.system(size: 12, weight: .medium))
+                            .foregroundColor(.secondary)
+                    }
+                    .padding(.trailing, 8)
+                    .transition(.opacity)
                 }
                 Spacer()
                 
@@ -199,17 +199,17 @@ struct TranslationView: View {
                 isEditingTranslation = false
                 editedTranslation = ""
                 
-                // Show analysis result
-                analysisReasoning = rule.reasoning
-                showAnalysisResult = true
-                print("DEBUG: showAnalysisResult set to true")
+                // Show success indicator
+                showImproveSuccess = true
                 
                 // Post notification to refresh Settings
                 NotificationCenter.default.post(name: NSNotification.Name("LearnedRuleAdded"), object: nil)
                 
                 // Auto-hide after 2 seconds
                 DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
-                    showAnalysisResult = false
+                    withAnimation {
+                        showImproveSuccess = false
+                    }
                 }
             }
         } catch {
