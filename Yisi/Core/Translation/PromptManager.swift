@@ -5,8 +5,8 @@ class PromptManager {
     
     private init() {}
     
-    func generateSystemPrompt() -> String {
-        return """
+    func generateSystemPrompt(withLearnedRules: Bool = true) -> String {
+        var prompt = """
         [Role: The Language Alchemist]
         你是一位语言炼金师，追求翻译的最高境界——不是镜子般的映射，而是灵魂的重生。
         
@@ -190,6 +190,25 @@ class PromptManager {
         }
         ```
         """
+        
+        // Load and inject learned rules
+        if withLearnedRules {
+            let learnedRules = LearningManager.shared.getAllRules()
+            if !learnedRules.isEmpty {
+                prompt += "\n\n═══════════════════════════════════════════════════════════\n"
+                prompt += "\n### Personal Learning Rules (From Your Corrections)\n"
+                prompt += "\nBased on your previous corrections, you should follow these additional rules:\n\n"
+                
+                for (index, rule) in learnedRules.prefix(10).enumerated() {  // Limit to top 10 to avoid token limit
+                    prompt += "#### Learned Rule \(index + 1): \(rule.category.rawValue)\n"
+                    prompt += "**Context**: \(rule.reasoning)\n\n"
+                    prompt += rule.rulePattern
+                    prompt += "\n\n"
+                }
+            }
+        }
+        
+        return prompt
     }
     
     func generateUserPrompt(text: String, sourceLanguage: String, targetLanguage: String) -> String {

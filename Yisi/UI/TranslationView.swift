@@ -11,6 +11,14 @@ struct TranslationView: View {
     @FocusState private var isInputFocused: Bool
     @AppStorage("close_mode") private var closeMode: String = "clickOutside"
     @ObservedObject private var localizationManager = LocalizationManager.shared
+    @State private var isEditingTranslation: Bool = false
+    @State private var editedTranslation: String = ""
+    @State private var isImproving: Bool = false
+    @State private var originalAiTranslation: String = ""
+    @State private var savedOriginalText: String = ""
+    @AppStorage("enable_improve_feature") private var enableImproveFeature: Bool = false
+    @State private var showAnalysisResult: Bool = false
+    @State private var analysisReasoning: String = ""
     
     init(originalText: String, errorMessage: String? = nil) {
         self.originalText = originalText
@@ -71,23 +79,74 @@ struct TranslationView: View {
                     }.buttonStyle(.borderedProminent).controlSize(.small)
                 }.padding().background(Color.orange.opacity(0.1))
             }
+            
+            // Analysis Result Banner
+            if showAnalysisResult {
+                HStack(spacing: 8) {
+                    Image(systemName: "checkmark.circle.fill")
+                        .foregroundColor(.green)
+                        .font(.system(size: 13))
+                    Text("Rule Learned".localized)
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundColor(.primary)
+                }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 10)
+                .background(Color.green.opacity(0.1))
+            }
+            
             HStack(spacing: 0) {
                 CustomTextEditor(text: $originalText, placeholder: "Type or paste text...".localized).frame(maxWidth: .infinity, maxHeight: .infinity)
                 Rectangle().fill(Color.primary.opacity(0.05)).frame(width: 1)
-                OutputTextView(text: translatedText, isEmpty: translatedText.isEmpty).frame(maxWidth: .infinity, maxHeight: .infinity).background(Color.primary.opacity(0.02))
+                
+                if isEditingTranslation {
+                    EditableOutputView(text: $editedTranslation, originalText: translatedText).frame(maxWidth: .infinity, maxHeight: .infinity).background(Color.primary.opacity(0.02))
+                } else {
+                    OutputTextView(text: translatedText, isEmpty: translatedText.isEmpty).frame(maxWidth: .infinity, maxHeight: .infinity).background(Color.primary.opacity(0.02))
+                }
             }
             HStack {
-                if isTranslating {
+                if isTranslating || isImproving {
                     ProgressView().scaleEffect(0.6).padding(.trailing, 8)
                 }
                 Spacer()
+                
+                // Edit button (only if improve feature is enabled)
+                if enableImproveFeature && !translatedText.isEmpty && !isEditingTranslation {
+                    Button(action: {
+                        isEditingTranslation = true
+                        editedTranslation = translatedText
+                        originalAiTranslation = translatedText
+                    }) {
+                        Text("Edit".localized).font(.system(size: 12, weight: .medium)).foregroundColor(.secondary)
+                    }.buttonStyle(.plain).padding(.trailing, 12)
+                }
+                
+                // Save or Cancel buttons when editing
+                if isEditingTranslation {
+                    Button(action: {
+                        isEditingTranslation = false
+                        editedTranslation = ""
+                    }) {
+                        Text("Cancel".localized).font(.system(size: 12, weight: .medium)).foregroundColor(.secondary)
+                    }.buttonStyle(.plain).padding(.trailing, 12)
+                }
+                
+                // Improve button (only show when edited and different from original)
+                if isEditingTranslation && editedTranslation != originalAiTranslation && !editedTranslation.isEmpty {
+                    Button(action: { Task { await improveWithAI() } }) {
+                        Text("Improve".localized).font(.system(size: 13, weight: .medium)).padding(.horizontal, 12).padding(.vertical, 5).background(Color.blue.opacity(0.1)).foregroundColor(.blue).cornerRadius(5)
+                    }.buttonStyle(.plain).padding(.trailing, 12)
+                }
+                
                 Button(action: {
                     let pasteboard = NSPasteboard.general
                     pasteboard.clearContents()
-                    pasteboard.setString(translatedText, forType: .string)
+                    pasteboard.setString(isEditingTranslation ? editedTranslation : translatedText, forType: .string)
                 }) {
                     Image(systemName: "doc.on.doc").font(.system(size: 12)).foregroundColor(.secondary)
                 }.buttonStyle(.plain).padding(.trailing, 16).opacity(translatedText.isEmpty ? 0 : 1)
+                
                 Button(action: { Task { await performTranslation() } }) {
                     Text("Translate".localized).font(.system(size: 13, weight: .medium)).padding(.horizontal, 16).padding(.vertical, 6).background(Color.primary.opacity(0.8)).foregroundColor(Color(nsColor: .windowBackgroundColor)).cornerRadius(6)
                 }.buttonStyle(.plain).keyboardShortcut(.return, modifiers: .command)
@@ -109,10 +168,59 @@ struct TranslationView: View {
         isTranslating = true
         do {
             translatedText = try await TranslationService.shared.translate(originalText, sourceLanguage: sourceLanguage.rawValue, targetLanguage: targetLanguage.rawValue)
+            savedOriginalText = originalText  // Save for improve feature
         } catch {
             translatedText = "Error: \(error.localizedDescription)"
         }
         isTranslating = false
+    }
+    
+    
+    private func improveWithAI() async {
+        print("DEBUG: improveWithAI called")
+        guard !savedOriginalText.isEmpty && !originalAiTranslation.isEmpty && !editedTranslation.isEmpty else {
+            print("DEBUG: Missing data for improve: original=\(savedOriginalText.isEmpty), ai=\(originalAiTranslation.isEmpty), edited=\(editedTranslation.isEmpty)")
+            return
+        }
+        isImproving = true
+        print("DEBUG: Starting analysis...")
+        do {
+            let rule = try await LearningManager.shared.analyzeCorrection(
+                originalText: savedOriginalText,
+                aiTranslation: originalAiTranslation,
+                userCorrection: editedTranslation
+            )
+            print("DEBUG: Analysis complete. Rule received: \(rule.id)")
+            
+            // Successfully saved rule, update UI
+            await MainActor.run {
+                print("DEBUG: Updating UI on MainActor")
+                translatedText = editedTranslation
+                isEditingTranslation = false
+                editedTranslation = ""
+                
+                // Show analysis result
+                analysisReasoning = rule.reasoning
+                showAnalysisResult = true
+                print("DEBUG: showAnalysisResult set to true")
+                
+                // Post notification to refresh Settings
+                NotificationCenter.default.post(name: NSNotification.Name("LearnedRuleAdded"), object: nil)
+                
+                // Auto-hide after 2 seconds
+                DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
+                    showAnalysisResult = false
+                }
+            }
+        } catch {
+            // Show error in console
+            print("Failed to improve: \(error.localizedDescription)")
+            if let data = (error as NSError).userInfo["data"] as? Data,
+               let jsonString = String(data: data, encoding: .utf8) {
+                print("Raw response: \(jsonString)")
+            }
+        }
+        isImproving = false
     }
     
     private func swapLanguages() {
@@ -342,5 +450,78 @@ struct VisualEffectView: NSViewRepresentable {
     func updateNSView(_ nsView: NSVisualEffectView, context: Context) {
         nsView.material = material
         nsView.blendingMode = blendingMode
+    }
+}
+// Add this component after OutputTextView and before LanguageSelector in TranslationView.swift
+
+struct EditableOutputView: NSViewRepresentable {
+    @Binding var text: String
+    let originalText: String
+
+    func makeNSView(context: Context) -> NSScrollView {
+        let scrollView = NSScrollView()
+        scrollView.drawsBackground = false
+        scrollView.backgroundColor = .clear
+        scrollView.contentView.drawsBackground = false
+        scrollView.contentView.backgroundColor = .clear
+        scrollView.wantsLayer = true
+        scrollView.layer?.backgroundColor = NSColor.clear.cgColor
+        scrollView.borderType = .noBorder
+        scrollView.hasVerticalScroller = true
+        scrollView.hasHorizontalScroller = false
+        scrollView.autohidesScrollers = true
+        scrollView.scrollerStyle = .overlay
+        
+        scrollView.verticalScroller = TransparentScroller()
+        scrollView.verticalScroller?.controlSize = .mini
+
+        let textView = NSTextView()
+        textView.autoresizingMask = [.width, .height]
+        textView.drawsBackground = false
+        textView.backgroundColor = .clear
+        textView.isEditable = true
+        textView.isSelectable = true
+
+        let descriptor = NSFont.systemFont(ofSize: 16, weight: .light).fontDescriptor.withDesign(.serif)
+        if let descriptor = descriptor {
+            textView.font = NSFont(descriptor: descriptor, size: 16)
+        } else {
+            textView.font = .systemFont(ofSize: 16, weight: .light)
+        }
+
+        textView.textColor = .labelColor
+        textView.isRichText = false
+        textView.isVerticallyResizable = true
+        textView.isHorizontallyResizable = false
+        textView.textContainerInset = NSSize(width: 20, height: 20)
+        textView.string = text
+        textView.delegate = context.coordinator
+
+        scrollView.documentView = textView
+        return scrollView
+    }
+
+    func updateNSView(_ scrollView: NSScrollView, context: Context) {
+        guard let textView = scrollView.documentView as? NSTextView else { return }
+        if textView.string != text {
+            textView.string = text
+        }
+    }
+    
+    func makeCoordinator() -> Coordinator {
+        Coordinator(text: $text)
+    }
+    
+    class Coordinator: NSObject, NSTextViewDelegate {
+        @Binding var text: String
+        
+        init(text: Binding<String>) {
+            _text = text
+        }
+        
+        func textDidChange(_ notification: Notification) {
+            guard let textView = notification.object as? NSTextView else { return }
+            text = textView.string
+        }
     }
 }

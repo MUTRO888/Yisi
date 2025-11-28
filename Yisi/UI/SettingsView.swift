@@ -105,6 +105,7 @@ struct SettingsContent: View {
                 SidebarButton(title: "General".localized, isSelected: selectedSection == "General") { selectedSection = "General" }
                 SidebarButton(title: "Prompts".localized, isSelected: selectedSection == "Prompts") { selectedSection = "Prompts" }
                 SidebarButton(title: "Shortcuts".localized, isSelected: selectedSection == "Shortcuts") { selectedSection = "Shortcuts" }
+                SidebarButton(title: "Learned Rules".localized, isSelected: selectedSection == "Learned Rules") { selectedSection = "Learned Rules" }
                 Spacer()
             }
             .padding(.vertical, 20)
@@ -123,6 +124,8 @@ struct SettingsContent: View {
                         PromptsSection()
                     } else if selectedSection == "Shortcuts" {
                         ShortcutsSection()
+                    } else if selectedSection == "Learned Rules" {
+                        LearnedRulesSection()
                     }
                 }
                 .padding(24) // The instruction contained a typo `.padding(24)4)`. Keeping original `24` to maintain syntactical correctness.
@@ -160,8 +163,9 @@ struct GeneralSection: View {
     @AppStorage("openai_api_key") private var openaiKey: String = ""
     @AppStorage("zhipu_api_key") private var zhipuKey: String = ""
     @AppStorage("api_provider") private var apiProvider: String = "Gemini"
-    @AppStorage("close_mode") private var closeMode: String = "clickOutside"
+    @AppStorage("closemode") private var closeMode: String = "clickOutside"
     @AppStorage("app_theme") private var appTheme: String = "system"
+    @AppStorage("enable_improve_feature") private var enableImproveFeature: Bool = false
     @ObservedObject private var localizationManager = LocalizationManager.shared
     
     var body: some View {
@@ -273,6 +277,27 @@ struct GeneralSection: View {
                         .frame(width: 80, alignment: .leading)
                     
                     CustomDropdown(selection: $closeMode, options: ClosingMode.allCases.map { $0.rawValue }, displayNames: ClosingMode.allCases.map { $0.displayName.localized })
+                }
+                
+                Divider().opacity(0.2)
+                
+                Divider().opacity(0.2)
+                
+                HStack {
+                    Text("Improve".localized)
+                        .font(.system(size: 13, design: .serif))
+                        .foregroundColor(.secondary)
+                        .frame(width: 80, alignment: .leading)
+                    
+                    Toggle("", isOn: $enableImproveFeature)
+                        .labelsHidden()
+                        .toggleStyle(.switch)
+                    
+                    Text("Enable translation improvement".localized)
+                        .font(.system(size: 12, design: .serif))
+                        .foregroundColor(.secondary.opacity(0.7))
+                    
+                    Spacer()
                 }
                 
                 Divider().opacity(0.2)
@@ -448,6 +473,185 @@ struct ShortcutsSection: View {
                 .font(.system(size: 12, design: .serif))
                 .foregroundColor(.secondary.opacity(0.6))
                 .padding(.top, 4)
+        }
+    }
+}
+
+struct LearnedRulesSection: View {
+    @State private var rules: [UserLearnedRule] = []
+    @State private var isLoading = true
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            SectionHeader(title: "Learned Rules".localized)
+            
+            Text("Translation rules learned from your corrections.".localized)
+                .font(.system(size: 13, design: .serif))
+                .foregroundColor(.secondary)
+            
+            if isLoading {
+                HStack {
+                    Spacer()
+                    ProgressView()
+                        .scaleEffect(0.8)
+                    Spacer()
+                }
+                .padding()
+            } else if rules.isEmpty {
+                VStack(spacing: 12) {
+                    Image(systemName: "lightbulb")
+                        .font(.system(size: 28, weight: .light))
+                        .foregroundColor(.secondary.opacity(0.3))
+                    Text("No rules learned yet".localized)
+                        .font(.system(size: 13, weight: .medium, design: .serif))
+                        .foregroundColor(.secondary)
+                    Text("Edit translations and click Improve to start learning.".localized)
+                        .font(.system(size: 12, design: .serif))
+                        .foregroundColor(.secondary.opacity(0.7))
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 40)
+            } else {
+                VStack(alignment: .leading, spacing: 12) {
+                    ForEach(rules) { rule in
+                        RuleCard(rule: rule, onDelete: {
+                            deleteRule(rule)
+                        })
+                    }
+                }
+            }
+        }
+        .onAppear {
+            loadRules()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("LearnedRuleAdded"))) { _ in
+            loadRules()
+        }
+    }
+    
+    private func loadRules() {
+        isLoading = true
+        DispatchQueue.global(qos: .userInitiated).async {
+            let loadedRules = LearningManager.shared.getAllRules()
+            DispatchQueue.main.async {
+                rules = loadedRules
+                isLoading = false
+            }
+        }
+    }
+    
+    private func deleteRule(_ rule: UserLearnedRule) {
+        try? LearningManager.shared.deleteRule(id: rule.id)
+        loadRules()
+    }
+}
+
+struct RuleCard: View {
+    let rule: UserLearnedRule
+    let onDelete: () -> Void
+    @State private var isExpanded = false
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(alignment: .top) {
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack(spacing: 8) {
+                        Text(rule.category.displayName)
+                            .font(.system(size: 11, weight: .medium, design: .serif))
+                            .foregroundColor(.secondary)
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 2)
+                            .background(Color.primary.opacity(0.06))
+                            .cornerRadius(3)
+                        
+                        Text(formatDate(rule.createdAt))
+                            .font(.system(size: 11, design: .serif))
+                            .foregroundColor(.secondary.opacity(0.6))
+                    }
+                    
+                    Text(rule.reasoning)
+                        .font(.system(size: 12, design: .serif))
+                        .foregroundColor(.primary)
+                        .lineLimit(isExpanded ? nil : 2)
+                }
+                
+                Spacer()
+                
+                Button(action: onDelete) {
+                    Image(systemName: "trash")
+                        .font(.system(size: 12))
+                        .foregroundColor(.secondary.opacity(0.5))
+                }
+                .buttonStyle(.plain)
+            }
+            
+            if isExpanded {
+                Divider().opacity(0.3)
+                
+                VStack(alignment: .leading, spacing: 8) {
+                    HStack {
+                        Text("Original:".localized)
+                            .font(.system(size: 11, weight: .medium, design: .serif))
+                            .foregroundColor(.secondary)
+                        Text(rule.originalText)
+                            .font(.system(size: 11, design: .serif))
+                            .foregroundColor(.secondary.opacity(0.8))
+                    }
+                    
+                    HStack {
+                        Text("AI:".localized)
+                            .font(.system(size: 11, weight: .medium, design: .serif))
+                            .foregroundColor(.secondary)
+                        Text(rule.aiTranslation)
+                            .font(.system(size: 11, design: .serif))
+                            .foregroundColor(.secondary.opacity(0.8))
+                    }
+                    
+                    HStack {
+                        Text("Your correction:".localized)
+                            .font(.system(size: 11, weight: .medium, design: .serif))
+                            .foregroundColor(.secondary)
+                        Text(rule.userCorrection)
+                            .font(.system(size: 11, design: .serif))
+                            .foregroundColor(.primary)
+                    }
+                }
+            }
+            
+            Button(action: { isExpanded.toggle() }) {
+                HStack {
+                    Text(isExpanded ? "Show less".localized : "Show more".localized)
+                        .font(.system(size: 11, design: .serif))
+                        .foregroundColor(.secondary.opacity(0.7))
+                    Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
+                        .font(.system(size: 9))
+                        .foregroundColor(.secondary.opacity(0.5))
+                }
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(12)
+        .background(Color.primary.opacity(0.02))
+        .cornerRadius(6)
+        .overlay(RoundedRectangle(cornerRadius: 6).stroke(Color.primary.opacity(0.08), lineWidth: 0.5))
+    }
+    
+    private func formatDate(_ date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.dateStyle = .short
+        formatter.timeStyle = .short
+        return formatter.string(from: date)
+    }
+}
+
+extension RuleCategory {
+    var displayName: String {
+        switch self {
+        case .attributeToVerb: return "Attribute→Verb"
+        case .metaphor: return "Metaphor"
+        case .terminology: return "Terminology"
+        case .style: return "Style"
+        case .other: return "Other"
         }
     }
 }
