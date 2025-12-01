@@ -21,6 +21,46 @@ struct TranslationView: View {
     @State private var analysisReasoning: String = ""
     @State private var showImproveSuccess: Bool = false
     
+    @AppStorage("enable_custom_mode_popup") private var enableCustomModePopup: Bool = false  // Legacy, now="preset_mode_enabled"
+    @AppStorage("preset_mode_enabled") private var presetModeEnabled: Bool = false
+    @AppStorage("selected_preset_id") private var selectedPresetId: String = DEFAULT_TRANSLATION_PRESET_ID
+    @State private var customInputPerception: String = ""
+    @State private var customOutputInstruction: String = ""
+    
+    // Computed property for dynamic output placeholder
+    var outputPlaceholder: String {
+        let mode = determineMode()
+        switch mode {
+        case .defaultTranslation:
+            return "翻译结果将显示在这里...".localized
+        case .temporaryCustom:
+            return "处理结果将显示在这里...".localized
+        case .userPreset:
+            return "输出结果将显示在这里...".localized
+        }
+    }
+    
+    // Determine current mode based on settings
+    func determineMode() -> PromptMode {
+        if !presetModeEnabled {
+            return .temporaryCustom
+        }
+        
+        if selectedPresetId == DEFAULT_TRANSLATION_PRESET_ID {
+            return .defaultTranslation
+        }
+        
+        // Find user preset
+        if let data = UserDefaults.standard.data(forKey: "saved_presets"),
+           let presets = try? JSONDecoder().decode([PromptPreset].self, from: data),
+           let selectedUUID = UUID(uuidString: selectedPresetId),
+           let preset = presets.first(where: { $0.id == selectedUUID }) {
+            return .userPreset(preset)
+        }
+        
+        return .defaultTranslation  // fallback
+    }
+    
     init(originalText: String, errorMessage: String? = nil) {
         self.originalText = originalText
         self.errorMessage = errorMessage
@@ -34,20 +74,35 @@ struct TranslationView: View {
     
     var body: some View {
         VStack(spacing: 0) {
-            HStack(spacing: 12) {
-                LanguageSelector(selection: $sourceLanguage, languages: Language.sourceLanguages)
-                
-                Button(action: swapLanguages) {
-                    Image(systemName: "arrow.right.arrow.left")
-                        .font(.system(size: 12, weight: .medium))
-                        .foregroundColor(.secondary.opacity(0.5))
+            // Custom Mode Input Fields (Only visible in Temporary Custom Mode)
+            if determineMode() == .temporaryCustom {
+                VStack(spacing: 8) {
+                    HStack(spacing: 12) {
+                        TextField("如何理解输入？(e.g. 古诗英译)".localized, text: $customInputPerception)
+                            .textFieldStyle(PlainTextFieldStyle())
+                            .font(.system(size: 13))
+                            .padding(8)
+                            .background(Color.primary.opacity(0.05))
+                            .cornerRadius(6)
+                        
+                        Image(systemName: "arrow.right")
+                            .font(.system(size: 11))
+                            .foregroundColor(.secondary)
+                        
+                        TextField("期望输出什么？(e.g. 找到原作者)".localized, text: $customOutputInstruction)
+                            .textFieldStyle(PlainTextFieldStyle())
+                            .font(.system(size: 13))
+                            .padding(8)
+                            .background(Color.primary.opacity(0.05))
+                            .cornerRadius(6)
+                    }
                 }
-                .buttonStyle(.plain)
-                .help("Swap languages".localized)
-                
-                LanguageSelector(selection: $targetLanguage, languages: Language.targetLanguages)
-                Spacer()
-            }.padding(.horizontal, 16).padding(.vertical, 12).background(Color.black.opacity(0.2))
+                .padding(.horizontal, 16)
+                .padding(.vertical, 12)
+                .background(Color.accentColor.opacity(0.05))
+            }
+            
+            Divider().opacity(0.3)
             
             // Close button for X mode
             if closeMode == "xButton" {
@@ -82,74 +137,105 @@ struct TranslationView: View {
             }
             
             // Analysis Result Banner - REMOVED
+            
 
             
+            Divider().opacity(0.5)
+            // Main Content Area
             HStack(spacing: 0) {
-                CustomTextEditor(text: $originalText, placeholder: "Type or paste text...".localized).frame(maxWidth: .infinity, maxHeight: .infinity)
+                CustomTextEditor(text: $originalText, placeholder: "Type or paste text..".localized).frame(maxWidth: .infinity, maxHeight: .infinity)
                 Rectangle().fill(Color.primary.opacity(0.05)).frame(width: 1)
                 
-                if isEditingTranslation {
-                    EditableOutputView(text: $editedTranslation, originalText: translatedText).frame(maxWidth: .infinity, maxHeight: .infinity).background(Color.primary.opacity(0.02))
-                } else {
-                    OutputTextView(text: translatedText, isEmpty: translatedText.isEmpty).frame(maxWidth: .infinity, maxHeight: .infinity).background(Color.primary.opacity(0.02))
-                }
+                // Output area with dynamic placeholder
+                TextEditor(text: isEditingTranslation ? $editedTranslation : $translatedText)
+                    .font(.system(size: 13, design: .serif))
+                    .scrollContentBackground(.hidden)
+                    .disabled(!isEditingTranslation)
+                    .overlay(alignment: .topLeading) {
+                        if translatedText.isEmpty {
+                            Text(outputPlaceholder)
+                                .font(.system(size: 13, design: .serif))
+                                .foregroundColor(.secondary.opacity(0.5))
+                                .padding(.top, 8)
+                                .padding(.leading, 5)
+                                .allowsHitTesting(false)
+                        }
+                    }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .background(Color.primary.opacity(0.02))
             }
+            
+            // Bottom Bar
             HStack {
-                if isTranslating || isImproving {
-                    ProgressView().scaleEffect(0.6).padding(.trailing, 8)
-                } else if showImproveSuccess {
-                    HStack(spacing: 6) {
+                // Left Side: Language Selectors (Only in Default Translation Mode)
+                if determineMode() == .defaultTranslation {
+                    HStack(spacing: 8) {
+                        LanguageSelector(selection: $sourceLanguage, languages: Language.sourceLanguages)
+                        
+                        Button(action: swapLanguages) {
+                            Image(systemName: "arrow.right")
+                                .font(.system(size: 10, weight: .medium))
+                                .foregroundColor(.secondary.opacity(0.5))
+                        }
+                        .buttonStyle(.plain)
+                        .help("Swap languages".localized)
+                        
+                        LanguageSelector(selection: $targetLanguage, languages: Language.targetLanguages)
+                    }
+                    .transition(.opacity)
+                }
+                
+                Spacer()
+                
+                // Right Side: Actions
+                HStack(spacing: 12) {
+                    if isTranslating || isImproving {
+                        ProgressView().scaleEffect(0.6)
+                    } else if showImproveSuccess {
                         Image(systemName: "checkmark")
                             .font(.system(size: 12, weight: .bold))
                             .foregroundColor(.green)
-                        Text("Success".localized)
-                            .font(.system(size: 12, weight: .medium))
-                            .foregroundColor(.secondary)
                     }
-                    .padding(.trailing, 8)
-                    .transition(.opacity)
-                }
-                Spacer()
-                
-                // Edit button (only if improve feature is enabled)
-                if enableImproveFeature && !translatedText.isEmpty && !isEditingTranslation {
+                    
+                    // Edit button
+                    if enableImproveFeature && !translatedText.isEmpty && !isEditingTranslation {
+                        Button(action: {
+                            isEditingTranslation = true
+                            editedTranslation = translatedText
+                            originalAiTranslation = translatedText
+                        }) {
+                            Text("Edit".localized).font(.system(size: 12, weight: .medium)).foregroundColor(.secondary)
+                        }.buttonStyle(.plain)
+                    }
+                    
+                    // Save/Cancel Edit
+                    if isEditingTranslation {
+                        Button("Cancel".localized) {
+                            isEditingTranslation = false
+                            editedTranslation = ""
+                        }.font(.system(size: 12)).foregroundColor(.secondary).buttonStyle(.plain)
+                    }
+                    
+                    // Improve Button
+                    if isEditingTranslation && editedTranslation != originalAiTranslation && !editedTranslation.isEmpty {
+                        Button("Improve".localized) { Task { await improveWithAI() } }
+                            .font(.system(size: 12)).foregroundColor(.blue).buttonStyle(.plain)
+                    }
+                    
+                    // Copy Button
                     Button(action: {
-                        isEditingTranslation = true
-                        editedTranslation = translatedText
-                        originalAiTranslation = translatedText
+                        let pasteboard = NSPasteboard.general
+                        pasteboard.clearContents()
+                        pasteboard.setString(isEditingTranslation ? editedTranslation : translatedText, forType: .string)
                     }) {
-                        Text("Edit".localized).font(.system(size: 12, weight: .medium)).foregroundColor(.secondary)
-                    }.buttonStyle(.plain).padding(.trailing, 12)
+                        Image(systemName: "doc.on.doc").font(.system(size: 12)).foregroundColor(.secondary)
+                    }.buttonStyle(.plain).opacity(translatedText.isEmpty ? 0 : 1)
+                    
+                    // Yisi Button
+                    Button(action: { Task { await performTranslation() } }) {
+                        Text("Yisi").font(.system(size: 13, weight: .semibold, design: .serif)).padding(.horizontal, 16).padding(.vertical, 6).background(Color.primary.opacity(0.8)).foregroundColor(Color(nsColor: .windowBackgroundColor)).cornerRadius(6)
+                    }.buttonStyle(.plain).keyboardShortcut(.return, modifiers: .command)
                 }
-                
-                // Save or Cancel buttons when editing
-                if isEditingTranslation {
-                    Button(action: {
-                        isEditingTranslation = false
-                        editedTranslation = ""
-                    }) {
-                        Text("Cancel".localized).font(.system(size: 12, weight: .medium)).foregroundColor(.secondary)
-                    }.buttonStyle(.plain).padding(.trailing, 12)
-                }
-                
-                // Improve button (only show when edited and different from original)
-                if isEditingTranslation && editedTranslation != originalAiTranslation && !editedTranslation.isEmpty {
-                    Button(action: { Task { await improveWithAI() } }) {
-                        Text("Improve".localized).font(.system(size: 13, weight: .medium)).padding(.horizontal, 12).padding(.vertical, 5).background(Color.blue.opacity(0.1)).foregroundColor(.blue).cornerRadius(5)
-                    }.buttonStyle(.plain).padding(.trailing, 12)
-                }
-                
-                Button(action: {
-                    let pasteboard = NSPasteboard.general
-                    pasteboard.clearContents()
-                    pasteboard.setString(isEditingTranslation ? editedTranslation : translatedText, forType: .string)
-                }) {
-                    Image(systemName: "doc.on.doc").font(.system(size: 12)).foregroundColor(.secondary)
-                }.buttonStyle(.plain).padding(.trailing, 16).opacity(translatedText.isEmpty ? 0 : 1)
-                
-                Button(action: { Task { await performTranslation() } }) {
-                    Text("Translate".localized).font(.system(size: 13, weight: .medium)).padding(.horizontal, 16).padding(.vertical, 6).background(Color.primary.opacity(0.8)).foregroundColor(Color(nsColor: .windowBackgroundColor)).cornerRadius(6)
-                }.buttonStyle(.plain).keyboardShortcut(.return, modifiers: .command)
             }.padding(16).background(Color.primary.opacity(0.03))
         }.background(VisualEffectView(material: .hudWindow, blendingMode: .behindWindow))
         .cornerRadius(12).overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.primary.opacity(0.1), lineWidth: 0.5)).onExitCommand {
@@ -167,7 +253,16 @@ struct TranslationView: View {
         guard !originalText.isEmpty else { return }
         isTranslating = true
         do {
-            translatedText = try await TranslationService.shared.translate(originalText, sourceLanguage: sourceLanguage.rawValue, targetLanguage: targetLanguage.rawValue)
+            let mode = determineMode()
+            
+            translatedText = try await TranslationService.shared.translate(
+                originalText,
+                mode: mode,
+                sourceLanguage: sourceLanguage.rawValue, 
+                targetLanguage: targetLanguage.rawValue,
+                userPerception: mode == .temporaryCustom ? customInputPerception : nil,
+                userInstruction: mode == .temporaryCustom ? customOutputInstruction : nil
+            )
             savedOriginalText = originalText  // Save for improve feature
         } catch {
             translatedText = "Error: \(error.localizedDescription)"

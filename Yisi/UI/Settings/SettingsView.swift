@@ -434,22 +434,350 @@ struct APIKeyInput: View {
 }
 
 struct PromptsSection: View {
+    @AppStorage("preset_mode_enabled") private var presetModeEnabled: Bool = false
+    @AppStorage("selected_preset_id") private var selectedPresetId: String = DEFAULT_TRANSLATION_PRESET_ID
+    @State private var presets: [PromptPreset] = []
+    @State private var showEditSheet: Bool = false
+    @State private var editingPreset: PromptPreset? // If nil, adding new
+    
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
+        VStack(alignment: .leading, spacing: 24) {
             SectionHeader(title: "Prompts".localized)
             
-            Text("Customize the system prompts used for translation.".localized)
-                .font(.system(size: 13, design: .serif))
-                .foregroundColor(.secondary)
+            // Preset Mode Toggle
+            HStack {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("启用预设模式".localized)
+                        .font(.system(size: 13, weight: .medium, design: .serif))
+                        .foregroundColor(.primary)
+                    Text("关闭时为临时自定义模式；开启后选择预设".localized)
+                        .font(.system(size: 12, design: .serif))
+                        .foregroundColor(.secondary.opacity(0.8))
+                }
+                Spacer()
+                ElegantToggle(isOn: $presetModeEnabled)
+            }
             
-            Text("Coming soon".localized)
-                .font(.system(size: 12, design: .serif))
-                .foregroundColor(.secondary.opacity(0.5))
-                .padding()
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .background(Color.primary.opacity(0.02))
-                .cornerRadius(6)
+            Divider().opacity(0.3)
+            
+            // Preset Selection (Only visible when preset mode is enabled)
+            if presetModeEnabled {
+                VStack(alignment: .leading, spacing: 12) {
+                    Text("选择预设".localized)
+                        .font(.system(size: 13, weight: .medium, design: .serif))
+                        .foregroundColor(.primary)
+                    
+                    // Default Translation Preset (Built-in)
+                    PresetRadioRow(
+                        id: DEFAULT_TRANSLATION_PRESET_ID,
+                        name: "默认翻译".localized,
+                        description: "标准翻译模式，支持 Learned Rules",
+                        isSelected: selectedPresetId == DEFAULT_TRANSLATION_PRESET_ID,
+                        onSelect: { selectedPresetId = DEFAULT_TRANSLATION_PRESET_ID }
+                    )
+                    
+                    Divider().opacity(0.3)
+                    
+                    // User Presets Header
+                    HStack {
+                        Text("自定义预设".localized)
+                            .font(.system(size: 12, weight: .medium, design: .serif))
+                            .foregroundColor(.secondary)
+                        Spacer()
+                        Button(action: {
+                            editingPreset = nil
+                            showEditSheet = true
+                        }) {
+                            Image(systemName: "plus")
+                                .font(.system(size: 11, weight: .medium))
+                                .foregroundColor(.primary)
+                                .padding(5)
+                                .background(Color.primary.opacity(0.05))
+                                .clipShape(Circle())
+                        }
+                        .buttonStyle(.plain)
+                    }
+                    
+                    // User Presets List
+                    if presets.isEmpty {
+                        Text("暂无自定义预设".localized)
+                            .font(.system(size: 12, design: .serif))
+                            .foregroundColor(.secondary.opacity(0.6))
+                            .padding(.vertical, 8)
+                    } else {
+                        VStack(spacing: 8) {
+                            ForEach(presets) { preset in
+                                PresetRadioRow(
+                                    id: preset.id.uuidString,
+                                    name: preset.name,
+                                    description: "\(preset.inputPerception.prefix(30))...",
+                                    isSelected: selectedPresetId == preset.id.uuidString,
+                                    onSelect: { selectedPresetId = preset.id.uuidString },
+                                    onEdit: {
+                                        editingPreset = preset
+                                        showEditSheet = true
+                                    },
+                                    onDelete: { deletePreset(preset) }
+                                )
+                            }
+                        }
+                    }
+                }
+            }
         }
+        .onAppear { loadPresets() }
+        .sheet(isPresented: $showEditSheet) {
+            if let editing = editingPreset {
+                PresetEditor(preset: editing, onSave: { updated in
+                    updatePreset(updated)
+                    showEditSheet = false
+                }, onCancel: {
+                    showEditSheet = false
+                })
+            } else {
+                PresetEditor(preset: PromptPreset(id: UUID(), name: "", inputPerception: "", outputInstruction: ""), onSave: { new in
+                    addPreset(new)
+                    showEditSheet = false
+                }, onCancel: {
+                    showEditSheet = false
+                })
+            }
+        }
+    }
+    
+    private func loadPresets() {
+        if let data = UserDefaults.standard.data(forKey: "saved_presets"),
+           let decoded = try? JSONDecoder().decode([PromptPreset].self, from: data) {
+            presets = decoded
+        }
+    }
+    
+    private func addPreset(_ preset: PromptPreset) {
+        presets.append(preset)
+        persistPresets()
+    }
+    
+    private func updatePreset(_ preset: PromptPreset) {
+        if let index = presets.firstIndex(where: { $0.id == preset.id }) {
+            presets[index] = preset
+            persistPresets()
+        }
+    }
+    
+    private func deletePreset(_ preset: PromptPreset) {
+        presets.removeAll { $0.id == preset.id }
+        // Reset to default translation if deleting currently selected preset
+        if selectedPresetId == preset.id.uuidString {
+            selectedPresetId = DEFAULT_TRANSLATION_PRESET_ID
+        }
+        persistPresets()
+    }
+    
+    private func persistPresets() {
+        if let encoded = try? JSONEncoder().encode(presets) {
+            UserDefaults.standard.set(encoded, forKey: "saved_presets")
+        }
+    }
+}
+
+struct PresetRow: View {
+    let preset: PromptPreset
+    let isActive: Bool
+    let onSelect: () -> Void
+    let onEdit: () -> Void
+    let onDelete: () -> Void
+    
+    var body: some View {
+        HStack(spacing: 12) {
+            // Radio Button
+            Button(action: onSelect) {
+                Image(systemName: isActive ? "largecircle.fill.circle" : "circle")
+                    .font(.system(size: 14))
+                    .foregroundColor(isActive ? .accentColor : .secondary.opacity(0.5))
+            }
+            .buttonStyle(.plain)
+            
+            VStack(alignment: .leading, spacing: 2) {
+                Text(preset.name)
+                    .font(.system(size: 13, weight: .medium, design: .serif))
+                    .foregroundColor(.primary)
+                Text(preset.inputPerception.prefix(30) + "...")
+                    .font(.system(size: 11, design: .serif))
+                    .foregroundColor(.secondary.opacity(0.7))
+                    .lineLimit(1)
+            }
+            
+            Spacer()
+            
+            // Actions
+            HStack(spacing: 8) {
+                Button(action: onEdit) {
+                    Image(systemName: "pencil")
+                        .font(.system(size: 12))
+                        .foregroundColor(.secondary)
+                }
+                .buttonStyle(.plain)
+                
+                Button(action: onDelete) {
+                    Image(systemName: "trash")
+                        .font(.system(size: 12))
+                        .foregroundColor(.secondary.opacity(0.8))
+                }
+                .buttonStyle(.plain)
+            }
+            .opacity(0.6)
+        }
+        .padding(10)
+        .background(isActive ? Color.accentColor.opacity(0.05) : Color.primary.opacity(0.02))
+        .cornerRadius(8)
+        .overlay(
+            RoundedRectangle(cornerRadius: 8)
+                .stroke(isActive ? Color.accentColor.opacity(0.2) : Color.primary.opacity(0.05), lineWidth: 1)
+        )
+    }
+}
+
+// Radio-style preset row for mode selection
+struct PresetRadioRow: View {
+    let id: String
+    let name: String
+    let description: String
+    let isSelected: Bool
+    let onSelect: () -> Void
+    var onEdit: (() -> Void)? = nil
+    var onDelete: (() -> Void)? = nil
+    
+    var body: some View {
+        HStack(spacing: 12) {
+            // Radio Button
+            Button(action: onSelect) {
+                Image(systemName: isSelected ? "largecircle.fill.circle" : "circle")
+                    .font(.system(size: 14))
+                    .foregroundColor(isSelected ? .accentColor : .secondary.opacity(0.5))
+            }
+            .buttonStyle(.plain)
+            
+            VStack(alignment: .leading, spacing: 2) {
+                Text(name)
+                    .font(.system(size: 13, weight: .medium, design: .serif))
+                    .foregroundColor(.primary)
+                Text(description)
+                    .font(.system(size: 11, design: .serif))
+                    .foregroundColor(.secondary.opacity(0.7))
+                    .lineLimit(1)
+            }
+            
+            Spacer()
+            
+            // Actions (only for user presets)
+            if let onEdit = onEdit, let onDelete = onDelete {
+                HStack(spacing: 8) {
+                    Button(action: onEdit) {
+                        Image(systemName: "pencil")
+                            .font(.system(size: 12))
+                            .foregroundColor(.secondary)
+                    }
+                    .buttonStyle(.plain)
+                    
+                    Button(action: onDelete) {
+                        Image(systemName: "trash")
+                            .font(.system(size: 12))
+                            .foregroundColor(.secondary.opacity(0.8))
+                    }
+                    .buttonStyle(.plain)
+                }
+                .opacity(0.6)
+            }
+        }
+        .padding(.vertical, 6)
+        .padding(.horizontal, 12)
+        .background(isSelected ? Color.accentColor.opacity(0.08) : Color.clear)
+        .cornerRadius(6)
+    }
+}
+
+struct PresetEditor: View {
+    @State private var name: String = ""
+    @State private var inputPerception: String = ""
+    @State private var outputInstruction: String = ""
+    
+    let preset: PromptPreset?
+    let onSave: (PromptPreset) -> Void
+    let onCancel: () -> Void
+    
+    init(preset: PromptPreset?, onSave: @escaping (PromptPreset) -> Void, onCancel: @escaping () -> Void) {
+        self.preset = preset
+        self.onSave = onSave
+        self.onCancel = onCancel
+        
+        _name = State(initialValue: preset?.name ?? "")
+        _inputPerception = State(initialValue: preset?.inputPerception ?? "")
+        _outputInstruction = State(initialValue: preset?.outputInstruction ?? "")
+    }
+    
+    var body: some View {
+        VStack(spacing: 20) {
+            Text(preset == nil ? "New Preset".localized : "Edit Preset".localized)
+                .font(.system(size: 16, weight: .medium, design: .serif))
+            
+            VStack(alignment: .leading, spacing: 16) {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Name".localized)
+                        .font(.system(size: 12, weight: .medium, design: .serif))
+                        .foregroundColor(.secondary)
+                    TextField("e.g. Code Audit".localized, text: $name)
+                        .textFieldStyle(PlainTextFieldStyle())
+                        .padding(8)
+                        .background(Color.primary.opacity(0.03))
+                        .cornerRadius(6)
+                }
+                
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Input Perception".localized)
+                        .font(.system(size: 12, weight: .medium, design: .serif))
+                        .foregroundColor(.secondary)
+                    TextEditor(text: $inputPerception)
+                        .font(.system(size: 13))
+                        .frame(height: 60)
+                        .padding(4)
+                        .background(Color.primary.opacity(0.03))
+                        .cornerRadius(6)
+                }
+                
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Output Instruction".localized)
+                        .font(.system(size: 12, weight: .medium, design: .serif))
+                        .foregroundColor(.secondary)
+                    TextEditor(text: $outputInstruction)
+                        .font(.system(size: 13))
+                        .frame(height: 60)
+                        .padding(4)
+                        .background(Color.primary.opacity(0.03))
+                        .cornerRadius(6)
+                }
+            }
+            
+            HStack(spacing: 12) {
+                Button("Cancel".localized) {
+                    onCancel()
+                }
+                .keyboardShortcut(.escape, modifiers: [])
+                
+                Button("Save".localized) {
+                    let newPreset = PromptPreset(
+                        id: preset?.id ?? UUID(),
+                        name: name.isEmpty ? "Untitled" : name,
+                        inputPerception: inputPerception,
+                        outputInstruction: outputInstruction
+                    )
+                    onSave(newPreset)
+                }
+                .keyboardShortcut(.return, modifiers: [])
+                .disabled(name.isEmpty)
+            }
+        }
+        .padding(24)
+        .frame(width: 400)
     }
 }
 

@@ -11,17 +11,17 @@ class TranslationService: ObservableObject {
     
     private init() {}
     
-    func translate(_ text: String, sourceLanguage: String = "Auto Detect", targetLanguage: String = "简体中文") async throws -> String {
+    func translate(_ text: String, mode: PromptMode = .defaultTranslation, sourceLanguage: String = "Auto Detect", targetLanguage: String = "简体中文", userPerception: String? = nil, userInstruction: String? = nil) async throws -> String {
         let provider = getAPIProvider()
         let preprocessedText = preprocessInput(text)
         
         switch provider {
         case .openai:
-            return try await translateWithOpenAI(preprocessedText, sourceLanguage: sourceLanguage, targetLanguage: targetLanguage)
+            return try await translateWithOpenAI(preprocessedText, mode: mode, sourceLanguage: sourceLanguage, targetLanguage: targetLanguage, userPerception: userPerception, userInstruction: userInstruction)
         case .gemini:
-            return try await translateWithGemini(preprocessedText, sourceLanguage: sourceLanguage, targetLanguage: targetLanguage)
+            return try await translateWithGemini(preprocessedText, mode: mode, sourceLanguage: sourceLanguage, targetLanguage: targetLanguage, userPerception: userPerception, userInstruction: userInstruction)
         case .zhipu:
-            return try await translateWithZhipu(preprocessedText, sourceLanguage: sourceLanguage, targetLanguage: targetLanguage)
+            return try await translateWithZhipu(preprocessedText, mode: mode, sourceLanguage: sourceLanguage, targetLanguage: targetLanguage, userPerception: userPerception, userInstruction: userInstruction)
         }
     }
     
@@ -116,6 +116,105 @@ class TranslationService: ObservableObject {
         return jsonString.trimmingCharacters(in: .whitespacesAndNewlines)
     }
     
+    private func parseTranslationResult(from jsonString: String, mode: PromptMode) throws -> String {
+        guard let data = jsonString.data(using: .utf8) else {
+            throw NSError(domain: "TranslationError", code: 3, 
+                         userInfo: [NSLocalizedDescriptionKey: "Failed to parse JSON"])
+        }
+        
+        guard let jsonObj = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+            throw NSError(domain: "TranslationError", code: 3, 
+                         userInfo: [NSLocalizedDescriptionKey: "Invalid JSON format"])
+        }
+        
+        // Try mode-specific key first, then fallback
+        let primaryKey: String
+        switch mode {
+        case .defaultTranslation:
+            primaryKey = "translation_result"
+        case .temporaryCustom, .userPreset:
+            primaryKey = "result"
+        }
+        let fallbackKey = primaryKey == "translation_result" ? "result" : "translation_result"
+        
+        // Try primary key (handle both String and nested Object)
+        if let result = jsonObj[primaryKey] {
+            if let stringResult = result as? String, !stringResult.isEmpty {
+                return stringResult
+            } else if let dictResult = result as? [String: Any] {
+                // Handle nested object (e.g., {title: "...", author: "..."})
+                return formatNestedResult(dictResult)
+            }
+        }
+        
+        // Try fallback key
+        if let result = jsonObj[fallbackKey] {
+            if let stringResult = result as? String, !stringResult.isEmpty {
+                return stringResult
+            } else if let dictResult = result as? [String: Any] {
+                return formatNestedResult(dictResult)
+            }
+        }
+        
+        // Last resort: try "answer" key
+        if let result = jsonObj["answer"] as? String, !result.isEmpty {
+            return result
+        }
+        
+        throw NSError(domain: "TranslationError", code: 3, 
+                     userInfo: [NSLocalizedDescriptionKey: "No valid result key found in JSON response"])
+    }
+    
+    // Format nested JSON object into readable string
+    private func formatNestedResult(_ dict: [String: Any]) -> String {
+        let priorityKeys = ["author", "title", "name", "answer"]
+        
+        // Get priority key-value pairs
+        let priorityLines = priorityKeys.compactMap { key -> String? in
+            guard let value = dict[key] else { return nil }
+            return "\(key): \(value)"
+        }
+        
+        // Get remaining key-value pairs
+        let remainingLines = dict.keys
+            .filter { !priorityKeys.contains($0) }
+            .sorted()
+            .compactMap { key in "\(key): \(dict[key]!)" }
+        
+        let allLines = priorityLines + remainingLines
+        return allLines.isEmpty ? String(describing: dict) : allLines.joined(separator: "\n")
+    }
+    
+    // MARK: - Prompt Generation Helper
+    
+    /// Generate system and user prompts based on mode (共享方法，消除重复)
+    private func generatePrompts(
+        for mode: PromptMode,
+        text: String,
+        sourceLanguage: String,
+        targetLanguage: String,
+        userPerception: String?,
+        userInstruction: String?
+    ) -> (system: String, user: String) {
+        let systemPrompt: String
+        if mode == .temporaryCustom {
+            systemPrompt = PromptCoordinator.shared.generateCustomPrompt(
+                inputContext: userPerception,
+                outputRequirement: userInstruction
+            )
+        } else {
+            systemPrompt = PromptCoordinator.shared.generateSystemPrompt(for: mode, withLearnedRules: true)
+        }
+        
+        let userPrompt = PromptCoordinator.shared.generateUserPrompt(
+            text: text,
+            sourceLanguage: sourceLanguage,
+            targetLanguage: targetLanguage
+        )
+        
+        return (systemPrompt, userPrompt)
+    }
+    
     // MARK: - API Optimization Helpers
     
     private func getTemperature(for text: String) -> Double {
@@ -197,21 +296,27 @@ class TranslationService: ObservableObject {
     
     // MARK: - API Calls
     
-    private func translateWithOpenAI(_ text: String, sourceLanguage: String, targetLanguage: String) async throws -> String {
+    private func translateWithOpenAI(_ text: String, mode: PromptMode, sourceLanguage: String, targetLanguage: String, userPerception: String?, userInstruction: String?) async throws -> String {
         guard let apiKey = UserDefaults.standard.string(forKey: "openai_api_key"), !apiKey.isEmpty else {
             return "Please set your OpenAI API Key in Settings."
         }
         
-        let systemPrompt = PromptManager.shared.generateSystemPrompt()
-        let userPrompt = PromptManager.shared.generateUserPrompt(text: text, sourceLanguage: sourceLanguage, targetLanguage: targetLanguage)
+        let prompts = generatePrompts(
+            for: mode,
+            text: text,
+            sourceLanguage: sourceLanguage,
+            targetLanguage: targetLanguage,
+            userPerception: userPerception,
+            userInstruction: userInstruction
+        )
         
         let body: [String: Any] = [
             "model": "gpt-3.5-turbo",
+            "temperature": getTemperature(for: text),
             "messages": [
-                ["role": "system", "content": systemPrompt],
-                ["role": "user", "content": userPrompt]
+                ["role": "system", "content": prompts.system],
+                ["role": "user", "content": prompts.user]
             ],
-            "temperature": 0.3,
             "response_format": ["type": "json_object"]
         ]
         
@@ -240,50 +345,37 @@ class TranslationService: ObservableObject {
             
             // Parse JSON response
             let cleanJSON = extractJSON(from: content)
-            if let data = cleanJSON.data(using: .utf8),
-               let responseObj = try? JSONDecoder().decode(TranslationResponse.self, from: data) {
-                return responseObj.translation_result
-            }
-            
-            // Fallback: If it looks like JSON but failed to parse, we might want to return raw text
-            // But if the user sees raw JSON, it's bad.
-            // Try to see if we can salvage it or if it's just plain text.
-            // If it starts with { and ends with }, it's likely JSON.
-            if cleanJSON.hasPrefix("{") && cleanJSON.hasSuffix("}") {
-                // It's broken JSON. Return a generic error or try to extract "translation_result" manually?
-                // For now, let's return the raw content but maybe we should log it.
-                // Actually, the user said "If parsing fails (e.g., AI returned plain text): Fallback to displaying the raw text."
-                // But if it IS JSON, we don't want to show it.
-                // Let's try to simple string search for "translation_result" as a last resort.
-                return content
-            }
-            
-            // It's likely plain text (AI ignored JSON instruction), so return it.
-            return content
+            return try parseTranslationResult(from: cleanJSON, mode: mode)
         }
         
         return "Failed to parse translation."
     }
     
     
-    private func translateWithGemini(_ text: String, sourceLanguage: String, targetLanguage: String) async throws -> String {
+    private func translateWithGemini(_ text: String, mode: PromptMode, sourceLanguage: String, targetLanguage: String, userPerception: String?, userInstruction: String?) async throws -> String {
         return try await executeWithRetry {
             guard let apiKey = UserDefaults.standard.string(forKey: "gemini_api_key"), !apiKey.isEmpty else {
                 return "Please set your Gemini API Key in Settings."
             }
             
-            let systemPrompt = PromptManager.shared.generateSystemPrompt()
-            let userPrompt = PromptManager.shared.generateUserPrompt(text: text, sourceLanguage: sourceLanguage, targetLanguage: targetLanguage)
+            let prompts = generatePrompts(
+                for: mode,
+                text: text,
+                sourceLanguage: sourceLanguage,
+                targetLanguage: targetLanguage,
+                userPerception: userPerception,
+                userInstruction: userInstruction
+            )
             
             // Use proper system_instruction field (Gemini best practice)
             let body: [String: Any] = [
                 "system_instruction": [
-                    "parts": [["text": systemPrompt]]
+                    "parts": [["text": prompts.system]]
                 ],
                 "contents": [
                     [
                         "parts": [
-                            ["text": userPrompt]
+                            ["text": prompts.user]
                         ]
                     ]
                 ],
@@ -296,7 +388,7 @@ class TranslationService: ObservableObject {
             
             let jsonData = try JSONSerialization.data(withJSONObject: body)
             
-            guard let url = URL(string: "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key=\(apiKey)") else {
+            guard let url = URL(string: "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=\(apiKey)") else {
                 throw NSError(domain: "TranslationError", code: 1, userInfo: [NSLocalizedDescriptionKey: "Invalid URL"])
             }
             
@@ -325,15 +417,12 @@ class TranslationService: ObservableObject {
                 
                  // Parse JSON response
                 let cleanJSON = self.extractJSON(from: text)
-                if let data = cleanJSON.data(using: .utf8),
-                   let responseObj = try? JSONDecoder().decode(TranslationResponse.self, from: data) {
-                    
-                    // Validate response before returning
-                    try self.validateResponse(responseObj, originalText: text)
-                    return responseObj.translation_result
-                }
                 
-                return text
+                // DEBUG: Print raw response
+                print("DEBUG Gemini Response:")
+                print(cleanJSON)
+                
+                return try self.parseTranslationResult(from: cleanJSON, mode: mode)
             }
             
             return "Failed to parse translation."
@@ -341,20 +430,26 @@ class TranslationService: ObservableObject {
     }
     
     
-    private func translateWithZhipu(_ text: String, sourceLanguage: String, targetLanguage: String) async throws -> String {
+    private func translateWithZhipu(_ text: String, mode: PromptMode, sourceLanguage: String, targetLanguage: String, userPerception: String?, userInstruction: String?) async throws -> String {
         return try await executeWithRetry {
             guard let apiKey = UserDefaults.standard.string(forKey: "zhipu_api_key"), !apiKey.isEmpty else {
                 return "Please set your Zhipu API Key in Settings."
             }
             
-            let systemPrompt = PromptManager.shared.generateSystemPrompt()
-            let userPrompt = PromptManager.shared.generateUserPrompt(text: text, sourceLanguage: sourceLanguage, targetLanguage: targetLanguage)
+            let prompts = generatePrompts(
+                for: mode,
+                text: text,
+                sourceLanguage: sourceLanguage,
+                targetLanguage: targetLanguage,
+                userPerception: userPerception,
+                userInstruction: userInstruction
+            )
             
             let body: [String: Any] = [
                 "model": "glm-4.5-air",
                 "messages": [
-                    ["role": "system", "content": systemPrompt],
-                    ["role": "user", "content": userPrompt]
+                    ["role": "system", "content": prompts.system],
+                    ["role": "user", "content": prompts.user]
                 ],
                 "temperature": self.getTemperature(for: text),
                 "max_tokens": self.getMaxTokens(for: text)
