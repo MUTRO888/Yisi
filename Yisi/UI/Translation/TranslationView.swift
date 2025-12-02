@@ -260,7 +260,9 @@ struct TranslationView: View {
                 WindowManager.shared.close()
             }
         }.task {
-            if !originalText.isEmpty {
+            // Only auto-translate if NOT in custom mode
+            // In custom mode, user needs to input their requirements first
+            if !originalText.isEmpty && determineMode() != .temporaryCustom {
                 await performTranslation()
             }
         }

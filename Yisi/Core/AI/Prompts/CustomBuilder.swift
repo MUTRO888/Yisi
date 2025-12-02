@@ -13,9 +13,16 @@ class CustomPromptBuilder {
     /// - Parameters:
     ///   - inputContext: 用户定义的输入理解方式
     ///   - outputRequirement: 用户期望的输出要求
+    ///   - detectedLanguage: 检测到的输入语言（可选）
     /// - Returns: 完整的系统提示词
-    func buildSystemPrompt(inputContext: String?, outputRequirement: String?) -> String {
+    func buildSystemPrompt(inputContext: String?, outputRequirement: String?, detectedLanguage: String? = nil) -> String {
         var prompt = buildRoleAndTask(inputContext: inputContext, outputRequirement: outputRequirement)
+        
+        // Add language guidance if detected language is provided
+        if let language = detectedLanguage {
+            prompt += buildLanguageGuidance(language: language)
+        }
+        
         prompt += buildEngineeringGuardrails()
         prompt += buildOutputFormat()
         
@@ -38,6 +45,18 @@ class CustomPromptBuilder {
         **Input Context**: \(taskDefinition)
         
         **Output Requirement**: \(outputSpec)
+        
+        ═══════════════════════════════════════════════════════════
+        
+        """
+    }
+    
+    
+    private func buildLanguageGuidance(language: String) -> String {
+        return """
+        ### 🌐 LANGUAGE GUIDANCE 🌐
+        
+        Unless the user's output requirement explicitly specifies a different language, please respond in **\(language)**.
         
         ═══════════════════════════════════════════════════════════
         
