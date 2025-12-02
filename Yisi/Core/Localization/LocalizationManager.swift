@@ -84,7 +84,12 @@ class LocalizationManager: ObservableObject {
         "Russian": "Russian",
         "Arabic": "Arabic",
         "Thai": "Thai",
-        "Vietnamese": "Vietnamese"
+        "Vietnamese": "Vietnamese",
+        
+        // Settings - Translation
+        "Improve": "Improve",
+        "Enable translation improvement": "Edit translations and generate personalized learning rules",
+        "Default Path": "Default Translation Path"
     ]
     
     private let zhStrings: [String: String] = [
@@ -154,7 +159,12 @@ class LocalizationManager: ObservableObject {
         "Russian": "俄语",
         "Arabic": "阿拉伯语",
         "Thai": "泰语",
-        "Vietnamese": "越南语"
+        "Vietnamese": "越南语",
+        
+        // Settings - Translation  
+        "Improve": "智能优化",
+        "Enable translation improvement": "支持编辑译文并生成个性化学习规则",
+        "Default Path": "默认翻译路径"
     ]
 }
 

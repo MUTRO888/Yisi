@@ -141,34 +141,10 @@ struct TranslationView: View {
 
             
             Divider().opacity(0.5)
-            // Main Content Area
-            HStack(spacing: 0) {
-                CustomTextEditor(text: $originalText, placeholder: "Type or paste text..".localized).frame(maxWidth: .infinity, maxHeight: .infinity)
-                Rectangle().fill(Color.primary.opacity(0.05)).frame(width: 1)
-                
-                // Output area with dynamic placeholder
-                TextEditor(text: isEditingTranslation ? $editedTranslation : $translatedText)
-                    .font(.system(size: 13, design: .serif))
-                    .scrollContentBackground(.hidden)
-                    .disabled(!isEditingTranslation)
-                    .overlay(alignment: .topLeading) {
-                        if translatedText.isEmpty {
-                            Text(outputPlaceholder)
-                                .font(.system(size: 13, design: .serif))
-                                .foregroundColor(.secondary.opacity(0.5))
-                                .padding(.top, 8)
-                                .padding(.leading, 5)
-                                .allowsHitTesting(false)
-                        }
-                    }
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .background(Color.primary.opacity(0.02))
-            }
             
-            // Bottom Bar
-            HStack {
-                // Left Side: Language Selectors (Only in Default Translation Mode)
-                if determineMode() == .defaultTranslation {
+            // Language Selectors - Top Position (Only in Default Translation Mode)
+            if determineMode() == .defaultTranslation {
+                HStack {
                     HStack(spacing: 8) {
                         LanguageSelector(selection: $sourceLanguage, languages: Language.sourceLanguages)
                         
@@ -182,8 +158,47 @@ struct TranslationView: View {
                         
                         LanguageSelector(selection: $targetLanguage, languages: Language.targetLanguages)
                     }
-                    .transition(.opacity)
+                    Spacer()
                 }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 8)
+                .background(Color.primary.opacity(0.02))
+                .transition(.opacity)
+            }
+            
+            Divider().opacity(0.3)
+            
+            // Main Content Area - Consistent Custom Editors
+            HStack(spacing: 0) {
+                CustomTextEditor(text: $originalText, placeholder: "Type or paste text..".localized)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                Rectangle().fill(Color.primary.opacity(0.05)).frame(width: 1)
+                
+                // Output area - Using CustomTextEditor for consistency
+                ZStack(alignment: .topLeading) {
+                    if isEditingTranslation {
+                        CustomTextEditor(text: $editedTranslation, placeholder: outputPlaceholder)
+                            .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    } else {
+                        MacEditorView(text: .constant(translatedText))
+                            .frame(maxWidth: .infinity, maxHeight: .infinity)
+                            .overlay(alignment: .topLeading) {
+                                if translatedText.isEmpty {
+                                    Text(outputPlaceholder)
+                                        .font(.system(size: 16, weight: .light, design: .serif))
+                                        .foregroundColor(.secondary.opacity(0.5))
+                                        .padding(.horizontal, 25)
+                                        .padding(.vertical, 20)
+                                        .allowsHitTesting(false)
+                                }
+                            }
+                    }
+                }
+                .background(Color.primary.opacity(0.02))
+            }
+            
+            // Bottom Bar
+            HStack {
                 
                 Spacer()
                 
@@ -255,7 +270,7 @@ struct TranslationView: View {
         do {
             let mode = determineMode()
             
-            translatedText = try await TranslationService.shared.translate(
+            translatedText = try await AIService.shared.processText(
                 originalText,
                 mode: mode,
                 sourceLanguage: sourceLanguage.rawValue, 
@@ -265,6 +280,14 @@ struct TranslationView: View {
             )
             savedOriginalText = originalText  // Save for improve feature
         } catch {
+            print("❌ TRANSLATION ERROR:")
+            print("   Error: \(error)")
+            print("   Localized: \(error.localizedDescription)")
+            if let nsError = error as NSError? {
+                print("   Domain: \(nsError.domain)")
+                print("   Code: \(nsError.code)")
+                print("   UserInfo: \(nsError.userInfo)")
+            }
             translatedText = "Error: \(error.localizedDescription)"
         }
         isTranslating = false

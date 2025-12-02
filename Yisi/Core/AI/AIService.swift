@@ -6,12 +6,12 @@ enum APIProvider: String {
     case zhipu = "Zhipu AI"
 }
 
-class TranslationService: ObservableObject {
-    static let shared = TranslationService()
+class AIService: ObservableObject {
+    static let shared = AIService()
     
     private init() {}
     
-    func translate(_ text: String, mode: PromptMode = .defaultTranslation, sourceLanguage: String = "Auto Detect", targetLanguage: String = "简体中文", userPerception: String? = nil, userInstruction: String? = nil) async throws -> String {
+    func processText(_ text: String, mode: PromptMode = .defaultTranslation, sourceLanguage: String = "Auto Detect", targetLanguage: String = "简体中文", userPerception: String? = nil, userInstruction: String? = nil) async throws -> String {
         let provider = getAPIProvider()
         let preprocessedText = preprocessInput(text)
         
@@ -105,15 +105,42 @@ class TranslationService: ObservableObject {
     }
     
     private func extractJSON(from text: String) -> String {
+        var jsonString = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        
+        // Remove common AI preambles
+        let preambles = [
+            "Here is the translation:",
+            "Translation:",
+            "Result:",
+            "Here is the result:",
+            "Output:",
+            "Response:"
+        ]
+        for preamble in preambles {
+            if jsonString.hasPrefix(preamble) {
+                jsonString = String(jsonString.dropFirst(preamble.count))
+                    .trimmingCharacters(in: .whitespacesAndNewlines)
+            }
+        }
+        
         // Remove markdown code blocks if present
-        var jsonString = text
         if jsonString.contains("```json") {
             jsonString = jsonString.replacingOccurrences(of: "```json", with: "")
         }
         if jsonString.contains("```") {
             jsonString = jsonString.replacingOccurrences(of: "```", with: "")
         }
-        return jsonString.trimmingCharacters(in: .whitespacesAndNewlines)
+        
+        // Trim again after all processing
+        jsonString = jsonString.trimmingCharacters(in: .whitespacesAndNewlines)
+        
+        // If we have curly braces, extract just the JSON object
+        if let startIndex = jsonString.firstIndex(of: "{"),
+           let endIndex = jsonString.lastIndex(of: "}") {
+            jsonString = String(jsonString[startIndex...endIndex])
+        }
+        
+        return jsonString
     }
     
     private func parseTranslationResult(from jsonString: String, mode: PromptMode) throws -> String {
@@ -123,46 +150,44 @@ class TranslationService: ObservableObject {
         }
         
         guard let jsonObj = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+            // If JSON parsing fails, but the string looks like plain text, return it
+            let trimmed = jsonString.trimmingCharacters(in: .whitespacesAndNewlines)
+            if !trimmed.isEmpty && !trimmed.hasPrefix("{") && !trimmed.hasSuffix("}") {
+                return trimmed
+            }
             throw NSError(domain: "TranslationError", code: 3, 
-                         userInfo: [NSLocalizedDescriptionKey: "Invalid JSON format"])
+                         userInfo: [NSLocalizedDescriptionKey: "Invalid JSON format: \(jsonString.prefix(100))"])
         }
         
-        // Try mode-specific key first, then fallback
-        let primaryKey: String
-        switch mode {
-        case .defaultTranslation:
-            primaryKey = "translation_result"
-        case .temporaryCustom, .userPreset:
-            primaryKey = "result"
-        }
-        let fallbackKey = primaryKey == "translation_result" ? "result" : "translation_result"
+        // Try all possible keys that different AI providers might use
+        let possibleKeys = [
+            "translation_result",  // TranslationBuilder
+            "result",              // CustomBuilder, PresetBuilder
+            "answer",              // Fallback
+            "content",             // Some AI variants
+            "output",              // Alternative
+            "text"                 // Plain response
+        ]
         
-        // Try primary key (handle both String and nested Object)
-        if let result = jsonObj[primaryKey] {
-            if let stringResult = result as? String, !stringResult.isEmpty {
-                return stringResult
-            } else if let dictResult = result as? [String: Any] {
-                // Handle nested object (e.g., {title: "...", author: "..."})
-                return formatNestedResult(dictResult)
+        // Try each key
+        for key in possibleKeys {
+            if let result = jsonObj[key] {
+                if let stringResult = result as? String, !stringResult.isEmpty {
+                    return stringResult
+                } else if let dictResult = result as? [String: Any] {
+                    // Handle nested object (e.g., {title: "...", author: "..."})
+                    return formatNestedResult(dictResult)
+                }
             }
         }
         
-        // Try fallback key
-        if let result = jsonObj[fallbackKey] {
-            if let stringResult = result as? String, !stringResult.isEmpty {
-                return stringResult
-            } else if let dictResult = result as? [String: Any] {
-                return formatNestedResult(dictResult)
-            }
-        }
-        
-        // Last resort: try "answer" key
-        if let result = jsonObj["answer"] as? String, !result.isEmpty {
-            return result
-        }
+        // If all keys failed, provide detailed error
+        let availableKeys = jsonObj.keys.joined(separator: ", ")
+        print("DEBUG: Available JSON keys: \(availableKeys)")
+        print("DEBUG: Full JSON content: \(jsonString)")
         
         throw NSError(domain: "TranslationError", code: 3, 
-                     userInfo: [NSLocalizedDescriptionKey: "No valid result key found in JSON response"])
+                     userInfo: [NSLocalizedDescriptionKey: "No valid result key found. Available keys: \(availableKeys)"])
     }
     
     // Format nested JSON object into readable string
@@ -345,10 +370,22 @@ class TranslationService: ObservableObject {
             
             // Parse JSON response
             let cleanJSON = extractJSON(from: content)
+            
+            // DEBUG: Print raw response
+            print("DEBUG OpenAI Response:")
+            print(cleanJSON)
+            
             return try parseTranslationResult(from: cleanJSON, mode: mode)
         }
         
-        return "Failed to parse translation."
+        // DEBUG: Print full error response
+        if let errorStr = String(data: data, encoding: .utf8) {
+            print("DEBUG OpenAI Full Response Error:")
+            print(errorStr)
+        }
+        
+        throw NSError(domain: "TranslationError", code: 3, 
+                     userInfo: [NSLocalizedDescriptionKey: "Failed to parse translation response structure"])
     }
     
     
@@ -382,7 +419,7 @@ class TranslationService: ObservableObject {
                 "generationConfig": [
                     "response_mime_type": "application/json",
                     "temperature": self.getTemperature(for: text),
-                    "maxOutputTokens": self.getMaxTokens(for: text)
+                    "maxOutputTokens": max(2048, self.getMaxTokens(for: text))  // 增加最小值到 2048
                 ]
             ]
             
@@ -401,10 +438,13 @@ class TranslationService: ObservableObject {
             let (data, response) = try await URLSession.shared.data(for: request)
             
             guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
+                print("❌ Gemini API Error (HTTP Status: \((response as? HTTPURLResponse)?.statusCode ?? 0))")
                 if let errorText = String(data: data, encoding: .utf8) {
-                    throw NSError(domain: "TranslationError", code: 1, userInfo: [NSLocalizedDescriptionKey: "API Error: \(errorText)"])
+                    print("API Error Response:")
+                    print(errorText)
+                    throw NSError(domain: "GeminiAPIError", code: 1, userInfo: [NSLocalizedDescriptionKey: errorText])
                 }
-                throw NSError(domain: "TranslationError", code: 1, userInfo: [NSLocalizedDescriptionKey: "Unknown API Error"])
+                throw NSError(domain: "GeminiAPIError", code: 1, userInfo: [NSLocalizedDescriptionKey: "Unknown API Error"])
             }
             
             if let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
@@ -424,8 +464,11 @@ class TranslationService: ObservableObject {
                 
                 return try self.parseTranslationResult(from: cleanJSON, mode: mode)
             }
-            
-            return "Failed to parse translation."
+             
+            // Return raw API response as error
+            let rawResponse = String(data: data, encoding: .utf8) ?? "Unknown error"
+            throw NSError(domain: "GeminiAPIError", code: 1, 
+                         userInfo: [NSLocalizedDescriptionKey: rawResponse])
         }
     }
     
@@ -481,18 +524,22 @@ class TranslationService: ObservableObject {
                 
                  // Parse JSON response
                 let cleanJSON = self.extractJSON(from: content)
-                if let data = cleanJSON.data(using: .utf8),
-                   let responseObj = try? JSONDecoder().decode(TranslationResponse.self, from: data) {
-                    
-                    // Validate response before returning
-                    try self.validateResponse(responseObj, originalText: text)
-                    return responseObj.translation_result
-                }
                 
-                return content
+                // DEBUG: Print raw response
+                print("DEBUG Zhipu Response:")
+                print(cleanJSON)
+                
+                return try self.parseTranslationResult(from: cleanJSON, mode: mode)
             }
             
-            return "Failed to parse translation."
+            // DEBUG: Print full error response
+            if let errorStr = String(data: data, encoding: .utf8) {
+                print("DEBUG Zhipu Full Response Error:")
+                print(errorStr)
+            }
+            
+            throw NSError(domain: "TranslationError", code: 3, 
+                         userInfo: [NSLocalizedDescriptionKey: "Failed to parse translation response structure"])
         }
     }
 }
