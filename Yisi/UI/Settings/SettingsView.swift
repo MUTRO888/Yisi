@@ -162,8 +162,11 @@ struct GeneralSection: View {
     @AppStorage("gemini_api_key") private var geminiKey: String = ""
     @AppStorage("openai_api_key") private var openaiKey: String = ""
     @AppStorage("zhipu_api_key") private var zhipuKey: String = ""
+    @AppStorage("gemini_model") private var geminiModel: String = "gemini-2.0-flash-exp"
+    @AppStorage("openai_model") private var openaiModel: String = "gpt-4o-mini"
+    @AppStorage("zhipu_model") private var zhipuModel: String = "glm-4-flash"
     @AppStorage("api_provider") private var apiProvider: String = "Gemini"
-    @AppStorage("closemode") private var closeMode: String = "clickOutside"
+    @AppStorage("close_mode") private var closeMode: String = "clickOutside"
     @AppStorage("app_theme") private var appTheme: String = "system"
     @AppStorage("enable_improve_feature") private var enableImproveFeature: Bool = false
     @ObservedObject private var localizationManager = LocalizationManager.shared
@@ -256,10 +259,13 @@ struct GeneralSection: View {
                     
                     if apiProvider == "Gemini" {
                         APIKeyInput(label: "API Key".localized, text: $geminiKey, placeholder: "Gemini API Key")
+                        APIKeyInput(label: "Model".localized, text: $geminiModel, placeholder: "gemini-2.0-flash-exp", isSecure: false)
                     } else if apiProvider == "OpenAI" {
                         APIKeyInput(label: "API Key".localized, text: $openaiKey, placeholder: "OpenAI API Key")
+                        APIKeyInput(label: "Model".localized, text: $openaiModel, placeholder: "gpt-4o-mini", isSecure: false)
                     } else if apiProvider == "Zhipu AI" {
                         APIKeyInput(label: "API Key".localized, text: $zhipuKey, placeholder: "Zhipu API Key")
+                        APIKeyInput(label: "Model".localized, text: $zhipuModel, placeholder: "glm-4-flash", isSecure: false)
                     }
                 }
             }
@@ -413,6 +419,7 @@ struct APIKeyInput: View {
     let label: String
     @Binding var text: String
     let placeholder: String
+    var isSecure: Bool = true  // Default to secure (密文)
     
     var body: some View {
         HStack(alignment: .center) {
@@ -421,14 +428,25 @@ struct APIKeyInput: View {
                 .foregroundColor(.secondary)
                 .frame(width: 80, alignment: .leading)
             
-            SecureField(placeholder, text: $text)
-                .textFieldStyle(PlainTextFieldStyle())
-                .font(.system(size: 13))
-                .padding(.vertical, 6)
-                .padding(.horizontal, 8)
-                .background(Color.primary.opacity(0.03))
-                .cornerRadius(4)
-                .overlay(RoundedRectangle(cornerRadius: 4).stroke(Color.primary.opacity(0.1), lineWidth: 0.5))
+            if isSecure {
+                SecureField(placeholder, text: $text)
+                    .textFieldStyle(PlainTextFieldStyle())
+                    .font(.system(size: 13))
+                    .padding(.vertical, 6)
+                    .padding(.horizontal, 8)
+                    .background(Color.primary.opacity(0.03))
+                    .cornerRadius(4)
+                    .overlay(RoundedRectangle(cornerRadius: 4).stroke(Color.primary.opacity(0.1), lineWidth: 0.5))
+            } else {
+                TextField(placeholder, text: $text)
+                    .textFieldStyle(PlainTextFieldStyle())
+                    .font(.system(size: 13))
+                    .padding(.vertical, 6)
+                    .padding(.horizontal, 8)
+                    .background(Color.primary.opacity(0.03))
+                    .cornerRadius(4)
+                    .overlay(RoundedRectangle(cornerRadius: 4).stroke(Color.primary.opacity(0.1), lineWidth: 0.5))
+            }
         }
     }
 }

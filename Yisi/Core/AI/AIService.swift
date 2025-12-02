@@ -123,7 +123,7 @@ class AIService: ObservableObject {
             }
         }
         
-        // Remove markdown code blocks if present
+        // Remove markdown code blocks if present (Zhipu AI wraps JSON in ```json ... ```)
         if jsonString.contains("```json") {
             jsonString = jsonString.replacingOccurrences(of: "```json", with: "")
         }
@@ -131,10 +131,17 @@ class AIService: ObservableObject {
             jsonString = jsonString.replacingOccurrences(of: "```", with: "")
         }
         
-        // Trim again after all processing
+        // Trim again after removing code fences
         jsonString = jsonString.trimmingCharacters(in: .whitespacesAndNewlines)
         
-        // If we have curly braces, extract just the JSON object
+        // Only extract JSON object if it's wrapped in extra text
+        // Check if the entire string is already a valid JSON object
+        if jsonString.hasPrefix("{") && jsonString.hasSuffix("}") {
+            // Already looks like clean JSON, return as-is
+            return jsonString
+        }
+        
+        // If we have curly braces but they're not at the start/end, extract the JSON object
         if let startIndex = jsonString.firstIndex(of: "{"),
            let endIndex = jsonString.lastIndex(of: "}") {
             jsonString = String(jsonString[startIndex...endIndex])
@@ -234,7 +241,8 @@ class AIService: ObservableObject {
         let userPrompt = PromptCoordinator.shared.generateUserPrompt(
             text: text,
             sourceLanguage: sourceLanguage,
-            targetLanguage: targetLanguage
+            targetLanguage: targetLanguage,
+            mode: mode
         )
         
         return (systemPrompt, userPrompt)
@@ -335,8 +343,10 @@ class AIService: ObservableObject {
             userInstruction: userInstruction
         )
         
+        let model = UserDefaults.standard.string(forKey: "openai_model") ?? "gpt-4o-mini"
+        
         let body: [String: Any] = [
-            "model": "gpt-3.5-turbo",
+            "model": model,
             "temperature": getTemperature(for: text),
             "messages": [
                 ["role": "system", "content": prompts.system],
@@ -404,6 +414,9 @@ class AIService: ObservableObject {
                 userInstruction: userInstruction
             )
             
+            let model = UserDefaults.standard.string(forKey: "gemini_model") ?? "gemini-2.0-flash-exp"
+            let apiUrl = "https://generativelanguage.googleapis.com/v1beta/models/\(model):generateContent?key=\(apiKey)"
+            
             // Use proper system_instruction field (Gemini best practice)
             let body: [String: Any] = [
                 "system_instruction": [
@@ -425,7 +438,7 @@ class AIService: ObservableObject {
             
             let jsonData = try JSONSerialization.data(withJSONObject: body)
             
-            guard let url = URL(string: "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=\(apiKey)") else {
+            guard let url = URL(string: apiUrl) else {
                 throw NSError(domain: "TranslationError", code: 1, userInfo: [NSLocalizedDescriptionKey: "Invalid URL"])
             }
             
@@ -488,8 +501,10 @@ class AIService: ObservableObject {
                 userInstruction: userInstruction
             )
             
+            let model = UserDefaults.standard.string(forKey: "zhipu_model") ?? "glm-4-flash"
+            
             let body: [String: Any] = [
-                "model": "glm-4.5-air",
+                "model": model,
                 "messages": [
                     ["role": "system", "content": prompts.system],
                     ["role": "user", "content": prompts.user]
@@ -520,7 +535,11 @@ class AIService: ObservableObject {
                let choices = json["choices"] as? [[String: Any]],
                let firstChoice = choices.first,
                let message = firstChoice["message"] as? [String: Any],
-               let content = message["content"] as? String {
+                let content = message["content"] as? String {
+                
+                // DEBUG: Print input and raw response
+                print("DEBUG Zhipu Input Text: \(text.prefix(100))...")
+                print("DEBUG Zhipu Raw Content: \(content)")
                 
                  // Parse JSON response
                 let cleanJSON = self.extractJSON(from: content)

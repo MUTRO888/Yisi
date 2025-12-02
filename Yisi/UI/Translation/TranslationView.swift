@@ -74,54 +74,45 @@ struct TranslationView: View {
     
     var body: some View {
         VStack(spacing: 0) {
+
+            
             // Custom Mode Input Fields (Only visible in Temporary Custom Mode)
             if determineMode() == .temporaryCustom {
-                VStack(spacing: 8) {
-                    HStack(spacing: 12) {
-                        TextField("如何理解输入？(e.g. 古诗英译)".localized, text: $customInputPerception)
-                            .textFieldStyle(PlainTextFieldStyle())
-                            .font(.system(size: 13))
-                            .padding(8)
-                            .background(Color.primary.opacity(0.05))
-                            .cornerRadius(6)
-                        
-                        Image(systemName: "arrow.right")
-                            .font(.system(size: 11))
+                VStack(alignment: .leading, spacing: 16) {
+                    // Narrative Input Structure
+                    HStack(alignment: .firstTextBaseline, spacing: 6) {
+                        Text("I perceive this as")
+                            .font(.system(size: 15, weight: .regular, design: .serif))
                             .foregroundColor(.secondary)
                         
-                        TextField("期望输出什么？(e.g. 找到原作者)".localized, text: $customOutputInstruction)
-                            .textFieldStyle(PlainTextFieldStyle())
-                            .font(.system(size: 13))
-                            .padding(8)
-                            .background(Color.primary.opacity(0.05))
-                            .cornerRadius(6)
+                        NarrativeTextField(text: $customInputPerception, placeholder: "Ancient Poetry")
+                            .frame(minWidth: 120)
+                        
+                        Text(",")
+                            .font(.system(size: 15, weight: .regular, design: .serif))
+                            .foregroundColor(.secondary)
+                    }
+                    
+                    HStack(alignment: .firstTextBaseline, spacing: 6) {
+                        Text("please")
+                            .font(.system(size: 15, weight: .regular, design: .serif))
+                            .foregroundColor(.secondary)
+                        
+                        NarrativeTextField(text: $customOutputInstruction, placeholder: "translate to modern English")
+                            .frame(minWidth: 180)
+                        
+                        Text(".")
+                            .font(.system(size: 15, weight: .regular, design: .serif))
+                            .foregroundColor(.secondary)
                     }
                 }
-                .padding(.horizontal, 16)
-                .padding(.vertical, 12)
-                .background(Color.accentColor.opacity(0.05))
+                .padding(.horizontal, 24)
+                .padding(.vertical, 20)
+                .padding(.trailing, closeMode == "xButton" ? 40 : 0) // Reserve space for gravity orb
+                .background(Color.primary.opacity(0.01)) // Almost invisible background
             }
             
             Divider().opacity(0.3)
-            
-            // Close button for X mode
-            if closeMode == "xButton" {
-                HStack {
-                    Spacer()
-                    Button(action: {
-                        WindowManager.shared.close()
-                    }) {
-                        Image(systemName: "xmark.circle.fill")
-                            .font(.system(size: 16))
-                            .foregroundColor(.secondary)
-                    }
-                    .buttonStyle(.plain)
-                    .padding(8)
-                }
-                .frame(height: 0) // Zero height to overlay without taking space
-                .offset(y: -20) // Adjust position to be in the corner
-                .zIndex(100)
-            }
 
             if let errorMessage = errorMessage {
                 HStack {
@@ -253,7 +244,18 @@ struct TranslationView: View {
                 }
             }.padding(16).background(Color.primary.opacity(0.03))
         }.background(VisualEffectView(material: .hudWindow, blendingMode: .behindWindow))
-        .cornerRadius(12).overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.primary.opacity(0.1), lineWidth: 0.5)).onExitCommand {
+        .cornerRadius(12)
+        .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.primary.opacity(0.1), lineWidth: 0.5))
+        .overlay(alignment: .topTrailing) {
+            if closeMode == "xButton" {
+                CloseButton {
+                    WindowManager.shared.close()
+                }
+                .padding(12) // Slightly more padding for the floating feel
+                .transition(.scale.combined(with: .opacity))
+            }
+        }
+        .onExitCommand {
             if closeMode == "escKey" {
                 WindowManager.shared.close()
             }
@@ -641,5 +643,82 @@ struct EditableOutputView: NSViewRepresentable {
             guard let textView = notification.object as? NSTextView else { return }
             text = textView.string
         }
+    }
+}
+
+
+
+struct CloseButton: View {
+    let action: () -> Void
+    @State private var isHovering: Bool = false
+    
+    var body: some View {
+        Button(action: action) {
+            ZStack {
+                // The Orb (Background)
+                VisualEffectView(material: .popover, blendingMode: .withinWindow)
+                    .clipShape(Circle())
+                    .opacity(isHovering ? 1.0 : 0.4) // Ghostly when idle, solid when hovered
+                    .scaleEffect(isHovering ? 1.1 : 1.0) // Expands on hover
+                    .animation(.spring(response: 0.3, dampingFraction: 0.6), value: isHovering)
+                
+                // The Border (Subtle definition)
+                Circle()
+                    .stroke(Color.primary.opacity(isHovering ? 0.1 : 0.05), lineWidth: 0.5)
+                    .scaleEffect(isHovering ? 1.1 : 1.0)
+                
+                // The Sigil (Icon)
+                Image(systemName: "xmark")
+                    .font(.system(size: 10, weight: .medium))
+                    .foregroundColor(isHovering ? .primary : .secondary.opacity(0.7))
+                    .scaleEffect(isHovering ? 1.0 : 0.9)
+            }
+            .frame(width: 24, height: 24) // Slightly larger touch target
+            .shadow(color: Color.black.opacity(isHovering ? 0.1 : 0.0), radius: 4, x: 0, y: 2) // Lifts up on hover
+        }
+        .buttonStyle(.plain)
+        .onHover { hovering in
+            isHovering = hovering
+        }
+    }
+}
+
+// A custom text field that looks like a blank line in a sentence
+struct NarrativeTextField: View {
+    @Binding var text: String
+    var placeholder: String
+    @FocusState private var isFocused: Bool
+    
+    var body: some View {
+        VStack(spacing: 2) {
+            ZStack(alignment: .leading) {
+                // Hidden text for sizing
+                Text(text.isEmpty ? placeholder : text)
+                    .font(.system(size: 15, weight: .medium, design: .serif))
+                    .foregroundColor(.clear)
+                    .padding(.vertical, 0) // Match TextField padding if any
+                    .fixedSize(horizontal: true, vertical: false) // Allow horizontal expansion
+                
+                if text.isEmpty {
+                    Text(placeholder)
+                        .font(.system(size: 15, weight: .regular, design: .serif))
+                        .foregroundColor(.secondary.opacity(0.3))
+                        .allowsHitTesting(false)
+                }
+                
+                TextField("", text: $text)
+                    .textFieldStyle(PlainTextFieldStyle())
+                    .font(.system(size: 15, weight: .medium, design: .serif))
+                    .foregroundColor(.primary)
+                    .focused($isFocused)
+            }
+            
+            // The Underline (The "Line" in MUJI)
+            Rectangle()
+                .fill(isFocused ? Color.primary.opacity(0.5) : Color.primary.opacity(0.1))
+                .frame(height: 1)
+                .animation(.easeInOut(duration: 0.2), value: isFocused)
+        }
+        .animation(.spring(response: 0.3, dampingFraction: 0.7), value: text) // Animate width changes
     }
 }

@@ -54,8 +54,14 @@ class PromptCoordinator {
     ///   - text: 待处理的文本
     ///   - sourceLanguage: 源语言
     ///   - targetLanguage: 目标语言
+    ///   - mode: 提示词模式
     /// - Returns: 用户提示词
-    func generateUserPrompt(text: String, sourceLanguage: String, targetLanguage: String) -> String {
+    func generateUserPrompt(text: String, sourceLanguage: String, targetLanguage: String, mode: PromptMode = .defaultTranslation) -> String {
+        // 如果是临时自定义模式，不要添加"Translate..."指令，因为System Prompt里已经有了用户自定义的任务
+        if mode == .temporaryCustom {
+            return "Input Text:\n\(text)"
+        }
+        
         var prompt = "Translate the following text to \(targetLanguage)."
         if sourceLanguage != "Auto Detect" {
             prompt = "Translate the following text from \(sourceLanguage) to \(targetLanguage)."
