@@ -116,7 +116,8 @@ struct SettingsContent: View {
             Divider().opacity(0.5)
             
             // Section Content
-            ScrollView {
+            // Section Content
+            TransparentScrollView {
                 VStack(alignment: .leading, spacing: 24) {
                     if selectedSection == "General" {
                         GeneralSection()
@@ -128,7 +129,7 @@ struct SettingsContent: View {
                         LearnedRulesSection()
                     }
                 }
-                .padding(24) // The instruction contained a typo `.padding(24)4)`. Keeping original `24` to maintain syntactical correctness.
+                .padding(24)
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
         }

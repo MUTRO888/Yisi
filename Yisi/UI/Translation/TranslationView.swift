@@ -189,15 +189,23 @@ struct TranslationView: View {
                     } else {
                         MacEditorView(text: .constant(translatedText))
                             .frame(maxWidth: .infinity, maxHeight: .infinity)
+                            .opacity(isTranslating ? 0 : 1) // Hide text while translating to prevent overlap
                             .overlay(alignment: .topLeading) {
-                                if translatedText.isEmpty {
-                                    Text(outputPlaceholder)
-                                        .font(.system(size: 16, weight: .light, design: .serif))
-                                        .foregroundColor(.secondary.opacity(0.5))
-                                        .padding(.horizontal, 25)
-                                        .padding(.vertical, 20)
-                                        .allowsHitTesting(false)
+                                Group {
+                                    if isTranslating {
+                                        HarmonicFlowView(text: originalText)
+                                            .padding(.horizontal, 25)
+                                            .padding(.vertical, 20)
+                                    } else if translatedText.isEmpty {
+                                        Text(outputPlaceholder)
+                                            .font(.system(size: 16, weight: .light, design: .serif))
+                                            .foregroundColor(.secondary.opacity(0.5))
+                                            .padding(.horizontal, 25)
+                                            .padding(.vertical, 20)
+                                            .allowsHitTesting(false)
+                                    }
                                 }
+                                .clipped() // Ensure content doesn't overflow the output box
                             }
                     }
                 }
@@ -434,13 +442,7 @@ struct CustomTextEditor: View {
     }
 }
 
-// Custom scroller that removes the background track
-class TransparentScroller: NSScroller {
-    override func drawKnobSlot(in slotRect: NSRect, highlight flag: Bool) {
-        // Override to prevent drawing the white background track
-        // We only want to draw the knob itself, not the track background
-    }
-}
+
 
 struct MacEditorView: NSViewRepresentable {
     @Binding var text: String
