@@ -26,6 +26,8 @@ struct TranslationView: View {
     @AppStorage("selected_preset_id") private var selectedPresetId: String = DEFAULT_TRANSLATION_PRESET_ID
     @State private var customInputPerception: String = ""
     @State private var customOutputInstruction: String = ""
+    @State private var inputPerceptionHeight: CGFloat = 24
+    @State private var outputInstructionHeight: CGFloat = 24
     
     // Computed property for dynamic output placeholder
     var outputPlaceholder: String {
@@ -80,36 +82,50 @@ struct TranslationView: View {
             if determineMode() == .temporaryCustom {
                 VStack(alignment: .leading, spacing: 16) {
                     // Narrative Input Structure
-                    HStack(alignment: .firstTextBaseline, spacing: 6) {
+                    HStack(alignment: .top, spacing: 6) {
                         Text("I perceive this as")
-                            .font(.system(size: 15, weight: .regular, design: .serif))
+                            .font(.system(size: 16, weight: .light, design: .serif))
                             .foregroundColor(.secondary)
+                            // .padding(.top, 2) Removed for alignment with zero-inset editor
                         
-                        NarrativeTextField(text: $customInputPerception, placeholder: "Ancient Poetry")
-                            .frame(minWidth: 120)
+                        NarrativeTextField(
+                            text: $customInputPerception,
+                            height: $inputPerceptionHeight,
+                            placeholder: "Ancient Poetry"
+                        )
+                        .frame(minWidth: 120)
                         
                         Text(",")
-                            .font(.system(size: 15, weight: .regular, design: .serif))
+                            .font(.system(size: 16, weight: .light, design: .serif))
                             .foregroundColor(.secondary)
+                            // .padding(.top, 2)
                     }
                     
-                    HStack(alignment: .firstTextBaseline, spacing: 6) {
+                    HStack(alignment: .top, spacing: 6) {
                         Text("please")
-                            .font(.system(size: 15, weight: .regular, design: .serif))
+                            .font(.system(size: 16, weight: .light, design: .serif))
                             .foregroundColor(.secondary)
+                            // .padding(.top, 2)
                         
-                        NarrativeTextField(text: $customOutputInstruction, placeholder: "translate to modern English")
-                            .frame(minWidth: 180)
+                        NarrativeTextField(
+                            text: $customOutputInstruction,
+                            height: $outputInstructionHeight,
+                            placeholder: "translate to modern English"
+                        )
+                        .frame(minWidth: 180)
                         
                         Text(".")
-                            .font(.system(size: 15, weight: .regular, design: .serif))
+                            .font(.system(size: 16, weight: .light, design: .serif))
                             .foregroundColor(.secondary)
+                            // .padding(.top, 2)
                     }
                 }
                 .padding(.horizontal, 24)
                 .padding(.vertical, 20)
                 .padding(.trailing, closeMode == "xButton" ? 40 : 0) // Reserve space for gravity orb
                 .background(Color.primary.opacity(0.01)) // Almost invisible background
+                .animation(.spring(response: 0.3, dampingFraction: 0.8), value: inputPerceptionHeight)
+                .animation(.spring(response: 0.3, dampingFraction: 0.8), value: outputInstructionHeight)
             }
             
             Divider().opacity(0.3)
@@ -195,52 +211,11 @@ struct TranslationView: View {
                 
                 // Right Side: Actions
                 HStack(spacing: 12) {
-                    if isTranslating || isImproving {
-                        ProgressView().scaleEffect(0.6)
-                    } else if showImproveSuccess {
-                        Image(systemName: "checkmark")
-                            .font(.system(size: 12, weight: .bold))
-                            .foregroundColor(.green)
+                    // Yisi Button (The Living Verb)
+                    YisiButton(isLoading: isTranslating || isImproving) {
+                        Task { await performTranslation() }
                     }
-                    
-                    // Edit button
-                    if enableImproveFeature && !translatedText.isEmpty && !isEditingTranslation {
-                        Button(action: {
-                            isEditingTranslation = true
-                            editedTranslation = translatedText
-                            originalAiTranslation = translatedText
-                        }) {
-                            Text("Edit".localized).font(.system(size: 12, weight: .medium)).foregroundColor(.secondary)
-                        }.buttonStyle(.plain)
-                    }
-                    
-                    // Save/Cancel Edit
-                    if isEditingTranslation {
-                        Button("Cancel".localized) {
-                            isEditingTranslation = false
-                            editedTranslation = ""
-                        }.font(.system(size: 12)).foregroundColor(.secondary).buttonStyle(.plain)
-                    }
-                    
-                    // Improve Button
-                    if isEditingTranslation && editedTranslation != originalAiTranslation && !editedTranslation.isEmpty {
-                        Button("Improve".localized) { Task { await improveWithAI() } }
-                            .font(.system(size: 12)).foregroundColor(.blue).buttonStyle(.plain)
-                    }
-                    
-                    // Copy Button
-                    Button(action: {
-                        let pasteboard = NSPasteboard.general
-                        pasteboard.clearContents()
-                        pasteboard.setString(isEditingTranslation ? editedTranslation : translatedText, forType: .string)
-                    }) {
-                        Image(systemName: "doc.on.doc").font(.system(size: 12)).foregroundColor(.secondary)
-                    }.buttonStyle(.plain).opacity(translatedText.isEmpty ? 0 : 1)
-                    
-                    // Yisi Button
-                    Button(action: { Task { await performTranslation() } }) {
-                        Text("Yisi").font(.system(size: 13, weight: .semibold, design: .serif)).padding(.horizontal, 16).padding(.vertical, 6).background(Color.primary.opacity(0.8)).foregroundColor(Color(nsColor: .windowBackgroundColor)).cornerRadius(6)
-                    }.buttonStyle(.plain).keyboardShortcut(.return, modifiers: .command)
+                    .keyboardShortcut(.return, modifiers: .command)
                 }
             }.padding(16).background(Color.primary.opacity(0.03))
         }.background(VisualEffectView(material: .hudWindow, blendingMode: .behindWindow))
@@ -251,10 +226,12 @@ struct TranslationView: View {
                 CloseButton {
                     WindowManager.shared.close()
                 }
-                .padding(12) // Slightly more padding for the floating feel
+                .padding(8) // Move closer to the edge (was 12)
+                .offset(x: 4, y: -4) // Push slightly out
                 .transition(.scale.combined(with: .opacity))
             }
         }
+        .background(WindowAccessor(window: $window))
         .onExitCommand {
             if closeMode == "escKey" {
                 WindowManager.shared.close()
@@ -265,6 +242,59 @@ struct TranslationView: View {
             if !originalText.isEmpty && determineMode() != .temporaryCustom {
                 await performTranslation()
             }
+        }
+        .onChange(of: inputPerceptionHeight) { newValue in
+            adjustWindowHeight(delta: newValue - 24) // 24 is base height
+        }
+        .onChange(of: outputInstructionHeight) { newValue in
+            adjustWindowHeight(delta: newValue - 24)
+        }
+    }
+    
+    @State private var window: NSWindow?
+    @State private var lastInputHeight: CGFloat = 24
+    @State private var lastOutputHeight: CGFloat = 24
+    
+    private func adjustWindowHeight(delta: CGFloat) {
+        guard let window = window else { return }
+        
+        // Calculate total delta based on both fields
+        // We need to track the previous height to know the incremental change
+        // But here we are getting the absolute height from the binding
+        
+        // Better approach:
+        // Calculate total desired height of inputs
+        let totalInputHeight = inputPerceptionHeight + outputInstructionHeight
+        let baseInputHeight: CGFloat = 48 // 24 + 24
+        
+        // The growth needed
+        // The growth needed
+        // let growth = totalInputHeight - baseInputHeight
+        
+        // We also need to know the current window height to apply the difference?
+        // No, we should probably just resize the window based on the content change.
+        // But SwiftUI updates happen frequently.
+        
+        // Let's rely on the fact that we want the window to grow by the *change* in height.
+        // We need to store the previous total height.
+        
+        let currentTotal = inputPerceptionHeight + outputInstructionHeight
+        let previousTotal = lastInputHeight + lastOutputHeight
+        let diff = currentTotal - previousTotal
+        
+        if diff != 0 {
+            var frame = window.frame
+            frame.size.height += diff
+            frame.origin.y -= diff // Grow upwards (Cocoa coords) or downwards?
+            // Cocoa origin is bottom-left.
+            // To grow downwards (keeping top fixed), we need to decrease origin.y by the growth amount.
+            // To grow upwards (keeping bottom fixed), we just increase height.
+            // Usually we want to grow downwards for a dropdown/input at top.
+            
+            window.setFrame(frame, display: true, animate: true)
+            
+            lastInputHeight = inputPerceptionHeight
+            lastOutputHeight = outputInstructionHeight
         }
     }
     
@@ -437,12 +467,7 @@ struct MacEditorView: NSViewRepresentable {
         textView.autoresizingMask = [.width, .height]
         textView.drawsBackground = false
         textView.backgroundColor = .clear
-        let descriptor = NSFont.systemFont(ofSize: 16, weight: .light).fontDescriptor.withDesign(.serif)
-        if let descriptor = descriptor {
-            textView.font = NSFont(descriptor: descriptor, size: 16)
-        } else {
-            textView.font = .systemFont(ofSize: 16, weight: .light)
-        }
+        textView.font = AppFont.shared.font
         textView.textColor = .labelColor
         textView.isRichText = false
         textView.isVerticallyResizable = true
@@ -503,12 +528,7 @@ struct OutputTextView: NSViewRepresentable {
         textView.isEditable = false
         textView.isSelectable = true
 
-        let descriptor = NSFont.systemFont(ofSize: 16, weight: .light).fontDescriptor.withDesign(.serif)
-        if let descriptor = descriptor {
-            textView.font = NSFont(descriptor: descriptor, size: 16)
-        } else {
-            textView.font = .systemFont(ofSize: 16, weight: .light)
-        }
+        textView.font = AppFont.shared.font
 
         textView.textColor = .labelColor
         textView.isRichText = false
@@ -604,12 +624,7 @@ struct EditableOutputView: NSViewRepresentable {
         textView.isEditable = true
         textView.isSelectable = true
 
-        let descriptor = NSFont.systemFont(ofSize: 16, weight: .light).fontDescriptor.withDesign(.serif)
-        if let descriptor = descriptor {
-            textView.font = NSFont(descriptor: descriptor, size: 16)
-        } else {
-            textView.font = .systemFont(ofSize: 16, weight: .light)
-        }
+        textView.font = AppFont.shared.font
 
         textView.textColor = .labelColor
         textView.isRichText = false
@@ -656,27 +671,14 @@ struct CloseButton: View {
     
     var body: some View {
         Button(action: action) {
-            ZStack {
-                // The Orb (Background)
-                VisualEffectView(material: .popover, blendingMode: .withinWindow)
-                    .clipShape(Circle())
-                    .opacity(isHovering ? 1.0 : 0.4) // Ghostly when idle, solid when hovered
-                    .scaleEffect(isHovering ? 1.1 : 1.0) // Expands on hover
-                    .animation(.spring(response: 0.3, dampingFraction: 0.6), value: isHovering)
-                
-                // The Border (Subtle definition)
-                Circle()
-                    .stroke(Color.primary.opacity(isHovering ? 0.1 : 0.05), lineWidth: 0.5)
-                    .scaleEffect(isHovering ? 1.1 : 1.0)
-                
-                // The Sigil (Icon)
-                Image(systemName: "xmark")
-                    .font(.system(size: 10, weight: .medium))
-                    .foregroundColor(isHovering ? .primary : .secondary.opacity(0.7))
-                    .scaleEffect(isHovering ? 1.0 : 0.9)
-            }
-            .frame(width: 24, height: 24) // Slightly larger touch target
-            .shadow(color: Color.black.opacity(isHovering ? 0.1 : 0.0), radius: 4, x: 0, y: 2) // Lifts up on hover
+            Image(systemName: "xmark")
+                .font(.system(size: 12, weight: .medium)) // Slightly larger for better clickability
+                .foregroundColor(.secondary)
+                .opacity(isHovering ? 1.0 : 0.4) // Ghostly when idle, solid when hovered
+                .scaleEffect(isHovering ? 1.1 : 1.0)
+                .animation(.spring(response: 0.3, dampingFraction: 0.6), value: isHovering)
+                .frame(width: 24, height: 24) // Touch target remains accessible
+                .contentShape(Rectangle()) // Ensure the whole frame is clickable
         }
         .buttonStyle(.plain)
         .onHover { hovering in
@@ -686,41 +688,91 @@ struct CloseButton: View {
 }
 
 // A custom text field that looks like a blank line in a sentence
-struct NarrativeTextField: View {
-    @Binding var text: String
-    var placeholder: String
-    @FocusState private var isFocused: Bool
+
+
+struct YisiButton: View {
+    let isLoading: Bool
+    let action: () -> Void
+    
+    @State private var isHovering: Bool = false
     
     var body: some View {
-        VStack(spacing: 2) {
-            ZStack(alignment: .leading) {
-                // Hidden text for sizing
-                Text(text.isEmpty ? placeholder : text)
-                    .font(.system(size: 15, weight: .medium, design: .serif))
-                    .foregroundColor(.clear)
-                    .padding(.vertical, 0) // Match TextField padding if any
-                    .fixedSize(horizontal: true, vertical: false) // Allow horizontal expansion
+        Button(action: action) {
+            ZStack {
+                // Background
+                RoundedRectangle(cornerRadius: 6)
+                    .fill(Color.primary.opacity(isLoading ? 0.1 : 0.8))
+                    .animation(.easeInOut(duration: 0.3), value: isLoading)
                 
-                if text.isEmpty {
-                    Text(placeholder)
-                        .font(.system(size: 15, weight: .regular, design: .serif))
-                        .foregroundColor(.secondary.opacity(0.3))
-                        .allowsHitTesting(false)
-                }
-                
-                TextField("", text: $text)
-                    .textFieldStyle(PlainTextFieldStyle())
-                    .font(.system(size: 15, weight: .medium, design: .serif))
-                    .foregroundColor(.primary)
-                    .focused($isFocused)
+                // Text "Yisi"
+                Text("Yisi")
+                    .font(.system(size: 13, weight: .semibold, design: .serif))
+                    .foregroundColor(isLoading ? Color.primary : Color(nsColor: .windowBackgroundColor))
+                    // Breathing Animation
+                    .opacity(isLoading ? 0.5 : 1)
+                    .scaleEffect(isLoading ? 0.95 : 1)
+                    .animation(isLoading ? Animation.easeInOut(duration: 0.8).repeatForever(autoreverses: true) : .default, value: isLoading)
             }
-            
-            // The Underline (The "Line" in MUJI)
-            Rectangle()
-                .fill(isFocused ? Color.primary.opacity(0.5) : Color.primary.opacity(0.1))
-                .frame(height: 1)
-                .animation(.easeInOut(duration: 0.2), value: isFocused)
+            .frame(width: 60, height: 28)
+            .shadow(color: Color.black.opacity(isHovering && !isLoading ? 0.1 : 0), radius: 2, x: 0, y: 1)
         }
-        .animation(.spring(response: 0.3, dampingFraction: 0.7), value: text) // Animate width changes
+        .buttonStyle(.plain)
+        .disabled(isLoading)
+        .onHover { hovering in
+            isHovering = hovering
+        }
+    }
+}
+
+struct NarrativeTextField: View {
+    @Binding var text: String
+    @Binding var height: CGFloat
+    var placeholder: String
+    
+    var body: some View {
+        DynamicHeightTextEditor(
+            text: $text,
+            height: $height,
+            placeholder: placeholder,
+            font: AppFont.shared.font
+        )
+        .frame(height: height)
+    }
+}
+
+struct AppFont {
+    static let shared = AppFont()
+    let font: NSFont
+    
+    private init() {
+        let descriptor = NSFont.systemFont(ofSize: 16, weight: .light).fontDescriptor.withDesign(.serif)
+        if let descriptor = descriptor {
+            self.font = NSFont(descriptor: descriptor, size: 16) ?? .systemFont(ofSize: 16, weight: .light)
+        } else {
+            self.font = .systemFont(ofSize: 16, weight: .light)
+        }
+    }
+}
+
+struct WindowAccessor: NSViewRepresentable {
+    @Binding var window: NSWindow?
+    
+    func makeNSView(context: Context) -> NSView {
+        let view = WindowAccessorView()
+        view.onWindowChange = { [weak view] in
+            self.window = view?.window
+        }
+        return view
+    }
+    
+    func updateNSView(_ nsView: NSView, context: Context) {}
+    
+    class WindowAccessorView: NSView {
+        var onWindowChange: (() -> Void)?
+        
+        override func viewDidMoveToWindow() {
+            super.viewDidMoveToWindow()
+            onWindowChange?()
+        }
     }
 }

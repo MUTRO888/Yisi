@@ -143,14 +143,22 @@ struct SidebarButton: View {
     
     var body: some View {
         Button(action: action) {
-            Text(title)
-                .font(.system(size: 13, weight: isSelected ? .medium : .regular, design: .serif))
-                .foregroundColor(isSelected ? .primary : .secondary)
-                .padding(.horizontal, 12)
-                .padding(.vertical, 6)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .background(isSelected ? Color.primary.opacity(0.04) : Color.clear)
-                .cornerRadius(6)
+            HStack(spacing: 8) {
+                // Swiss Indicator: A small, precise rectangle
+                Rectangle()
+                    .fill(isSelected ? Color.primary : Color.clear)
+                    .frame(width: 2, height: 12)
+                    .opacity(isSelected ? 1 : 0)
+                
+                Text(title)
+                    .font(.system(size: 13, weight: isSelected ? .semibold : .regular, design: .serif))
+                    .foregroundColor(isSelected ? .primary : .secondary)
+                
+                Spacer()
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 6)
+            .contentShape(Rectangle()) // Make the whole row clickable
         }
         .buttonStyle(.plain)
     }
@@ -667,17 +675,15 @@ struct PresetRadioRow: View {
     
     var body: some View {
         HStack(spacing: 12) {
-            // Radio Button
-            Button(action: onSelect) {
-                Image(systemName: isSelected ? "largecircle.fill.circle" : "circle")
-                    .font(.system(size: 14))
-                    .foregroundColor(isSelected ? .accentColor : .secondary.opacity(0.5))
-            }
-            .buttonStyle(.plain)
+            // Swiss Indicator: A small, precise rectangle (Consistent with Sidebar)
+            Rectangle()
+                .fill(isSelected ? Color.primary : Color.clear)
+                .frame(width: 2, height: 12)
+                .opacity(isSelected ? 1 : 0)
             
             VStack(alignment: .leading, spacing: 2) {
                 Text(name)
-                    .font(.system(size: 13, weight: .medium, design: .serif))
+                    .font(.system(size: 13, weight: isSelected ? .semibold : .regular, design: .serif))
                     .foregroundColor(.primary)
                 Text(description)
                     .font(.system(size: 11, design: .serif))
@@ -707,10 +713,12 @@ struct PresetRadioRow: View {
                 .opacity(0.6)
             }
         }
-        .padding(.vertical, 6)
-        .padding(.horizontal, 12)
-        .background(isSelected ? Color.accentColor.opacity(0.08) : Color.clear)
-        .cornerRadius(6)
+        .padding(.vertical, 8) // Increased vertical padding for breathing room
+        .padding(.horizontal, 4) // Minimal horizontal padding
+        .contentShape(Rectangle()) // Make full row clickable
+        .onTapGesture {
+            onSelect()
+        }
     }
 }
 
