@@ -209,7 +209,7 @@ struct TranslationView: View {
                             }
                     }
                 }
-                .background(Color.primary.opacity(0.02))
+                .background(Color.clear) // Transparent to let theme show through
             }
             
             // Bottom Bar
@@ -226,7 +226,7 @@ struct TranslationView: View {
                     .keyboardShortcut(.return, modifiers: .command)
                 }
             }.padding(16).background(Color.primary.opacity(0.03))
-        }.background(VisualEffectView(material: .hudWindow, blendingMode: .behindWindow))
+        }.background(ThemeBackground())
         .cornerRadius(12)
         .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.primary.opacity(0.1), lineWidth: 0.5))
         .overlay(alignment: .topTrailing) {
@@ -430,7 +430,7 @@ struct CustomTextEditor: View {
             if text.isEmpty && !isFocused {
                 Text(placeholder)
                     .font(.system(size: 16, weight: .light, design: .serif))
-                    .foregroundColor(.secondary.opacity(0.5))
+                    .foregroundColor(AppColors.text.opacity(0.4))
                     .padding(.horizontal, 25)
                     .padding(.vertical, 20)
                     .allowsHitTesting(false)
@@ -470,7 +470,7 @@ struct MacEditorView: NSViewRepresentable {
         textView.drawsBackground = false
         textView.backgroundColor = .clear
         textView.font = AppFont.shared.font
-        textView.textColor = .labelColor
+        textView.textColor = NSColor(AppColors.text)
         textView.isRichText = false
         textView.isVerticallyResizable = true
         textView.isHorizontallyResizable = false
@@ -532,7 +532,7 @@ struct OutputTextView: NSViewRepresentable {
 
         textView.font = AppFont.shared.font
 
-        textView.textColor = .labelColor
+        textView.textColor = NSColor(AppColors.text)
         textView.isRichText = false
         textView.isVerticallyResizable = true
         textView.isHorizontallyResizable = false
@@ -568,7 +568,7 @@ struct LanguageSelector: View {
             }
         } label: {
             HStack(spacing: 4) {
-                Text(selection.displayName).font(.system(size: 12, weight: .medium)).foregroundColor(.secondary)
+                Text(selection.displayName).font(.system(size: 12, weight: .medium)).foregroundColor(AppColors.text.opacity(0.6))
             }
         }.menuStyle(.borderlessButton).fixedSize()
     }
@@ -577,25 +577,11 @@ struct LanguageSelector: View {
 struct LanguageButton: View {
     let text: String
     var body: some View {
-        Text(text).font(.system(size: 12, weight: .medium)).foregroundColor(.secondary).padding(.horizontal, 8).padding(.vertical, 4).background(Color.primary.opacity(0.05)).cornerRadius(4)
+        Text(text).font(.system(size: 12, weight: .medium)).foregroundColor(AppColors.text.opacity(0.7)).padding(.horizontal, 8).padding(.vertical, 4).background(AppColors.primary.opacity(0.1)).cornerRadius(4)
     }
 }
 
-struct VisualEffectView: NSViewRepresentable {
-    let material: NSVisualEffectView.Material
-    let blendingMode: NSVisualEffectView.BlendingMode
-    func makeNSView(context: Context) -> NSVisualEffectView {
-        let visualEffectView = NSVisualEffectView()
-        visualEffectView.material = material
-        visualEffectView.blendingMode = blendingMode
-        visualEffectView.state = .active
-        return visualEffectView
-    }
-    func updateNSView(_ nsView: NSVisualEffectView, context: Context) {
-        nsView.material = material
-        nsView.blendingMode = blendingMode
-    }
-}
+// VisualEffectView removed (moved to Core/Design)
 // Add this component after OutputTextView and before LanguageSelector in TranslationView.swift
 
 struct EditableOutputView: NSViewRepresentable {
@@ -675,7 +661,7 @@ struct CloseButton: View {
         Button(action: action) {
             Image(systemName: "xmark")
                 .font(.system(size: 12, weight: .medium)) // Slightly larger for better clickability
-                .foregroundColor(.secondary)
+                .foregroundColor(AppColors.text.opacity(0.6))
                 .opacity(isHovering ? 1.0 : 0.4) // Ghostly when idle, solid when hovered
                 .scaleEffect(isHovering ? 1.1 : 1.0)
                 .animation(.spring(response: 0.3, dampingFraction: 0.6), value: isHovering)
@@ -703,13 +689,13 @@ struct YisiButton: View {
             ZStack {
                 // Background
                 RoundedRectangle(cornerRadius: 6)
-                    .fill(Color.primary.opacity(isLoading ? 0.1 : 0.8))
+                    .fill(AppColors.primary.opacity(isLoading ? 0.1 : 1.0))
                     .animation(.easeInOut(duration: 0.3), value: isLoading)
                 
                 // Text "Yisi"
                 Text("Yisi")
                     .font(.system(size: 13, weight: .semibold, design: .serif))
-                    .foregroundColor(isLoading ? Color.primary : Color(nsColor: .windowBackgroundColor))
+                    .foregroundColor(isLoading ? AppColors.primary : Color.white)
                     // Breathing Animation
                     .opacity(isLoading ? 0.5 : 1)
                     .scaleEffect(isLoading ? 0.95 : 1)

@@ -40,38 +40,66 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
     
     private func createFlowIcon() -> NSImage? {
-        let size = NSSize(width: 18, height: 18)
+        // Design: "Pure Lines"
+        // 3 lines, left aligned
+        // Widths: 14, 9, 5
+        // Height: 2
+        // Gap: 2.5
+        // Color: Black/Dark (System Text Color)
+        
+        let size = NSSize(width: 22, height: 22) // Match CSS .menubar-icon-shape
         let image = NSImage(size: size)
         
         image.lockFocus()
         
-        let scale = size.width / 24.0
-        let path = NSBezierPath()
+        let ctx = NSGraphicsContext.current?.cgContext
+        ctx?.setShouldAntialias(true)
         
-        // Top curve: M4 10C8 6, 16 6, 20 10
-        path.move(to: NSPoint(x: 4 * scale, y: 14 * scale)) // Flip Y for AppKit
-        path.curve(
-            to: NSPoint(x: 20 * scale, y: 14 * scale),
-            controlPoint1: NSPoint(x: 8 * scale, y: 18 * scale),
-            controlPoint2: NSPoint(x: 16 * scale, y: 18 * scale)
-        )
+        NSColor.controlTextColor.setFill() // Adapts to light/dark mode
         
-        // Bottom curve: M20 14C16 18, 8 18, 4 14
-        path.move(to: NSPoint(x: 20 * scale, y: 10 * scale))
-        path.curve(
-            to: NSPoint(x: 4 * scale, y: 10 * scale),
-            controlPoint1: NSPoint(x: 16 * scale, y: 6 * scale),
-            controlPoint2: NSPoint(x: 8 * scale, y: 6 * scale)
-        )
+        // Calculate vertical centering
+        // Total height = 2*3 + 2.5*2 = 6 + 5 = 11
+        // Top Y = (22 - 11) / 2 = 5.5
         
-        NSColor.controlTextColor.setStroke()
-        path.lineWidth = 1.5
-        path.lineCapStyle = .round
-        path.lineJoinStyle = .round
-        path.stroke()
+        let startY: CGFloat = 5.5
+        let lineHeight: CGFloat = 2.0
+        let gap: CGFloat = 2.5
+        
+        // Line 1 (Top) - Width 14
+        // Note: Cocoa coords (0,0) is bottom-left.
+        // To match CSS "Top", we draw from top down or just calculate Y.
+        // Let's draw from top (higher Y) to bottom (lower Y).
+        // Center Y is 11.
+        // Top line Y = 11 + 2.5 + 2 = 15.5? No.
+        // Let's just use the calculated startY from bottom.
+        // Bottom line Y = 5.5
+        // Middle line Y = 5.5 + 2 + 2.5 = 10.0
+        // Top line Y = 10.0 + 2 + 2.5 = 14.5
+        
+        // Wait, CSS order is usually top-down.
+        // .bar:nth-child(1) width 92% (in harmonic flow)
+        // Here: .ml-1 width 14px (Top)
+        // .ml-2 width 9px (Middle)
+        // .ml-3 width 5px (Bottom)
+        
+        let topY = 5.5 + 4.5 + 4.5 // 14.5
+        let midY = 5.5 + 4.5       // 10.0
+        let botY = 5.5             // 5.5
+        
+        // Draw Top Line (Width 14)
+        let path1 = NSBezierPath(roundedRect: NSRect(x: 4, y: topY, width: 14, height: lineHeight), xRadius: 1, yRadius: 1)
+        path1.fill()
+        
+        // Draw Middle Line (Width 9)
+        let path2 = NSBezierPath(roundedRect: NSRect(x: 4, y: midY, width: 9, height: lineHeight), xRadius: 1, yRadius: 1)
+        path2.fill()
+        
+        // Draw Bottom Line (Width 5)
+        let path3 = NSBezierPath(roundedRect: NSRect(x: 4, y: botY, width: 5, height: lineHeight), xRadius: 1, yRadius: 1)
+        path3.fill()
         
         image.unlockFocus()
-        image.isTemplate = true
+        image.isTemplate = true // Allows system to recolor it (e.g. white in dark mode menu bar)
         
         return image
     }

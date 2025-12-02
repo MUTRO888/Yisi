@@ -47,7 +47,7 @@ struct SettingsView: View {
             }
         }
         .frame(minWidth: 500, minHeight: 350)
-        .background(VisualEffectView(material: .sidebar, blendingMode: .behindWindow).edgesIgnoringSafeArea(.top))
+        .background(ThemeBackground().edgesIgnoringSafeArea(.all))
         .preferredColorScheme(ColorScheme(from: appTheme))
     }
 }
@@ -66,7 +66,7 @@ struct TopTabButton: View {
                 
                 // Active Indicator
                 Rectangle()
-                    .fill(isSelected ? Color.primary.opacity(0.7) : Color.clear)
+                    .fill(isSelected ? AppColors.primary.opacity(0.7) : Color.clear)
                     .frame(height: 1)
                     .frame(width: 20)
             }
@@ -147,13 +147,13 @@ struct SidebarButton: View {
             HStack(spacing: 8) {
                 // Swiss Indicator: A small, precise rectangle
                 Rectangle()
-                    .fill(isSelected ? Color.primary : Color.clear)
+                    .fill(isSelected ? AppColors.primary : Color.clear)
                     .frame(width: 2, height: 12)
                     .opacity(isSelected ? 1 : 0)
                 
                 Text(title)
                     .font(.system(size: 13, weight: isSelected ? .semibold : .regular, design: .serif))
-                    .foregroundColor(isSelected ? .primary : .secondary)
+                    .foregroundColor(isSelected ? AppColors.primary : AppColors.text.opacity(0.7))
                 
                 Spacer()
             }
@@ -418,7 +418,7 @@ struct SectionHeader: View {
     var body: some View {
         Text(title)
             .font(.system(size: 12, weight: .medium, design: .serif))
-            .foregroundColor(.primary.opacity(0.8))
+            .foregroundColor(AppColors.text.opacity(0.8))
             .textCase(.uppercase)
             .kerning(0.5)
     }
@@ -443,18 +443,18 @@ struct APIKeyInput: View {
                     .font(.system(size: 13))
                     .padding(.vertical, 6)
                     .padding(.horizontal, 8)
-                    .background(Color.primary.opacity(0.03))
+                    .background(AppColors.primary.opacity(0.05))
                     .cornerRadius(4)
-                    .overlay(RoundedRectangle(cornerRadius: 4).stroke(Color.primary.opacity(0.1), lineWidth: 0.5))
+                    .overlay(RoundedRectangle(cornerRadius: 4).stroke(AppColors.primary.opacity(0.1), lineWidth: 0.5))
             } else {
                 TextField(placeholder, text: $text)
                     .textFieldStyle(PlainTextFieldStyle())
                     .font(.system(size: 13))
                     .padding(.vertical, 6)
                     .padding(.horizontal, 8)
-                    .background(Color.primary.opacity(0.03))
+                    .background(AppColors.primary.opacity(0.05))
                     .cornerRadius(4)
-                    .overlay(RoundedRectangle(cornerRadius: 4).stroke(Color.primary.opacity(0.1), lineWidth: 0.5))
+                    .overlay(RoundedRectangle(cornerRadius: 4).stroke(AppColors.primary.opacity(0.1), lineWidth: 0.5))
             }
         }
     }
@@ -1041,9 +1041,9 @@ struct CustomDropdown: View {
             .padding(.vertical, 6)
             .padding(.horizontal, 10)
             .frame(width: 160)
-            .background(Color.primary.opacity(0.03))
+            .background(AppColors.primary.opacity(0.05))
             .cornerRadius(4)
-            .overlay(RoundedRectangle(cornerRadius: 4).stroke(Color.primary.opacity(0.1), lineWidth: 0.5))
+            .overlay(RoundedRectangle(cornerRadius: 4).stroke(AppColors.primary.opacity(0.1), lineWidth: 0.5))
         }
         .menuStyle(.borderlessButton)
         .fixedSize()
@@ -1068,7 +1068,7 @@ struct ElegantToggle: View {
         }) {
             ZStack(alignment: isOn ? .trailing : .leading) {
                 RoundedRectangle(cornerRadius: 10)
-                    .fill(isOn ? Color.primary.opacity(0.8) : Color.primary.opacity(0.1))
+                    .fill(isOn ? AppColors.primary : AppColors.primary.opacity(0.15))
                     .frame(width: 32, height: 18)
                 
                 Circle()
@@ -1125,11 +1125,11 @@ struct ShortcutRecorder: View {
             .padding(.vertical, 6)
             .padding(.horizontal, 10)
             .frame(width: 160)
-            .background(isRecording ? Color.accentColor.opacity(0.05) : Color.primary.opacity(0.03))
+            .background(isRecording ? AppColors.primary.opacity(0.1) : AppColors.primary.opacity(0.05))
             .cornerRadius(4)
             .overlay(
                 RoundedRectangle(cornerRadius: 4)
-                    .stroke(isRecording ? Color.accentColor.opacity(0.3) : Color.primary.opacity(0.1), lineWidth: 0.5)
+                    .stroke(isRecording ? AppColors.primary.opacity(0.3) : AppColors.primary.opacity(0.1), lineWidth: 0.5)
             )
         }
         .buttonStyle(.plain)

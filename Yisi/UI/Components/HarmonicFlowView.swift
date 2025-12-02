@@ -3,30 +3,9 @@ import SwiftUI
 struct HarmonicFlowView: View {
     let text: String
     
-    // User-specified colors
-    // Base: #E4E7EB -> RGB(228, 231, 235)
-    // Active: #AAB2BD -> RGB(170, 178, 189)
-    
-    // We use dynamic colors to ensure it looks good in Dark Mode too
-    private var barBaseColor: Color {
-        Color(nsColor: NSColor(name: nil, dynamicProvider: { appearance in
-            if appearance.name.rawValue.contains("Dark") {
-                return NSColor(red: 0.2, green: 0.2, blue: 0.2, alpha: 1.0)
-            } else {
-                return NSColor(red: 228/255, green: 231/255, blue: 235/255, alpha: 1.0)
-            }
-        }))
-    }
-    
-    private var barActiveColor: Color {
-        Color(nsColor: NSColor(name: nil, dynamicProvider: { appearance in
-            if appearance.name.rawValue.contains("Dark") {
-                return NSColor(red: 0.4, green: 0.4, blue: 0.45, alpha: 1.0)
-            } else {
-                return NSColor(red: 170/255, green: 178/255, blue: 189/255, alpha: 1.0)
-            }
-        }))
-    }
+    // Colors from Design System
+    private let barBaseColor = AppColors.mist
+    private let barActiveColor = AppColors.yisiLight
     
     private let speed: Double = 1.8
     
