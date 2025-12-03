@@ -20,7 +20,7 @@ struct TransparentScrollView<Content: View>: NSViewRepresentable {
         scrollView.verticalScroller = TransparentScroller()
         
         // Hosting View
-        let hostingView = NSHostingView(rootView: content)
+        let hostingView = ResizingHostingView(rootView: content)
         hostingView.translatesAutoresizingMaskIntoConstraints = false
         
         // Set document view
@@ -32,14 +32,27 @@ struct TransparentScrollView<Content: View>: NSViewRepresentable {
         NSLayoutConstraint.activate([
             hostingView.leadingAnchor.constraint(equalTo: scrollView.contentView.leadingAnchor),
             hostingView.trailingAnchor.constraint(equalTo: scrollView.contentView.trailingAnchor),
+            hostingView.topAnchor.constraint(equalTo: scrollView.contentView.topAnchor)
         ])
         
         return scrollView
     }
     
     func updateNSView(_ scrollView: NSScrollView, context: Context) {
-        if let hostingView = scrollView.documentView as? NSHostingView<Content> {
+        if let hostingView = scrollView.documentView as? ResizingHostingView<Content> {
             hostingView.rootView = content
+            // Force layout update to handle dynamic content size changes
+            hostingView.layout()
+        }
+    }
+}
+
+class ResizingHostingView<Content: View>: NSHostingView<Content> {
+    override func layout() {
+        super.layout()
+        let size = self.fittingSize
+        if size.height > 0 && self.frame.height != size.height {
+            self.frame.size.height = size.height
         }
     }
 }

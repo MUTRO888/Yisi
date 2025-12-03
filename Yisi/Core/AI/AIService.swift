@@ -15,14 +15,28 @@ class AIService: ObservableObject {
         let provider = getAPIProvider()
         let preprocessedText = preprocessInput(text)
         
+        let result: String
         switch provider {
         case .openai:
-            return try await translateWithOpenAI(preprocessedText, mode: mode, sourceLanguage: sourceLanguage, targetLanguage: targetLanguage, userPerception: userPerception, userInstruction: userInstruction)
+            result = try await translateWithOpenAI(preprocessedText, mode: mode, sourceLanguage: sourceLanguage, targetLanguage: targetLanguage, userPerception: userPerception, userInstruction: userInstruction)
         case .gemini:
-            return try await translateWithGemini(preprocessedText, mode: mode, sourceLanguage: sourceLanguage, targetLanguage: targetLanguage, userPerception: userPerception, userInstruction: userInstruction)
+            result = try await translateWithGemini(preprocessedText, mode: mode, sourceLanguage: sourceLanguage, targetLanguage: targetLanguage, userPerception: userPerception, userInstruction: userInstruction)
         case .zhipu:
-            return try await translateWithZhipu(preprocessedText, mode: mode, sourceLanguage: sourceLanguage, targetLanguage: targetLanguage, userPerception: userPerception, userInstruction: userInstruction)
+            result = try await translateWithZhipu(preprocessedText, mode: mode, sourceLanguage: sourceLanguage, targetLanguage: targetLanguage, userPerception: userPerception, userInstruction: userInstruction)
         }
+        
+        // Save to History
+        HistoryManager.shared.addHistory(
+            sourceText: text, // Save original text, not preprocessed
+            targetText: result,
+            sourceLanguage: sourceLanguage,
+            targetLanguage: targetLanguage,
+            mode: mode,
+            customPerception: userPerception,
+            customInstruction: userInstruction
+        )
+        
+        return result
     }
     
     private func getAPIProvider() -> APIProvider {

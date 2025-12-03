@@ -75,24 +75,7 @@ struct TopTabButton: View {
     }
 }
 
-struct HistoryView: View {
-    var body: some View {
-        VStack(spacing: 16) {
-            Spacer()
-            Image(systemName: "clock")
-                .font(.system(size: 32, weight: .light))
-                .foregroundColor(.secondary.opacity(0.3))
-            Text("No History".localized)
-                .font(.system(size: 14, weight: .medium, design: .serif))
-                .foregroundColor(.secondary)
-            Text("Your recent translations will appear here.".localized)
-                .font(.system(size: 12, design: .serif))
-                .foregroundColor(.secondary.opacity(0.7))
-            Spacer()
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-    }
-}
+
 
 struct SettingsContent: View {
     @State private var selectedSection: String = "General"
