@@ -313,6 +313,7 @@ struct HistoryRowView: View {
                             .lineLimit(isExpanded ? nil : 1)
                             .frame(maxWidth: .infinity, alignment: .leading)
                             .fixedSize(horizontal: false, vertical: true) // Ensure full height
+                            .layoutPriority(isExpanded ? 1 : 0) // 展開時最高優先級，禁止壓縮
                         
                         if isExpanded {
                             targetText.textSelection(.enabled)
@@ -328,6 +329,7 @@ struct HistoryRowView: View {
                         .lineLimit(isExpanded ? nil : 1)
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .fixedSize(horizontal: false, vertical: true) // Ensure full height
+                        .layoutPriority(isExpanded ? 1 : 0) // 展開時最高優先級，禁止壓縮
                     
                     if isExpanded {
                         sourceText.textSelection(.enabled)
@@ -345,6 +347,8 @@ struct HistoryRowView: View {
                                     .foregroundColor(AppColors.primary.opacity(0.8))
                                     .frame(maxWidth: .infinity, alignment: .leading)
                                     .textSelection(.enabled) // Always selectable when expanded
+                                    .fixedSize(horizontal: false, vertical: true) // 确保垂直方向完全撑开
+                                    .layoutPriority(1) // 确保不被压缩
                             }
                         }
                     }
