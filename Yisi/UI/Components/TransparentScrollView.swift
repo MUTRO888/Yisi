@@ -18,15 +18,8 @@ struct TransparentScrollView<Content: View>: NSViewRepresentable {
     }
     
     func makeNSView(context: Context) -> NSScrollView {
-        let scrollView = NSScrollView()
-        scrollView.drawsBackground = false
-        scrollView.backgroundColor = .clear
-        scrollView.hasVerticalScroller = true
-        scrollView.hasHorizontalScroller = false
-        scrollView.autohidesScrollers = true
-        
-        // 保留透明滾動條樣式
-        scrollView.verticalScroller = TransparentScroller()
+        let scrollView = YisiScrollView()
+
         
         // 使用 AnyView 進行類型擦除，解決類型匹配問題
         let rootView = AnyView(EmptyView())

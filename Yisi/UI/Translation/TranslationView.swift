@@ -448,21 +448,7 @@ struct MacEditorView: NSViewRepresentable {
     @Binding var text: String
     
     func makeNSView(context: Context) -> NSScrollView {
-        let scrollView = NSScrollView()
-        scrollView.drawsBackground = false
-        scrollView.backgroundColor = .clear
-        scrollView.contentView.drawsBackground = false
-        scrollView.contentView.backgroundColor = .clear
-        scrollView.wantsLayer = true
-        scrollView.layer?.backgroundColor = NSColor.clear.cgColor
-        scrollView.borderType = .noBorder
-        scrollView.hasVerticalScroller = true
-        scrollView.hasHorizontalScroller = false
-        scrollView.autohidesScrollers = true
-        scrollView.scrollerStyle = .overlay
-        
-        // Use custom transparent scroller
-        scrollView.verticalScroller = TransparentScroller()
+        let scrollView = YisiScrollView()
         scrollView.verticalScroller?.controlSize = .mini
 
         let textView = NSTextView()
@@ -506,21 +492,7 @@ struct OutputTextView: NSViewRepresentable {
     let isEmpty: Bool
 
     func makeNSView(context: Context) -> NSScrollView {
-        let scrollView = NSScrollView()
-        scrollView.drawsBackground = false
-        scrollView.backgroundColor = .clear
-        scrollView.contentView.drawsBackground = false
-        scrollView.contentView.backgroundColor = .clear
-        scrollView.wantsLayer = true
-        scrollView.layer?.backgroundColor = NSColor.clear.cgColor
-        scrollView.borderType = .noBorder
-        scrollView.hasVerticalScroller = true
-        scrollView.hasHorizontalScroller = false
-        scrollView.autohidesScrollers = true
-        scrollView.scrollerStyle = .overlay
-        
-        // Use custom transparent scroller
-        scrollView.verticalScroller = TransparentScroller()
+        let scrollView = YisiScrollView()
         scrollView.verticalScroller?.controlSize = .mini
 
         let textView = NSTextView()
@@ -589,20 +561,7 @@ struct EditableOutputView: NSViewRepresentable {
     let originalText: String
 
     func makeNSView(context: Context) -> NSScrollView {
-        let scrollView = NSScrollView()
-        scrollView.drawsBackground = false
-        scrollView.backgroundColor = .clear
-        scrollView.contentView.drawsBackground = false
-        scrollView.contentView.backgroundColor = .clear
-        scrollView.wantsLayer = true
-        scrollView.layer?.backgroundColor = NSColor.clear.cgColor
-        scrollView.borderType = .noBorder
-        scrollView.hasVerticalScroller = true
-        scrollView.hasHorizontalScroller = false
-        scrollView.autohidesScrollers = true
-        scrollView.scrollerStyle = .overlay
-        
-        scrollView.verticalScroller = TransparentScroller()
+        let scrollView = YisiScrollView()
         scrollView.verticalScroller?.controlSize = .mini
 
         let textView = NSTextView()
