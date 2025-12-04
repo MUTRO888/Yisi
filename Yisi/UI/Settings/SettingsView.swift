@@ -24,16 +24,15 @@ struct SettingsView: View {
     var body: some View {
         VStack(spacing: 0) {
             // Top Navigation
-            HStack(spacing: 32) {
+            HStack(spacing: 24) { // 減小標籤間距，更緊湊
                 TopTabButton(title: "History".localized, isSelected: selectedTopTab == 0) { selectedTopTab = 0 }
                 TopTabButton(title: "Settings".localized, isSelected: selectedTopTab == 1) { selectedTopTab = 1 }
                 Spacer()
             }
-            .padding(.horizontal, 24)
-            .padding(.bottom, 16)
-            // Removed opaque background to allow frosted effect
-            
-            Divider().opacity(0.2)
+            .padding(.leading, 20) // 微調對齊位置
+            .padding(.trailing, 20)
+            .padding(.top, 14)
+            .padding(.bottom, 4) // 大幅減小，讓內容區上提
             
             // Content Area
             ZStack(alignment: .topLeading) {
@@ -84,21 +83,28 @@ struct SettingsContent: View {
     var body: some View {
         HStack(spacing: 0) {
             // Sidebar
-            VStack(alignment: .leading, spacing: 12) {
+            VStack(alignment: .leading, spacing: 4) {
                 SidebarButton(title: "General".localized, isSelected: selectedSection == "General") { selectedSection = "General" }
                 SidebarButton(title: "Prompts".localized, isSelected: selectedSection == "Prompts") { selectedSection = "Prompts" }
                 SidebarButton(title: "Shortcuts".localized, isSelected: selectedSection == "Shortcuts") { selectedSection = "Shortcuts" }
                 SidebarButton(title: "Learned Rules".localized, isSelected: selectedSection == "Learned Rules") { selectedSection = "Learned Rules" }
                 Spacer()
             }
-            .padding(.vertical, 20)
-            .padding(.horizontal, 12)
+            .padding(.vertical, 14) // 内部内边距调整为 14
+            .padding(.horizontal, 8)
             .frame(width: 140)
-            .background(Color.primary.opacity(0.03))
+            .background(
+                ZStack {
+                    VisualEffectView(material: .hudWindow, blendingMode: .behindWindow)
+                    Color.white.opacity(0.1)
+                }
+                .cornerRadius(12) // 圆角微调为 12，更精致
+                .shadow(color: Color.black.opacity(0.05), radius: 10, x: 0, y: 0)
+            )
+            .padding(.leading, 12)
+            .padding(.top, 0) // 緊貼導航欄下方
+            .padding(.bottom, 12)
             
-            Divider().opacity(0.5)
-            
-            // Section Content
             // Section Content
             TransparentScrollView {
                 VStack(alignment: .leading, spacing: 24) {
@@ -127,22 +133,16 @@ struct SidebarButton: View {
     
     var body: some View {
         Button(action: action) {
-            HStack(spacing: 8) {
-                // Swiss Indicator: A small, precise rectangle
-                Rectangle()
-                    .fill(isSelected ? AppColors.primary : Color.clear)
-                    .frame(width: 2, height: 12)
-                    .opacity(isSelected ? 1 : 0)
-                
-                Text(title)
-                    .font(.system(size: 13, weight: isSelected ? .semibold : .regular, design: .serif))
-                    .foregroundColor(isSelected ? AppColors.primary : AppColors.text.opacity(0.7))
-                
-                Spacer()
-            }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 6)
-            .contentShape(Rectangle()) // Make the whole row clickable
+            Text(title)
+                .font(.system(size: 13, weight: isSelected ? .medium : .regular, design: .serif))
+                .foregroundColor(isSelected ? AppColors.primary : AppColors.text.opacity(0.7))
+                .padding(.horizontal, 12)
+                .padding(.vertical, 8)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(
+                    RoundedRectangle(cornerRadius: 6)
+                        .fill(isSelected ? AppColors.primary.opacity(0.1) : Color.clear)
+                )
         }
         .buttonStyle(.plain)
     }
