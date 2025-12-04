@@ -29,6 +29,11 @@ struct TranslationView: View {
     @State private var inputPerceptionHeight: CGFloat = 24
     @State private var outputInstructionHeight: CGFloat = 24
     
+    // 图片上下文（截图功能）
+    @State private var imageContext: NSImage?
+    /// 是否为图片模式（一旦进入图片模式，即使删除图片也保持）
+    @State private var isImageMode: Bool = false
+    
     // Computed property for dynamic output placeholder
     var outputPlaceholder: String {
         let mode = determineMode()
@@ -63,9 +68,11 @@ struct TranslationView: View {
         return .defaultTranslation  // fallback
     }
     
-    init(originalText: String, errorMessage: String? = nil) {
+    init(originalText: String, errorMessage: String? = nil, imageContext: NSImage? = nil) {
         self.originalText = originalText
         self.errorMessage = errorMessage
+        _imageContext = State(initialValue: imageContext)
+        _isImageMode = State(initialValue: imageContext != nil)
         
         let defaultSource = UserDefaults.standard.string(forKey: "default_source_language") ?? Language.auto.rawValue
         let defaultTarget = UserDefaults.standard.string(forKey: "default_target_language") ?? Language.simplifiedChinese.rawValue
@@ -76,7 +83,6 @@ struct TranslationView: View {
     
     var body: some View {
         VStack(spacing: 0) {
-
             
             // Custom Mode Input Fields (Only visible in Temporary Custom Mode)
             if determineMode() == .temporaryCustom {
@@ -175,29 +181,96 @@ struct TranslationView: View {
             
             Divider().opacity(0.3)
             
-            // Main Content Area - Consistent Custom Editors
-            HStack(spacing: 0) {
-                CustomTextEditor(text: $originalText, placeholder: "Type or paste text..".localized)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                Rectangle().fill(Color.primary.opacity(0.05)).frame(width: 1)
-                
-                // Output area - Using CustomTextEditor for consistency
-                ZStack(alignment: .topLeading) {
-                    if isEditingTranslation {
-                        CustomTextEditor(text: $editedTranslation, placeholder: outputPlaceholder)
-                            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            // Main Content Area - Layout depends on mode
+            if isImageMode {
+                // 图片模式：上下布局（图片/上传区 + 输出）
+                VStack(spacing: 0) {
+                    // 图片预览区 或 上传占位符
+                    if let image = imageContext {
+                        // 有图片：显示预览
+                        HStack(spacing: 12) {
+                            Image(nsImage: image)
+                                .resizable()
+                                .aspectRatio(contentMode: .fit)
+                                .frame(maxHeight: 120)
+                                .cornerRadius(8)
+                                .shadow(color: Color.black.opacity(0.1), radius: 4, x: 0, y: 2)
+                            
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("Screenshot".localized)
+                                    .font(.system(size: 12, weight: .medium, design: .serif))
+                                    .foregroundColor(.secondary)
+                                
+                                Text("\(Int(image.size.width)) × \(Int(image.size.height))")
+                                    .font(.system(size: 11, design: .monospaced))
+                                    .foregroundColor(.secondary.opacity(0.7))
+                            }
+                            
+                            Spacer()
+                            
+                            Button(action: {
+                                withAnimation(.easeOut(duration: 0.2)) {
+                                    imageContext = nil
+                                    translatedText = ""
+                                }
+                            }) {
+                                Image(systemName: "xmark.circle.fill")
+                                    .font(.system(size: 18))
+                                    .foregroundColor(.secondary.opacity(0.5))
+                            }
+                            .buttonStyle(.plain)
+                        }
+                        .padding(.horizontal, 20)
+                        .padding(.vertical, 16)
+                        .background(Color.primary.opacity(0.02))
                     } else {
+                        // 无图片：显示优雅的上传占位符
+                        Button(action: selectImageFromFile) {
+                            VStack(spacing: 12) {
+                                ZStack {
+                                    Circle()
+                                        .fill(AppColors.primary.opacity(0.08))
+                                        .frame(width: 56, height: 56)
+                                    
+                                    Image(systemName: "plus")
+                                        .font(.system(size: 24, weight: .light))
+                                        .foregroundColor(AppColors.primary.opacity(0.6))
+                                }
+                                
+                                Text("Click to upload image".localized)
+                                    .font(.system(size: 13, weight: .medium, design: .serif))
+                                    .foregroundColor(.secondary)
+                                
+                                Text("or drag & drop".localized)
+                                    .font(.system(size: 11, design: .serif))
+                                    .foregroundColor(.secondary.opacity(0.5))
+                            }
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 28)
+                            .background(Color.primary.opacity(0.02))
+                            .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                        .onDrop(of: [.image, .fileURL], isTargeted: nil) { providers in
+                            handleImageDrop(providers: providers)
+                        }
+                    }
+                    
+                    Divider().opacity(0.3)
+                    
+                    // 输出区
+                    ZStack(alignment: .topLeading) {
                         MacEditorView(text: .constant(translatedText))
                             .frame(maxWidth: .infinity, maxHeight: .infinity)
-                            .opacity(isTranslating ? 0 : 1) // Hide text while translating to prevent overlap
+                            .opacity(isTranslating ? 0 : 1)
                             .overlay(alignment: .topLeading) {
                                 Group {
                                     if isTranslating {
-                                        HarmonicFlowView(text: originalText)
+                                        HarmonicFlowView(text: "Recognizing image...".localized)
                                             .padding(.horizontal, 25)
                                             .padding(.vertical, 20)
                                     } else if translatedText.isEmpty {
-                                        Text(outputPlaceholder)
+                                        Text("AI recognition result will appear here...".localized)
                                             .font(.system(size: 16, weight: .light, design: .serif))
                                             .foregroundColor(.secondary.opacity(0.5))
                                             .padding(.horizontal, 25)
@@ -205,11 +278,48 @@ struct TranslationView: View {
                                             .allowsHitTesting(false)
                                     }
                                 }
-                                .clipped() // Ensure content doesn't overflow the output box
+                                .clipped()
                             }
                     }
+                    .background(Color.clear)
                 }
-                .background(Color.clear) // Transparent to let theme show through
+            } else {
+                // 文本模式：左右布局（输入 + 输出）
+                HStack(spacing: 0) {
+                    CustomTextEditor(text: $originalText, placeholder: "Type or paste text..".localized)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    Rectangle().fill(Color.primary.opacity(0.05)).frame(width: 1)
+                    
+                    // Output area
+                    ZStack(alignment: .topLeading) {
+                        if isEditingTranslation {
+                            CustomTextEditor(text: $editedTranslation, placeholder: outputPlaceholder)
+                                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        } else {
+                            MacEditorView(text: .constant(translatedText))
+                                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                                .opacity(isTranslating ? 0 : 1)
+                                .overlay(alignment: .topLeading) {
+                                    Group {
+                                        if isTranslating {
+                                            HarmonicFlowView(text: originalText)
+                                                .padding(.horizontal, 25)
+                                                .padding(.vertical, 20)
+                                        } else if translatedText.isEmpty {
+                                            Text(outputPlaceholder)
+                                                .font(.system(size: 16, weight: .light, design: .serif))
+                                                .foregroundColor(.secondary.opacity(0.5))
+                                                .padding(.horizontal, 25)
+                                                .padding(.vertical, 20)
+                                                .allowsHitTesting(false)
+                                        }
+                                    }
+                                    .clipped()
+                                }
+                        }
+                    }
+                    .background(Color.clear)
+                }
             }
             
             // Bottom Bar
@@ -221,7 +331,13 @@ struct TranslationView: View {
                 HStack(spacing: 12) {
                     // Yisi Button (The Living Verb)
                     YisiButton(isLoading: isTranslating || isImproving) {
-                        Task { await performTranslation() }
+                        Task {
+                            if isImageMode && imageContext != nil {
+                                await performImageRecognition()
+                            } else {
+                                await performTranslation()
+                            }
+                        }
                     }
                     .keyboardShortcut(.return, modifiers: .command)
                 }
@@ -306,6 +422,73 @@ struct TranslationView: View {
         }
     }
     
+    // MARK: - Image Upload Helpers
+    
+    /// 从文件选择器选择图片
+    private func selectImageFromFile() {
+        // 临时禁用关闭检测，避免打开文件选择器时窗口关闭
+        WindowManager.shared.suspendCloseDetection()
+        
+        let panel = NSOpenPanel()
+        panel.allowedContentTypes = [.image, .png, .jpeg, .gif, .heic, .webP]
+        panel.allowsMultipleSelection = false
+        panel.canChooseDirectories = false
+        panel.canChooseFiles = true
+        panel.message = "Select an image to recognize".localized
+        panel.prompt = "Select".localized
+        
+        if panel.runModal() == .OK, let url = panel.url {
+            if let image = NSImage(contentsOf: url) {
+                withAnimation(.easeOut(duration: 0.2)) {
+                    imageContext = image
+                    translatedText = ""
+                }
+            }
+        }
+        
+        // 恢复关闭检测
+        WindowManager.shared.resumeCloseDetection()
+    }
+    
+    /// 处理拖放图片
+    private func handleImageDrop(providers: [NSItemProvider]) -> Bool {
+        guard let provider = providers.first else { return false }
+        
+        // 尝试加载图片
+        if provider.canLoadObject(ofClass: NSImage.self) {
+            provider.loadObject(ofClass: NSImage.self) { image, error in
+                if let image = image as? NSImage {
+                    DispatchQueue.main.async {
+                        withAnimation(.easeOut(duration: 0.2)) {
+                            self.imageContext = image
+                            self.translatedText = ""
+                        }
+                    }
+                }
+            }
+            return true
+        }
+        
+        // 尝试加载文件 URL
+        if provider.hasItemConformingToTypeIdentifier("public.file-url") {
+            provider.loadItem(forTypeIdentifier: "public.file-url", options: nil) { item, error in
+                if let data = item as? Data,
+                   let url = URL(dataRepresentation: data, relativeTo: nil),
+                   let image = NSImage(contentsOf: url) {
+                    DispatchQueue.main.async {
+                        withAnimation(.easeOut(duration: 0.2)) {
+                            self.imageContext = image
+                            self.translatedText = ""
+                        }
+                    }
+                }
+            }
+            return true
+        }
+        
+        return false
+    }
+    
     private func performTranslation() async {
         guard !originalText.isEmpty else { return }
         isTranslating = true
@@ -332,6 +515,33 @@ struct TranslationView: View {
             }
             translatedText = "Error: \(error.localizedDescription)"
         }
+        isTranslating = false
+    }
+    
+    /// 图片识别 - 使用 PromptCoordinator 构建指令
+    private func performImageRecognition() async {
+        guard let image = imageContext else { return }
+        isTranslating = true
+        
+        do {
+            let mode = determineMode()
+            
+            // 使用 PromptCoordinator 生成图片处理指令
+            let instruction = PromptCoordinator.shared.generateImagePrompt(
+                mode: mode,
+                sourceLanguage: sourceLanguage.rawValue,
+                targetLanguage: targetLanguage.rawValue,
+                customPerception: mode == .temporaryCustom ? customInputPerception : nil,
+                customInstruction: mode == .temporaryCustom ? customOutputInstruction : nil
+            )
+            
+            translatedText = try await AIService.shared.processImage(image, instruction: instruction)
+        } catch {
+            print("❌ IMAGE RECOGNITION ERROR:")
+            print("   Error: \(error)")
+            translatedText = "Error: \(error.localizedDescription)"
+        }
+        
         isTranslating = false
     }
     

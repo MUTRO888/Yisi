@@ -74,4 +74,42 @@ class PromptCoordinator {
         
         return prompt
     }
+    
+    // MARK: - Image Prompt Generation
+    
+    /// 生成图片处理的提示词
+    /// - Parameters:
+    ///   - mode: 提示词模式
+    ///   - sourceLanguage: 源语言
+    ///   - targetLanguage: 目标语言
+    ///   - customPerception: 自定义感知（用于自定义模式）
+    ///   - customInstruction: 自定义指令（用于自定义模式）
+    /// - Returns: 给 AI 的图片处理指令
+    func generateImagePrompt(
+        mode: PromptMode,
+        sourceLanguage: String,
+        targetLanguage: String,
+        customPerception: String? = nil,
+        customInstruction: String? = nil
+    ) -> String {
+        switch mode {
+        case .defaultTranslation:
+            // 翻译模式：使用 TranslationBuilder
+            return translationBuilder.buildImageTranslationPrompt(
+                sourceLanguage: sourceLanguage,
+                targetLanguage: targetLanguage
+            )
+            
+        case .temporaryCustom:
+            // 自定义模式：使用 CustomBuilder
+            return customBuilder.buildImagePrompt(
+                inputContext: customPerception,
+                outputRequirement: customInstruction
+            )
+            
+        case .userPreset(let preset):
+            // 预设模式：使用 PresetBuilder
+            return presetBuilder.buildImagePrompt(preset: preset)
+        }
+    }
 }

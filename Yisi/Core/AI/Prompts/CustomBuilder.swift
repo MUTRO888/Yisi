@@ -100,4 +100,40 @@ class CustomPromptBuilder {
         NEVER output: "<a href=...>", "{title: ..., author: ...}", or nested JSON objects.
         """
     }
+    
+    // MARK: - Image Processing
+    
+    /// 构建自定义图片处理的提示词
+    /// - Parameters:
+    ///   - inputContext: 用户定义的图片理解方式
+    ///   - outputRequirement: 用户期望的输出要求
+    /// - Returns: 图片处理指令
+    func buildImagePrompt(inputContext: String?, outputRequirement: String?) -> String {
+        let perception = inputContext?.isEmpty == false 
+            ? "我理解这张图片是：\(inputContext!)" 
+            : "请分析这张图片"
+        let instruction = outputRequirement?.isEmpty == false 
+            ? outputRequirement! 
+            : "请描述图片中的内容"
+        
+        return """
+        [自定义图片处理任务]
+        
+        \(perception)
+        
+        ═══════════════════════════════════════════════════════════
+        
+        ### 任务要求
+        
+        \(instruction)
+        
+        ═══════════════════════════════════════════════════════════
+        
+        ### 输出要求
+        
+        • 直接输出处理结果
+        • 不需要 JSON 格式，输出纯文本即可
+        • 如果需要列举多个项目，使用清晰的格式
+        """
+    }
 }

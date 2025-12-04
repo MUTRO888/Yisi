@@ -89,4 +89,35 @@ class PresetPromptBuilder {
         REMEMBER: The "result" field must contain ONLY plain text.
         """
     }
+    
+    // MARK: - Image Processing
+    
+    /// 构建预设图片处理的提示词
+    /// - Parameter preset: 用户保存的预设配置
+    /// - Returns: 图片处理指令
+    func buildImagePrompt(preset: PromptPreset) -> String {
+        return """
+        [预设图片处理任务]
+        
+        ═══════════════════════════════════════════════════════════
+        
+        ### 上下文理解
+        
+        \(preset.inputPerception)
+        
+        ═══════════════════════════════════════════════════════════
+        
+        ### 处理要求
+        
+        \(preset.outputInstruction)
+        
+        ═══════════════════════════════════════════════════════════
+        
+        ### 输出要求
+        
+        • 直接输出处理结果
+        • 不需要 JSON 格式，输出纯文本即可
+        • 根据任务要求决定输出格式
+        """
+    }
 }

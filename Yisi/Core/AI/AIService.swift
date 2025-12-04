@@ -1,4 +1,5 @@
 import Foundation
+import AppKit
 
 enum APIProvider: String {
     case openai = "OpenAI"
@@ -37,6 +38,93 @@ class AIService: ObservableObject {
         )
         
         return result
+    }
+    
+    // MARK: - Image Recognition
+    
+    /// 处理图片识别（使用 Gemini 多模态 API）
+    /// - Parameters:
+    ///   - image: 要识别的图片
+    ///   - instruction: 给 AI 的指令（由调用方根据模式决定）
+    /// - Returns: AI 的响应文本
+    func processImage(_ image: NSImage, instruction: String) async throws -> String {
+        guard let apiKey = UserDefaults.standard.string(forKey: "gemini_api_key"), !apiKey.isEmpty else {
+            throw NSError(domain: "AIError", code: 1, 
+                         userInfo: [NSLocalizedDescriptionKey: "Please set your Gemini API Key in Settings for image recognition."])
+        }
+        
+        // 将 NSImage 转换为 Base64
+        guard let imageData = imageToBase64(image) else {
+            throw NSError(domain: "AIError", code: 2, 
+                         userInfo: [NSLocalizedDescriptionKey: "Failed to encode image."])
+        }
+        
+        let model = UserDefaults.standard.string(forKey: "gemini_model") ?? "gemini-2.0-flash-exp"
+        let apiUrl = "https://generativelanguage.googleapis.com/v1beta/models/\(model):generateContent?key=\(apiKey)"
+        
+        // 构建多模态请求体
+        let body: [String: Any] = [
+            "contents": [
+                [
+                    "parts": [
+                        ["text": instruction],
+                        [
+                            "inline_data": [
+                                "mime_type": "image/png",
+                                "data": imageData
+                            ]
+                        ]
+                    ]
+                ]
+            ],
+            "generationConfig": [
+                "temperature": 0.1,
+                "maxOutputTokens": 4096
+            ]
+        ]
+        
+        let jsonData = try JSONSerialization.data(withJSONObject: body)
+        
+        guard let url = URL(string: apiUrl) else {
+            throw NSError(domain: "AIError", code: 3, userInfo: [NSLocalizedDescriptionKey: "Invalid URL"])
+        }
+        
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.addValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = jsonData
+        request.timeoutInterval = 60
+        
+        let (data, response) = try await URLSession.shared.data(for: request)
+        
+        guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
+            let errorText = String(data: data, encoding: .utf8) ?? "Unknown error"
+            throw NSError(domain: "AIError", code: 4, userInfo: [NSLocalizedDescriptionKey: "API Error: \(errorText)"])
+        }
+        
+        // 解析响应
+        if let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+           let candidates = json["candidates"] as? [[String: Any]],
+           let firstCandidate = candidates.first,
+           let content = firstCandidate["content"] as? [String: Any],
+           let parts = content["parts"] as? [[String: Any]],
+           let firstPart = parts.first,
+           let text = firstPart["text"] as? String {
+            return text
+        }
+        
+        throw NSError(domain: "AIError", code: 5, 
+                     userInfo: [NSLocalizedDescriptionKey: "Failed to parse image recognition response"])
+    }
+    
+    /// 将 NSImage 转换为 Base64 字符串
+    private func imageToBase64(_ image: NSImage) -> String? {
+        guard let tiffData = image.tiffRepresentation,
+              let bitmapImage = NSBitmapImageRep(data: tiffData),
+              let pngData = bitmapImage.representation(using: .png, properties: [:]) else {
+            return nil
+        }
+        return pngData.base64EncodedString()
     }
     
     private func getAPIProvider() -> APIProvider {

@@ -6,14 +6,26 @@ class GlobalShortcutManager: ObservableObject {
     private var monitor: Any?
     @Published var triggerCount = 0
     
-    // The callback to trigger when the shortcut is pressed
+    // MARK: - Callbacks
+    
+    /// 翻译快捷键回调
     var onShortcutTriggered: (() -> Void)?
+    
+    /// 截图快捷键回调
+    var onScreenshotTriggered: (() -> Void)?
+    
+    // MARK: - Translate Shortcut
     
     private var currentKeyCode: UInt16
     private var currentModifiers: NSEvent.ModifierFlags
     
+    // MARK: - Screenshot Shortcut
+    
+    private var screenshotKeyCode: UInt16
+    private var screenshotModifiers: NSEvent.ModifierFlags
+    
     private init() {
-        // Default shortcut: Command + Control + Y (keyCode 16)
+        // Default translate shortcut: Command + Control + Y (keyCode 16)
         let savedKeyCode = UserDefaults.standard.integer(forKey: "global_shortcut_key")
         let savedModifiers = UserDefaults.standard.integer(forKey: "global_shortcut_modifiers")
         
@@ -25,8 +37,22 @@ class GlobalShortcutManager: ObservableObject {
             self.currentModifiers = [.command, .control]
         }
         
+        // Default screenshot shortcut: Command + Shift + X (keyCode 7)
+        let savedScreenshotKey = UserDefaults.standard.integer(forKey: "screenshot_shortcut_key")
+        let savedScreenshotModifiers = UserDefaults.standard.integer(forKey: "screenshot_shortcut_modifiers")
+        
+        if savedScreenshotKey != 0 {
+            self.screenshotKeyCode = UInt16(savedScreenshotKey)
+            self.screenshotModifiers = NSEvent.ModifierFlags(rawValue: UInt(savedScreenshotModifiers))
+        } else {
+            self.screenshotKeyCode = 7 // X
+            self.screenshotModifiers = [.command, .shift]
+        }
+        
         startMonitoring()
     }
+    
+    // MARK: - Update Shortcuts
     
     func updateShortcut(keyCode: UInt16, modifiers: NSEvent.ModifierFlags) {
         self.currentKeyCode = keyCode
@@ -35,6 +61,21 @@ class GlobalShortcutManager: ObservableObject {
         UserDefaults.standard.set(Int(keyCode), forKey: "global_shortcut_key")
         UserDefaults.standard.set(Int(modifiers.rawValue), forKey: "global_shortcut_modifiers")
     }
+    
+    func updateScreenshotShortcut(keyCode: UInt16, modifiers: NSEvent.ModifierFlags) {
+        self.screenshotKeyCode = keyCode
+        self.screenshotModifiers = modifiers
+        
+        UserDefaults.standard.set(Int(keyCode), forKey: "screenshot_shortcut_key")
+        UserDefaults.standard.set(Int(modifiers.rawValue), forKey: "screenshot_shortcut_modifiers")
+    }
+    
+    // MARK: - Getters for UI
+    
+    var currentScreenshotKeyCode: UInt16 { screenshotKeyCode }
+    var currentScreenshotModifiers: NSEvent.ModifierFlags { screenshotModifiers }
+    
+    // MARK: - Monitoring
     
     func startMonitoring() {
         // We need to request accessibility permissions for this to work globally
@@ -57,12 +98,21 @@ class GlobalShortcutManager: ObservableObject {
     private func handleEvent(_ event: NSEvent) {
         let flags = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
         
-        // Check if the pressed key and modifiers match the configured shortcut
+        // Check translate shortcut
         if flags == currentModifiers && event.keyCode == currentKeyCode {
             print("Global shortcut triggered!")
             DispatchQueue.main.async {
                 self.triggerCount += 1
                 self.onShortcutTriggered?()
+            }
+            return
+        }
+        
+        // Check screenshot shortcut
+        if flags == screenshotModifiers && event.keyCode == screenshotKeyCode {
+            print("Screenshot shortcut triggered!")
+            DispatchQueue.main.async {
+                self.onScreenshotTriggered?()
             }
         }
     }

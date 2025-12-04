@@ -108,6 +108,59 @@ class WindowManager: ObservableObject {
         NSApp.activate(ignoringOtherApps: true)
     }
     
+    /// 显示带图片上下文的翻译窗口
+    func showWithImage(image: NSImage) {
+        close()
+        
+        let appTheme = UserDefaults.standard.string(forKey: "app_theme") ?? "system"
+        let contentView = TranslationView(originalText: "", errorMessage: nil, imageContext: image)
+            .preferredColorScheme(ColorScheme(from: appTheme))
+        
+        let hostingController = NSHostingController(rootView: contentView)
+        
+        var contentRect: NSRect
+        
+        if let savedData = UserDefaults.standard.data(forKey: "popup_frame_rect"),
+           let savedRect = try? JSONDecoder().decode(CGRect.self, from: savedData) {
+            contentRect = savedRect
+        } else {
+            let windowSize = NSSize(width: 400, height: 360) // 稍大以容纳缩略图
+            let screenRect = NSScreen.main?.visibleFrame ?? NSRect.zero
+            let centerPoint = NSPoint(x: screenRect.midX - windowSize.width / 2,
+                                      y: screenRect.midY - windowSize.height / 2)
+            contentRect = NSRect(origin: centerPoint, size: windowSize)
+        }
+        
+        window = LightWindow(
+            contentRect: contentRect,
+            backing: .buffered,
+            defer: false
+        )
+        window?.contentViewController = hostingController
+        window?.setFrame(contentRect, display: true)
+        
+        let closeMode = UserDefaults.standard.string(forKey: "close_mode") ?? "clickOutside"
+        window?.hidesOnDeactivate = (closeMode == "clickOutside")
+        
+        if let monitor = localMonitor {
+            NSEvent.removeMonitor(monitor)
+            localMonitor = nil
+        }
+        
+        if closeMode == "clickOutside" {
+            localMonitor = NSEvent.addLocalMonitorForEvents(matching: .leftMouseDown) { [weak self] event in
+                if let window = self?.window, event.window != window {
+                    self?.close()
+                    return nil
+                }
+                return event
+            }
+        }
+        
+        window?.makeKeyAndOrderFront(nil)
+        NSApp.activate(ignoringOtherApps: true)
+    }
+    
     func close() {
         if let monitor = localMonitor {
             NSEvent.removeMonitor(monitor)
@@ -115,5 +168,33 @@ class WindowManager: ObservableObject {
         }
         window?.close()
         window = nil
+    }
+    
+    // MARK: - Close Detection Control
+    
+    /// 临时禁用关闭检测（用于打开文件选择器等场景）
+    func suspendCloseDetection() {
+        window?.hidesOnDeactivate = false
+        if let monitor = localMonitor {
+            NSEvent.removeMonitor(monitor)
+            localMonitor = nil
+        }
+    }
+    
+    /// 恢复关闭检测
+    func resumeCloseDetection() {
+        let closeMode = UserDefaults.standard.string(forKey: "close_mode") ?? "clickOutside"
+        
+        window?.hidesOnDeactivate = (closeMode == "clickOutside")
+        
+        if closeMode == "clickOutside" && localMonitor == nil {
+            localMonitor = NSEvent.addLocalMonitorForEvents(matching: .leftMouseDown) { [weak self] event in
+                if let window = self?.window, event.window != window {
+                    self?.close()
+                    return nil
+                }
+                return event
+            }
+        }
     }
 }

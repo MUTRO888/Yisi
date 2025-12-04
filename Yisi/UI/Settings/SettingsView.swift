@@ -74,7 +74,130 @@ struct TopTabButton: View {
     }
 }
 
-
+/// 截图快捷键录制器
+struct ScreenshotShortcutRecorder: View {
+    @State private var isRecording = false
+    @State private var currentShortcut: String = ""
+    @State private var monitor: Any?
+    
+    var body: some View {
+        Button(action: {
+            if isRecording {
+                stopRecording()
+            } else {
+                startRecording()
+            }
+        }) {
+            HStack {
+                if isRecording {
+                    Text("Press keys...".localized)
+                        .font(.system(size: 13, design: .serif))
+                        .foregroundColor(.accentColor)
+                    Spacer()
+                    Image(systemName: "record.circle")
+                        .font(.system(size: 12))
+                        .foregroundColor(.accentColor)
+                        .symbolEffect(.pulse)
+                } else {
+                    Text(currentShortcut.isEmpty ? "Record Shortcut".localized : currentShortcut)
+                        .font(.system(size: 13, design: .serif))
+                        .foregroundColor(.primary)
+                    Spacer()
+                    if !currentShortcut.isEmpty {
+                        Button(action: {
+                            resetShortcut()
+                        }) {
+                            Image(systemName: "xmark.circle.fill")
+                                .font(.system(size: 12))
+                                .foregroundColor(.secondary.opacity(0.5))
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+            }
+            .padding(.vertical, 6)
+            .padding(.horizontal, 10)
+            .frame(width: 160)
+            .background(isRecording ? AppColors.primary.opacity(0.1) : AppColors.primary.opacity(0.05))
+            .cornerRadius(4)
+            .overlay(
+                RoundedRectangle(cornerRadius: 4)
+                    .stroke(isRecording ? AppColors.primary.opacity(0.3) : AppColors.primary.opacity(0.1), lineWidth: 0.5)
+            )
+        }
+        .buttonStyle(.plain)
+        .onAppear {
+            updateDisplay()
+        }
+        .onDisappear {
+            stopRecording()
+        }
+    }
+    
+    private func startRecording() {
+        isRecording = true
+        monitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
+            handleKeyDown(event)
+            return nil
+        }
+    }
+    
+    private func stopRecording() {
+        isRecording = false
+        if let monitor = monitor {
+            NSEvent.removeMonitor(monitor)
+            self.monitor = nil
+        }
+    }
+    
+    private func resetShortcut() {
+        GlobalShortcutManager.shared.updateScreenshotShortcut(keyCode: 7, modifiers: [.command, .shift])
+        updateDisplay()
+    }
+    
+    private func updateDisplay() {
+        let keyCode = UserDefaults.standard.integer(forKey: "screenshot_shortcut_key")
+        let modifiers = UserDefaults.standard.integer(forKey: "screenshot_shortcut_modifiers")
+        
+        if keyCode != 0 {
+            currentShortcut = shortcutString(keyCode: UInt16(keyCode), modifiers: NSEvent.ModifierFlags(rawValue: UInt(modifiers)))
+        } else {
+            currentShortcut = "⌘⇧X" // Default
+        }
+    }
+    
+    private func handleKeyDown(_ event: NSEvent) {
+        let flags = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
+        let keyCode = event.keyCode
+        
+        if event.type == .flagsChanged { return }
+        if keyCode == 53 { stopRecording(); return }
+        
+        GlobalShortcutManager.shared.updateScreenshotShortcut(keyCode: keyCode, modifiers: flags)
+        updateDisplay()
+        stopRecording()
+    }
+    
+    private func shortcutString(keyCode: UInt16, modifiers: NSEvent.ModifierFlags) -> String {
+        var string = ""
+        if modifiers.contains(.command) { string += "⌘" }
+        if modifiers.contains(.control) { string += "⌃" }
+        if modifiers.contains(.option) { string += "⌥" }
+        if modifiers.contains(.shift) { string += "⇧" }
+        
+        switch keyCode {
+        case 0: string += "A"; case 1: string += "S"; case 2: string += "D"; case 3: string += "F"
+        case 4: string += "H"; case 5: string += "G"; case 6: string += "Z"; case 7: string += "X"
+        case 8: string += "C"; case 9: string += "V"; case 11: string += "B"; case 12: string += "Q"
+        case 13: string += "W"; case 14: string += "E"; case 15: string += "R"; case 16: string += "Y"
+        case 17: string += "T"; case 31: string += "O"; case 32: string += "U"; case 34: string += "I"
+        case 35: string += "P"; case 37: string += "L"; case 38: string += "J"; case 40: string += "K"
+        case 45: string += "N"; case 46: string += "M"
+        default: string += "?"
+        }
+        return string
+    }
+}
 
 struct SettingsContent: View {
     @State private var selectedSection: String = "General"
@@ -805,7 +928,16 @@ struct ShortcutsSection: View {
                 ShortcutRecorder()
             }
             
-            Text("Press the key combination you want to use to activate Yisi.".localized)
+            HStack {
+                Text("Screenshot".localized)
+                    .font(.system(size: 13, design: .serif))
+                    .foregroundColor(.secondary)
+                    .frame(width: 80, alignment: .leading)
+                
+                ScreenshotShortcutRecorder()
+            }
+            
+            Text("Press the key combination you want to use.".localized)
                 .font(.system(size: 12, design: .serif))
                 .foregroundColor(.secondary.opacity(0.6))
                 .padding(.top, 4)

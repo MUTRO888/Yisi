@@ -105,8 +105,24 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
     
     private func setupShortcutHandler() {
+        // 翻译快捷键
         GlobalShortcutManager.shared.onShortcutTriggered = { [weak self] in
             self?.handleShortcut()
+        }
+        
+        // 截图快捷键
+        GlobalShortcutManager.shared.onScreenshotTriggered = { [weak self] in
+            self?.handleScreenshotShortcut()
+        }
+    }
+    
+    private func handleScreenshotShortcut() {
+        print("Screenshot shortcut triggered")
+        ScreenCaptureManager.shared.startCapture { [weak self] image in
+            // 截图完成，显示翻译窗口（带图片上下文）
+            DispatchQueue.main.async {
+                WindowManager.shared.showWithImage(image: image)
+            }
         }
     }
     
