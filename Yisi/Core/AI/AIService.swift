@@ -137,7 +137,7 @@ class AIService: ObservableObject {
             let capturedImage = image
             DispatchQueue.main.async {
                 HistoryManager.shared.addHistory(
-                    sourceText: "🖼️ Image Recognition",
+                    sourceText: "", // Empty source text for image recognition
                     targetText: parsedResult,
                     sourceLanguage: "Auto",
                     targetLanguage: "Auto",
