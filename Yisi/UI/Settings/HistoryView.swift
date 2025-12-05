@@ -19,11 +19,11 @@ struct HistoryView: View {
                     TransparentScrollView {
                         VStack(spacing: 0) {
                             ForEach(historyManager.filteredItems) { item in
-                                HistoryRowView(item: item, onPreviewImage: { image in
-                                    withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) {
+                                HistoryRowView(item: item) { image in
+                                    withAnimation(.easeInOut(duration: 0.2)) {
                                         previewImage = image
                                     }
-                                })
+                                }
                                 .transition(.opacity)
                             }
                         }
@@ -82,15 +82,30 @@ struct HistoryView: View {
                 .zIndex(4)
             }
             
-            // Image Preview Modal
+            // Lightbox Layer
             if let image = previewImage {
-                ImageViewerOverlay(image: image) {
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
-                        previewImage = nil
+                Color.black.opacity(0.8)
+                    .edgesIgnoringSafeArea(.all)
+                    .overlay(
+                        Image(nsImage: image)
+                            .resizable()
+                            .aspectRatio(contentMode: .fit)
+                            .padding(40)
+                    )
+                    .overlay(alignment: .topTrailing) {
+                        Button(action: { withAnimation(.easeInOut(duration: 0.2)) { previewImage = nil } }) {
+                            Image(systemName: "xmark.circle.fill")
+                                .font(.system(size: 24))
+                                .foregroundColor(.white.opacity(0.8))
+                                .padding(20)
+                        }
+                        .buttonStyle(.plain)
                     }
-                }
-                .zIndex(10)
-                .transition(.opacity)
+                    .onTapGesture {
+                        withAnimation(.easeInOut(duration: 0.2)) { previewImage = nil }
+                    }
+                    .transition(.opacity)
+                    .zIndex(200)
             }
         }
     }
@@ -98,150 +113,221 @@ struct HistoryView: View {
 
 struct HistoryRowView: View {
     let item: TranslationHistoryItem
-    let onPreviewImage: (NSImage) -> Void
+    let onImageClick: (NSImage) -> Void
     
     @State private var isHovering = false
     @State private var isExpanded = false
     @State private var thumbnailImage: NSImage? = nil
+    @State private var expandedHeight: CGFloat = 0
+    @State private var collapsedHeight: CGFloat = 0
+    @State private var scrollCompensation: CGFloat = 0
+    
+    /// 是否為圖片記錄
+    private var isImageRecord: Bool {
+        item.imagePath != nil
+    }
     
     var body: some View {
-        ZStack(alignment: .topTrailing) {
-            // Background & Content Container
-            VStack(alignment: .leading, spacing: 10) {
-                // Header: Type Tag + Timestamp
-                HStack(spacing: 8) {
-                    HistoryTypeTag(item: item)
-                    
-                    Text(item.timestamp.formattedRelative())
-                        .font(.system(size: 11, design: .serif))
-                        .foregroundColor(.secondary.opacity(0.5))
-                    
-                    Spacer()
-                }
-                .allowsHitTesting(false)
+        // 1. 核心容器：強制頂部對齊，消除中心擴展導致的位移
+        VStack(alignment: .leading, spacing: 0) {
+            
+            // 2. 內容區域 (可點擊展開，但展開後不響應收起)
+            ZStack(alignment: .topTrailing) {
+                contentLayout
                 
-                // Content
-                VStack(alignment: .leading, spacing: 6) {
-                    // Target (Translation)
-                    if !item.targetText.isEmpty {
-                        let targetText = Text(item.targetText)
-                            .font(.system(size: 13, design: .serif))
-                            .foregroundColor(AppColors.text)
-                            .lineLimit(isExpanded ? nil : 1)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .fixedSize(horizontal: false, vertical: true)
-                            .layoutPriority(isExpanded ? 1 : 0)
-                        
-                        if isExpanded {
-                            targetText.textSelection(.enabled)
-                        } else {
-                            targetText
+                // 刪除按鈕 (僅 Hover 顯示)
+                if isHovering {
+                    Button(action: {
+                        withAnimation {
+                            HistoryManager.shared.deleteHistory(item: item)
                         }
+                    }) {
+                        Image(systemName: "xmark")
+                            .font(.system(size: 10, weight: .light))
+                            .foregroundColor(.secondary.opacity(0.5))
+                            .padding(10)
+                            .contentShape(Rectangle())
                     }
-                    
-                    // Source (Original)
-                    if !item.sourceText.isEmpty && item.sourceText != "🖼️ Image Recognition" {
-                        let sourceText = Text(item.sourceText)
-                            .font(.system(size: 13, design: .serif))
-                            .foregroundColor(AppColors.text.opacity(0.6))
-                            .lineLimit(isExpanded ? nil : 1)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .fixedSize(horizontal: false, vertical: true)
-                            .layoutPriority(isExpanded ? 1 : 0)
-                        
-                        if isExpanded {
-                            sourceText.textSelection(.enabled)
-                        } else {
-                            sourceText
-                        }
-                    }
-                    
-                    // Expanded Image Thumbnail
-                    if isExpanded, let image = thumbnailImage {
-                        Button(action: {
-                            onPreviewImage(image)
-                        }) {
-                            HStack(spacing: 8) {
-                                Image(nsImage: image)
-                                    .resizable()
-                                    .aspectRatio(contentMode: .fill)
-                                    .frame(width: 60, height: 60)
-                                    .clipShape(RoundedRectangle(cornerRadius: 8))
-                                    .overlay(
-                                        RoundedRectangle(cornerRadius: 8)
-                                            .stroke(Color.primary.opacity(0.1), lineWidth: 1)
-                                    )
-                                    .shadow(color: Color.black.opacity(0.1), radius: 2, x: 0, y: 1)
-                                
-                                Text("View Image")
-                                    .font(.system(size: 11, design: .serif))
-                                    .foregroundColor(.secondary)
-                            }
-                            .padding(.top, 4)
-                        }
-                        .buttonStyle(.plain)
-                    }
-                    
-                    // Custom Prompt Details
-                    if item.type == .custom, let prompt = item.customPrompt {
-                        if isExpanded {
-                            VStack(alignment: .leading, spacing: 4) {
-                                Divider().opacity(0.1).padding(.vertical, 2)
-                                Text(prompt)
-                                    .font(.system(size: 11, design: .serif).italic())
-                                    .foregroundColor(AppColors.primary.opacity(0.8))
-                                    .frame(maxWidth: .infinity, alignment: .leading)
-                                    .textSelection(.enabled)
-                                    .fixedSize(horizontal: false, vertical: true)
-                                    .layoutPriority(1)
-                            }
-                        }
+                    .buttonStyle(.plain)
+                    .transition(.opacity)
+                }
+            }
+            .contentShape(Rectangle())
+            .onTapGesture {
+                if !isExpanded {
+                    // 只有未展開時，點擊才觸發展開
+                    withAnimation(.easeInOut(duration: 0.25)) {
+                        isExpanded = true
                     }
                 }
             }
-            .padding(16)
-            .background(
-                RoundedRectangle(cornerRadius: 12)
-                    .fill(isHovering ? Color.primary.opacity(0.02) : Color.clear)
-            )
-            .contentShape(Rectangle())
-            .simultaneousGesture(
-                TapGesture().onEnded {
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
-                        isExpanded.toggle()
-                    }
-                }
-            )
             
-            // Delete Button (Visible on Hover)
-            if isHovering {
+            // 3. 底部收起欄 (僅展開時顯示)
+            if isExpanded {
                 Button(action: {
-                    withAnimation {
-                        HistoryManager.shared.deleteHistory(item: item)
+                    // 計算收起時需要補償的高度差
+                    let heightDelta = expandedHeight - collapsedHeight
+                    if heightDelta > 0 {
+                        scrollCompensation = heightDelta
+                    }
+                    
+                    withAnimation(.easeInOut(duration: 0.25)) {
+                        isExpanded = false
+                    }
+                    
+                    // 重置補償值（在下一個運行循環）
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                        scrollCompensation = 0
                     }
                 }) {
-                    Image(systemName: "xmark")
-                        .font(.system(size: 10, weight: .light))
-                        .foregroundColor(.secondary.opacity(0.5))
-                        .padding(8)
-                        .contentShape(Rectangle())
+                    HStack {
+                        Spacer()
+                        Image(systemName: "chevron.up")
+                            .font(.system(size: 10, weight: .bold))
+                            .foregroundColor(AppColors.primary.opacity(0.6))
+                        Spacer()
+                    }
+                    .padding(.vertical, 6)
+                    .background(Color.primary.opacity(0.03))
+                    .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
-                .padding(4)
                 .transition(.opacity)
             }
         }
+        // 4. 外觀修飾
+        .background(
+            GeometryReader { geo in
+                Color.clear
+                    .onAppear {
+                        // 記錄初始（collapsed）高度
+                        if collapsedHeight == 0 {
+                            collapsedHeight = geo.size.height
+                        }
+                    }
+                    .onChange(of: geo.size.height) { _, newHeight in
+                        // 追蹤高度變化
+                        if isExpanded {
+                            expandedHeight = newHeight
+                        } else {
+                            collapsedHeight = newHeight
+                        }
+                    }
+            }
+        )
+        .background(
+            RoundedRectangle(cornerRadius: 12)
+                .fill(isHovering || isExpanded ? Color.primary.opacity(0.02) : Color.clear)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 12)
+                .stroke(Color.primary.opacity(isExpanded ? 0.1 : 0.05), lineWidth: 0.5)
+        )
         .padding(.horizontal, 16)
         .padding(.vertical, 4)
-        .onHover { hovering in
-            withAnimation(.easeInOut(duration: 0.2)) {
-                isHovering = hovering
+        .preference(key: ScrollCompensationKey.self, value: scrollCompensation)
+        .onHover { isHovering = $0 }
+        .onAppear { loadThumbnail() }
+    }
+    
+    // MARK: - Content Layout
+    
+    @ViewBuilder
+    private var contentLayout: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            // Header: Type Tag + Timestamp
+            HStack(spacing: 8) {
+                HistoryTypeTag(item: item)
+                
+                Text(item.timestamp.formattedRelative())
+                    .font(.system(size: 11, design: .serif))
+                    .foregroundColor(.secondary.opacity(0.5))
+                
+                Spacer()
+            }
+            .allowsHitTesting(false)
+            
+            // Content
+            VStack(alignment: .leading, spacing: 6) {
+                // Target (Translation)
+                if !item.targetText.isEmpty {
+                    let targetText = Text(item.targetText)
+                        .font(.system(size: 13, design: .serif))
+                        .foregroundColor(AppColors.text)
+                        .lineLimit(isExpanded ? nil : 1)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .layoutPriority(isExpanded ? 1 : 0)
+                    
+                    if isExpanded {
+                        targetText.textSelection(.enabled)
+                    } else {
+                        targetText
+                    }
+                }
+                
+                // Source (Original)
+                if !item.sourceText.isEmpty && item.sourceText != "🖼️ Image Recognition" {
+                    let sourceText = Text(item.sourceText)
+                        .font(.system(size: 13, design: .serif))
+                        .foregroundColor(AppColors.text.opacity(0.6))
+                        .lineLimit(isExpanded ? nil : 1)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .layoutPriority(isExpanded ? 1 : 0)
+                    
+                    if isExpanded {
+                        sourceText.textSelection(.enabled)
+                    } else {
+                        sourceText
+                    }
+                }
+                
+                // Expanded Image Thumbnail
+                if isExpanded, let image = thumbnailImage {
+                    HStack(spacing: 8) {
+                        Image(nsImage: image)
+                            .resizable()
+                            .aspectRatio(contentMode: .fill)
+                            .frame(width: 60, height: 60)
+                            .clipShape(RoundedRectangle(cornerRadius: 8))
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 8)
+                                    .stroke(Color.primary.opacity(0.1), lineWidth: 1)
+                            )
+                            .shadow(color: Color.black.opacity(0.1), radius: 2, x: 0, y: 1)
+                            .onTapGesture {
+                                onImageClick(image)
+                            }
+                        
+                        Text("View Image")
+                            .font(.system(size: 11, design: .serif))
+                            .foregroundColor(.secondary)
+                    }
+                    .padding(.top, 4)
+                }
+                
+                // Custom Prompt Details
+                if item.type == .custom, let prompt = item.customPrompt {
+                    if isExpanded {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Divider().opacity(0.1).padding(.vertical, 2)
+                            Text(prompt)
+                                .font(.system(size: 11, design: .serif).italic())
+                                .foregroundColor(AppColors.primary.opacity(0.8))
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .textSelection(.enabled)
+                                .fixedSize(horizontal: false, vertical: true)
+                                .layoutPriority(1)
+                        }
+                    }
+                }
             }
         }
-        .onAppear {
-            loadThumbnail()
-        }
+        .padding(16)
     }
+    
+    // MARK: - Load Thumbnail
     
     private func loadThumbnail() {
         guard let imagePath = item.imagePath,
@@ -259,49 +345,7 @@ struct HistoryRowView: View {
     }
 }
 
-// MARK: - Image Viewer Overlay
 
-struct ImageViewerOverlay: View {
-    let image: NSImage
-    let onClose: () -> Void
-    
-    var body: some View {
-        ZStack {
-            // Dimmed Background (Click to close)
-            Color.black.opacity(0.6)
-                .edgesIgnoringSafeArea(.all)
-                .onTapGesture {
-                    onClose()
-                }
-            
-            // Image Container
-            VStack {
-                Image(nsImage: image)
-                    .resizable()
-                    .aspectRatio(contentMode: .fit)
-                    .frame(maxWidth: 800, maxHeight: 600)
-                    .clipShape(RoundedRectangle(cornerRadius: 12))
-                    .shadow(color: Color.black.opacity(0.3), radius: 20, x: 0, y: 10)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 12)
-                            .stroke(Color.white.opacity(0.2), lineWidth: 1)
-                    )
-                    .onTapGesture {
-                        // Prevent click on image from closing
-                    }
-            }
-            .padding(40)
-        }
-        // Listen for ESC key to close
-        .background(
-            Button(action: onClose) {
-                Text("")
-            }
-            .keyboardShortcut(.escape, modifiers: [])
-            .opacity(0)
-        )
-    }
-}
 
 struct HistorySidebar: View {
     @Binding var isVisible: Bool

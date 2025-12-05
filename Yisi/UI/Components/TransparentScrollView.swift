@@ -9,7 +9,16 @@ struct ViewHeightKey: PreferenceKey {
     }
 }
 
-// 2. 重構 TransparentScrollView
+// 2. 滾動補償偏好鍵：當內容收縮時通知滾動視圖調整位置
+struct ScrollCompensationKey: PreferenceKey {
+    static var defaultValue: CGFloat = 0
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+        // 累加所有補償量
+        value += nextValue()
+    }
+}
+
+// 3. 重構 TransparentScrollView
 struct TransparentScrollView<Content: View>: NSViewRepresentable {
     let content: Content
     
@@ -37,6 +46,7 @@ struct TransparentScrollView<Content: View>: NSViewRepresentable {
         
         context.coordinator.hostingView = hostingView
         context.coordinator.heightConstraint = heightConstraint
+        context.coordinator.scrollView = scrollView
         
         // 設置約束：錨定 Top, Leading, Trailing，高度由 heightConstraint 控制
         NSLayoutConstraint.activate([
@@ -60,7 +70,12 @@ struct TransparentScrollView<Content: View>: NSViewRepresentable {
                 }
             )
             .onPreferenceChange(ViewHeightKey.self) { newHeight in
-                context.coordinator.updateHeight(newHeight)
+                context.coordinator.updateHeight(newHeight, scrollView: scrollView)
+            }
+            .onPreferenceChange(ScrollCompensationKey.self) { delta in
+                if delta > 0 {
+                    context.coordinator.compensateScroll(delta: delta, scrollView: scrollView)
+                }
             }
         
         // 更新 NSHostingView 的根視圖
@@ -75,9 +90,11 @@ struct TransparentScrollView<Content: View>: NSViewRepresentable {
     
     class Coordinator: NSObject {
         weak var hostingView: NSView?
+        weak var scrollView: NSScrollView?
         var heightConstraint: NSLayoutConstraint?
+        private var lastHeight: CGFloat = 0
         
-        func updateHeight(_ height: CGFloat) {
+        func updateHeight(_ height: CGFloat, scrollView: NSScrollView) {
             guard let constraint = heightConstraint else { return }
             
             // 向上取整並增加 1pt 緩衝，避免小數精度丟失導致文本截斷
@@ -89,6 +106,23 @@ struct TransparentScrollView<Content: View>: NSViewRepresentable {
                     constraint.constant = adjustedHeight
                     // 強制立即刷新佈局，確保滾動條位置正確
                     self.hostingView?.layoutSubtreeIfNeeded()
+                }
+            }
+            
+            lastHeight = adjustedHeight
+        }
+        
+        /// 收起時補償滾動位置，使底部保持穩定
+        func compensateScroll(delta: CGFloat, scrollView: NSScrollView) {
+            let currentOffset = scrollView.contentView.bounds.origin
+            let newY = max(0, currentOffset.y - delta)
+            
+            // 同步調整，與內容動畫配合
+            DispatchQueue.main.async {
+                NSAnimationContext.runAnimationGroup { context in
+                    context.duration = 0.25
+                    context.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+                    scrollView.contentView.animator().setBoundsOrigin(NSPoint(x: currentOffset.x, y: newY))
                 }
             }
         }
