@@ -10,17 +10,13 @@ class PresetPromptBuilder {
     // MARK: - Public Interface
     
     /// 构建用户预设任务的系统提示词
-    /// - Parameters:
-    ///   - preset: 用户保存的预设配置
-    ///   - detectedLanguage: 检测到的输入语言（可选）
+    /// - Parameter preset: 用户保存的预设配置
     /// - Returns: 完整的系统提示词
-    func buildSystemPrompt(preset: PromptPreset, detectedLanguage: String? = nil) -> String {
+    func buildSystemPrompt(preset: PromptPreset) -> String {
         var prompt = buildRoleAndTask(preset: preset)
         
-        // Add language guidance if detected language is provided
-        if let language = detectedLanguage {
-            prompt += buildLanguageGuidance(language: language)
-        }
+        // AI 自动检测语言，用户指定优先
+        prompt += buildLanguageGuidance()
         
         prompt += buildEngineeringGuardrails()
         prompt += buildOutputFormat()
@@ -47,11 +43,14 @@ class PresetPromptBuilder {
         """
     }
     
-    private func buildLanguageGuidance(language: String) -> String {
+    /// 构建语言引导（优先用户指定，否则 AI 自动检测）
+    private func buildLanguageGuidance() -> String {
         return """
         ### 🌐 LANGUAGE GUIDANCE 🌐
         
-        Unless the user's configuration explicitly specifies a different language, please respond in **\(language)**.
+        **语言选择优先级**：
+        1. 如果用户在预设配置中明确指定了输出语言，请按配置要求输出
+        2. 如果没有指定语言，请自动检测输入文本/图片的语言，并用**相同语言**回复
         
         ═══════════════════════════════════════════════════════════
         

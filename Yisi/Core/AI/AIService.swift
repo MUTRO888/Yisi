@@ -330,27 +330,17 @@ class AIService: ObservableObject {
         userPerception: String?,
         userInstruction: String?
     ) -> (system: String, user: String) {
-        // Detect input language for custom and preset modes
-        let detectedLanguage: String?
-        switch mode {
-        case .temporaryCustom, .userPreset:
-            detectedLanguage = detectLanguage(text)
-        case .defaultTranslation:
-            detectedLanguage = nil  // Translation mode uses sourceLanguage/targetLanguage
-        }
-        
+        // AI 自动检测语言，无需预先检测
         let systemPrompt: String
         if mode == .temporaryCustom {
             systemPrompt = PromptCoordinator.shared.generateCustomPrompt(
                 inputContext: userPerception,
-                outputRequirement: userInstruction,
-                detectedLanguage: detectedLanguage
+                outputRequirement: userInstruction
             )
         } else {
             systemPrompt = PromptCoordinator.shared.generateSystemPrompt(
                 for: mode,
-                withLearnedRules: true,
-                detectedLanguage: detectedLanguage
+                withLearnedRules: true
             )
         }
         
@@ -362,25 +352,6 @@ class AIService: ObservableObject {
         )
         
         return (systemPrompt, userPrompt)
-    }
-    
-    // MARK: - Language Detection
-    
-    /// Detect the primary language of the input text
-    private func detectLanguage(_ text: String) -> String {
-        let chinesePattern = "[\\u4e00-\\u9fff]"  // CJK Unified Ideographs
-        let japanesePattern = "[\\u3040-\\u309f\\u30a0-\\u30ff]"  // Hiragana + Katakana
-        
-        let chineseCount = (try? NSRegularExpression(pattern: chinesePattern).numberOfMatches(in: text, range: NSRange(text.startIndex..., in: text))) ?? 0
-        let japaneseCount = (try? NSRegularExpression(pattern: japanesePattern).numberOfMatches(in: text, range: NSRange(text.startIndex..., in: text))) ?? 0
-        
-        if japaneseCount > 0 {
-            return "Japanese"
-        } else if chineseCount > 10 {  // At least 10 Chinese characters for high confidence
-            return "Chinese"
-        } else {
-            return "English"
-        }
     }
     
     // MARK: - API Optimization Helpers

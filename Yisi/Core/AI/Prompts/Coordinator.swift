@@ -23,21 +23,20 @@ class PromptCoordinator {
     /// 根据模式生成对应的系统提示词
     /// - Parameters:
     ///   - mode: 提示词模式（翻译/预设/临时自定义）
-    ///   - detectedLanguage: 检测到的输入语言（可选，仅用于预设模式）
+    ///   - withLearnedRules: 是否包含用户纠正的学习规则
     /// - Returns: 完整的系统提示词
-    func generateSystemPrompt(for mode: PromptMode, withLearnedRules: Bool = true, detectedLanguage: String? = nil) -> String {
+    func generateSystemPrompt(for mode: PromptMode, withLearnedRules: Bool = true) -> String {
         switch mode {
         case .defaultTranslation:
             // 翻译模式：使用翻译Builder + Learned Rules
             return translationBuilder.buildSystemPrompt(withLearnedRules: withLearnedRules, preset: nil)
             
         case .userPreset(let preset):
-            // 预设模式：使用预设Builder（不含Learned Rules）+ 语言检测
-            return presetBuilder.buildSystemPrompt(preset: preset, detectedLanguage: detectedLanguage)
+            // 预设模式：使用预设Builder（AI 自动检测语言）
+            return presetBuilder.buildSystemPrompt(preset: preset)
             
         case .temporaryCustom:
             // 临时自定义：这个需要从外部传入input/output
-            // 暂时返回默认，后续会调整
             return customBuilder.buildSystemPrompt(inputContext: nil, outputRequirement: nil)
         }
     }
@@ -46,10 +45,9 @@ class PromptCoordinator {
     /// - Parameters:
     ///   - inputContext: 用户输入的任务理解
     ///   - outputRequirement: 用户期望的输出
-    ///   - detectedLanguage: 检测到的输入语言（可选）
     /// - Returns: 完整的系统提示词
-    func generateCustomPrompt(inputContext: String?, outputRequirement: String?, detectedLanguage: String? = nil) -> String {
-        return customBuilder.buildSystemPrompt(inputContext: inputContext, outputRequirement: outputRequirement, detectedLanguage: detectedLanguage)
+    func generateCustomPrompt(inputContext: String?, outputRequirement: String?) -> String {
+        return customBuilder.buildSystemPrompt(inputContext: inputContext, outputRequirement: outputRequirement)
     }
     
     /// 生成用户提示词（包含文本和语言信息）
