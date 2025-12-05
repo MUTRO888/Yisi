@@ -526,8 +526,8 @@ struct TranslationView: View {
         do {
             let mode = determineMode()
             
-            // 使用 PromptCoordinator 生成图片处理指令
-            let instruction = PromptCoordinator.shared.generateImagePrompt(
+            // 使用 PromptCoordinator 生成图片处理的系统提示词
+            let instruction = PromptCoordinator.shared.generateImageSystemPrompt(
                 mode: mode,
                 sourceLanguage: sourceLanguage.rawValue,
                 targetLanguage: targetLanguage.rawValue,

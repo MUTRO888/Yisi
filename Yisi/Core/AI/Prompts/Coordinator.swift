@@ -20,16 +20,31 @@ class PromptCoordinator {
     
     // MARK: - Public Interface
     
-    /// 根据模式生成对应的系统提示词
+    /// 根据模式生成对应的系统提示词（统一 Pipeline）
     /// - Parameters:
     ///   - mode: 提示词模式（翻译/预设/临时自定义）
     ///   - withLearnedRules: 是否包含用户纠正的学习规则
+    ///   - hasImage: 是否为图片输入（仅翻译模式使用）
+    ///   - sourceLanguage: 源语言（图片模式需要）
+    ///   - targetLanguage: 目标语言（图片模式需要）
     /// - Returns: 完整的系统提示词
-    func generateSystemPrompt(for mode: PromptMode, withLearnedRules: Bool = true) -> String {
+    func generateSystemPrompt(
+        for mode: PromptMode,
+        withLearnedRules: Bool = true,
+        hasImage: Bool = false,
+        sourceLanguage: String = "Auto Detect",
+        targetLanguage: String = "简体中文"
+    ) -> String {
         switch mode {
         case .defaultTranslation:
-            // 翻译模式：使用翻译Builder + Learned Rules
-            return translationBuilder.buildSystemPrompt(withLearnedRules: withLearnedRules, preset: nil)
+            // 翻译模式：使用翻译Builder + Learned Rules（图片/文本统一 Pipeline）
+            return translationBuilder.buildSystemPrompt(
+                withLearnedRules: withLearnedRules,
+                preset: nil,
+                hasImage: hasImage,
+                sourceLanguage: sourceLanguage,
+                targetLanguage: targetLanguage
+            )
             
         case .userPreset(let preset):
             // 预设模式：使用预设Builder（AI 自动检测语言）
@@ -75,15 +90,15 @@ class PromptCoordinator {
     
     // MARK: - Image Prompt Generation
     
-    /// 生成图片处理的提示词
+    /// 生成图片处理的系统提示词
     /// - Parameters:
     ///   - mode: 提示词模式
     ///   - sourceLanguage: 源语言
     ///   - targetLanguage: 目标语言
     ///   - customPerception: 自定义感知（用于自定义模式）
     ///   - customInstruction: 自定义指令（用于自定义模式）
-    /// - Returns: 给 AI 的图片处理指令
-    func generateImagePrompt(
+    /// - Returns: 给 AI 的图片处理系统提示词
+    func generateImageSystemPrompt(
         mode: PromptMode,
         sourceLanguage: String,
         targetLanguage: String,
@@ -92,22 +107,26 @@ class PromptCoordinator {
     ) -> String {
         switch mode {
         case .defaultTranslation:
-            // 翻译模式：使用 TranslationBuilder
-            return translationBuilder.buildImageTranslationPrompt(
+            // 翻译模式：使用统一 Pipeline（hasImage = true）
+            return generateSystemPrompt(
+                for: mode,
+                withLearnedRules: true,
+                hasImage: true,
                 sourceLanguage: sourceLanguage,
                 targetLanguage: targetLanguage
             )
             
         case .temporaryCustom:
-            // 自定义模式：使用 CustomBuilder
+            // 自定义模式：使用 CustomBuilder 的图片处理
             return customBuilder.buildImagePrompt(
                 inputContext: customPerception,
                 outputRequirement: customInstruction
             )
             
         case .userPreset(let preset):
-            // 预设模式：使用 PresetBuilder
+            // 预设模式：使用 PresetBuilder 的图片处理
             return presetBuilder.buildImagePrompt(preset: preset)
         }
     }
 }
+
