@@ -9,6 +9,7 @@ class DatabaseManager {
     private init() {
         openDatabase()
         createTable()
+        migrateDatabase()  // 执行迁移以确保字段兼容
     }
     
     private func getDatabasePath() -> String {
@@ -37,7 +38,8 @@ class DatabaseManager {
         timestamp REAL,
         type TEXT,
         presetName TEXT,
-        customPrompt TEXT
+        customPrompt TEXT,
+        imagePath TEXT
         );
         """
         
@@ -54,8 +56,23 @@ class DatabaseManager {
         sqlite3_finalize(createTableStatement)
     }
     
+    /// 执行数据库迁移，为现有表添加新字段
+    private func migrateDatabase() {
+        // 检查 imagePath 字段是否存在，不存在则添加
+        let alterSQL = "ALTER TABLE translation_history ADD COLUMN imagePath TEXT;"
+        var statement: OpaquePointer?
+        
+        // ALTER TABLE 会失败如果字段已存在，这是预期行为
+        if sqlite3_prepare_v2(db, alterSQL, -1, &statement, nil) == SQLITE_OK {
+            if sqlite3_step(statement) == SQLITE_DONE {
+                print("Database migrated: added imagePath column.")
+            }
+        }
+        sqlite3_finalize(statement)
+    }
+    
     func insert(item: TranslationHistoryItem) {
-        let insertStatementString = "INSERT INTO translation_history (id, sourceText, targetText, sourceLanguage, targetLanguage, timestamp, type, presetName, customPrompt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);"
+        let insertStatementString = "INSERT INTO translation_history (id, sourceText, targetText, sourceLanguage, targetLanguage, timestamp, type, presetName, customPrompt, imagePath) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);"
         var insertStatement: OpaquePointer?
         
         if sqlite3_prepare_v2(db, insertStatementString, -1, &insertStatement, nil) == SQLITE_OK {
@@ -68,6 +85,7 @@ class DatabaseManager {
             let type = item.type.rawValue as NSString
             let presetName = (item.presetName ?? "") as NSString
             let customPrompt = (item.customPrompt ?? "") as NSString
+            let imagePath = (item.imagePath ?? "") as NSString
             
             sqlite3_bind_text(insertStatement, 1, idString.utf8String, -1, nil)
             sqlite3_bind_text(insertStatement, 2, sourceText.utf8String, -1, nil)
@@ -78,6 +96,7 @@ class DatabaseManager {
             sqlite3_bind_text(insertStatement, 7, type.utf8String, -1, nil)
             sqlite3_bind_text(insertStatement, 8, presetName.utf8String, -1, nil)
             sqlite3_bind_text(insertStatement, 9, customPrompt.utf8String, -1, nil)
+            sqlite3_bind_text(insertStatement, 10, imagePath.utf8String, -1, nil)
             
             if sqlite3_step(insertStatement) == SQLITE_DONE {
                 print("Successfully inserted row.")
@@ -118,6 +137,12 @@ class DatabaseManager {
                     if customPrompt?.isEmpty == true { customPrompt = nil }
                 }
                 
+                var imagePath: String? = nil
+                if let cString = sqlite3_column_text(queryStatement, 9) {
+                    imagePath = String(cString: cString)
+                    if imagePath?.isEmpty == true { imagePath = nil }
+                }
+                
                 if let id = UUID(uuidString: idString),
                    let type = HistoryType(rawValue: typeString) {
                     let item = TranslationHistoryItem(
@@ -129,7 +154,8 @@ class DatabaseManager {
                         timestamp: Date(timeIntervalSince1970: timestamp),
                         type: type,
                         presetName: presetName,
-                        customPrompt: customPrompt
+                        customPrompt: customPrompt,
+                        imagePath: imagePath
                     )
                     items.append(item)
                 }

@@ -286,87 +286,22 @@ struct HistoryRowView: View {
     let item: TranslationHistoryItem
     @State private var isHovering = false
     @State private var isExpanded = false
+    @State private var thumbnailImage: NSImage? = nil
+    @State private var showImagePreview = false
+    
+    /// 是否为图片识别记录
+    private var isImageRecord: Bool {
+        item.imagePath != nil
+    }
     
     var body: some View {
         ZStack(alignment: .topTrailing) {
-            // Background & Content Container
-            VStack(alignment: .leading, spacing: 10) {
-                // Header: Type Tag + Timestamp
-                HStack(spacing: 8) {
-                    HistoryTypeTag(item: item)
-                    
-                    Text(item.timestamp.formattedRelative())
-                        .font(.system(size: 11, design: .serif))
-                        .foregroundColor(.secondary.opacity(0.5))
-                    
-                    Spacer()
-                }
-                .allowsHitTesting(false) // Pass clicks on header to background
-                
-                // Content
-                VStack(alignment: .leading, spacing: 6) {
-                    // Target (Translation)
-                    if !item.targetText.isEmpty {
-                        let targetText = Text(item.targetText)
-                            .font(.system(size: 13, design: .serif))
-                            .foregroundColor(AppColors.text)
-                            .lineLimit(isExpanded ? nil : 1)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .fixedSize(horizontal: false, vertical: true) // Ensure full height
-                            .layoutPriority(isExpanded ? 1 : 0) // 展開時最高優先級，禁止壓縮
-                        
-                        if isExpanded {
-                            targetText.textSelection(.enabled)
-                        } else {
-                            targetText
-                        }
-                    }
-                    
-                    // Source (Original)
-                    let sourceText = Text(item.sourceText)
-                        .font(.system(size: 13, design: .serif))
-                        .foregroundColor(AppColors.text.opacity(0.6))
-                        .lineLimit(isExpanded ? nil : 1)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .fixedSize(horizontal: false, vertical: true) // Ensure full height
-                        .layoutPriority(isExpanded ? 1 : 0) // 展開時最高優先級，禁止壓縮
-                    
-                    if isExpanded {
-                        sourceText.textSelection(.enabled)
-                    } else {
-                        sourceText
-                    }
-                    
-                    // Custom Prompt Details
-                    if item.type == .custom, let prompt = item.customPrompt {
-                        if isExpanded {
-                            VStack(alignment: .leading, spacing: 4) {
-                                Divider().opacity(0.1).padding(.vertical, 2)
-                                Text(prompt)
-                                    .font(.system(size: 11, design: .serif).italic())
-                                    .foregroundColor(AppColors.primary.opacity(0.8))
-                                    .frame(maxWidth: .infinity, alignment: .leading)
-                                    .textSelection(.enabled) // Always selectable when expanded
-                                    .fixedSize(horizontal: false, vertical: true) // 确保垂直方向完全撑开
-                                    .layoutPriority(1) // 确保不被压缩
-                            }
-                        }
-                    }
-                }
+            // 根据是否有图片选择不同的布局
+            if isImageRecord {
+                imageRecordLayout
+            } else {
+                textRecordLayout
             }
-            .padding(16)
-            .background(
-                RoundedRectangle(cornerRadius: 12)
-                    .fill(isHovering ? Color.primary.opacity(0.02) : Color.clear)
-            )
-            .contentShape(Rectangle()) // Make entire area hit-testable
-            .simultaneousGesture(
-                TapGesture().onEnded {
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
-                        isExpanded.toggle()
-                    }
-                }
-            )
             
             // Delete Button (Visible on Hover)
             if isHovering {
@@ -391,6 +326,200 @@ struct HistoryRowView: View {
         .onHover { hovering in
             withAnimation(.easeInOut(duration: 0.2)) {
                 isHovering = hovering
+            }
+        }
+        .onAppear {
+            loadThumbnail()
+        }
+    }
+    
+    // MARK: - 图片识别记录布局（卡片式设计）
+    
+    private var imageRecordLayout: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            // 缩略图区域（主视觉焦点）
+            ZStack(alignment: .bottomLeading) {
+                // 背景图片
+                if let image = thumbnailImage {
+                    Image(nsImage: image)
+                        .resizable()
+                        .aspectRatio(contentMode: .fill)
+                        .frame(height: isExpanded ? 160 : 80)
+                        .clipped()
+                        .overlay(
+                            // 渐变遮罩，让文字更易读
+                            LinearGradient(
+                                colors: [Color.clear, Color.black.opacity(0.4)],
+                                startPoint: .top,
+                                endPoint: .bottom
+                            )
+                        )
+                } else {
+                    // 占位背景
+                    Rectangle()
+                        .fill(Color.secondary.opacity(0.1))
+                        .frame(height: isExpanded ? 160 : 80)
+                        .overlay(
+                            Image(systemName: "photo")
+                                .font(.system(size: 24))
+                                .foregroundColor(.secondary.opacity(0.3))
+                        )
+                }
+                
+                // 左下角的类型标签
+                HStack(spacing: 6) {
+                    Image(systemName: "eye.fill")
+                        .font(.system(size: 9))
+                    Text("Vision")
+                        .font(.system(size: 10, weight: .medium, design: .serif))
+                }
+                .foregroundColor(.white.opacity(0.9))
+                .padding(.horizontal, 8)
+                .padding(.vertical, 4)
+                .background(Color.black.opacity(0.3))
+                .background(.ultraThinMaterial)
+                .clipShape(Capsule())
+                .padding(8)
+            }
+            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+            
+            // 内容区域
+            VStack(alignment: .leading, spacing: 6) {
+                // 时间戳
+                Text(item.timestamp.formattedRelative())
+                    .font(.system(size: 10, design: .serif))
+                    .foregroundColor(.secondary.opacity(0.5))
+                
+                // 翻译结果
+                let targetText = Text(item.targetText)
+                    .font(.system(size: 13, design: .serif))
+                    .foregroundColor(AppColors.text)
+                    .lineLimit(isExpanded ? nil : 2)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .fixedSize(horizontal: false, vertical: true)
+                
+                if isExpanded {
+                    targetText.textSelection(.enabled)
+                } else {
+                    targetText
+                }
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 10)
+        }
+        .background(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .fill(isHovering ? Color.primary.opacity(0.03) : Color.primary.opacity(0.01))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .stroke(Color.primary.opacity(0.05), lineWidth: 1)
+        )
+        .contentShape(Rectangle())
+        .simultaneousGesture(
+            TapGesture().onEnded {
+                withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                    isExpanded.toggle()
+                }
+            }
+        )
+    }
+    
+    // MARK: - 文本翻译记录布局（原有设计）
+    
+    private var textRecordLayout: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            // Header: Type Tag + Timestamp
+            HStack(spacing: 8) {
+                HistoryTypeTag(item: item)
+                
+                Text(item.timestamp.formattedRelative())
+                    .font(.system(size: 11, design: .serif))
+                    .foregroundColor(.secondary.opacity(0.5))
+                
+                Spacer()
+            }
+            .allowsHitTesting(false)
+            
+            // Content
+            VStack(alignment: .leading, spacing: 6) {
+                // Target (Translation)
+                if !item.targetText.isEmpty {
+                    let targetText = Text(item.targetText)
+                        .font(.system(size: 13, design: .serif))
+                        .foregroundColor(AppColors.text)
+                        .lineLimit(isExpanded ? nil : 1)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .layoutPriority(isExpanded ? 1 : 0)
+                    
+                    if isExpanded {
+                        targetText.textSelection(.enabled)
+                    } else {
+                        targetText
+                    }
+                }
+                
+                // Source (Original)
+                let sourceText = Text(item.sourceText)
+                    .font(.system(size: 13, design: .serif))
+                    .foregroundColor(AppColors.text.opacity(0.6))
+                    .lineLimit(isExpanded ? nil : 1)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .layoutPriority(isExpanded ? 1 : 0)
+                
+                if isExpanded {
+                    sourceText.textSelection(.enabled)
+                } else {
+                    sourceText
+                }
+                
+                // Custom Prompt Details
+                if item.type == .custom, let prompt = item.customPrompt {
+                    if isExpanded {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Divider().opacity(0.1).padding(.vertical, 2)
+                            Text(prompt)
+                                .font(.system(size: 11, design: .serif).italic())
+                                .foregroundColor(AppColors.primary.opacity(0.8))
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .textSelection(.enabled)
+                                .fixedSize(horizontal: false, vertical: true)
+                                .layoutPriority(1)
+                        }
+                    }
+                }
+            }
+        }
+        .padding(16)
+        .background(
+            RoundedRectangle(cornerRadius: 12)
+                .fill(isHovering ? Color.primary.opacity(0.02) : Color.clear)
+        )
+        .contentShape(Rectangle())
+        .simultaneousGesture(
+            TapGesture().onEnded {
+                withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                    isExpanded.toggle()
+                }
+            }
+        )
+    }
+    
+    /// 加载缩略图
+    private func loadThumbnail() {
+        guard let imagePath = item.imagePath,
+              let fullPath = HistoryManager.shared.getFullImagePath(imagePath) else {
+            return
+        }
+        
+        // 异步加载图片
+        DispatchQueue.global(qos: .userInitiated).async {
+            if let image = NSImage(contentsOf: fullPath) {
+                DispatchQueue.main.async {
+                    self.thumbnailImage = image
+                }
             }
         }
     }

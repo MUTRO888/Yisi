@@ -1,11 +1,15 @@
 import Foundation
 import Combine
+import AppKit
 
 class HistoryManager: ObservableObject {
     static let shared = HistoryManager()
     @Published var historyItems: [TranslationHistoryItem] = []
     
     @Published var selectedGroup: HistoryDateGroup = .all
+    
+    /// 历史图片存储目录名
+    private let imageDirectoryName = "HistoryImages"
     
     private init() {
         loadHistory()
@@ -41,6 +45,72 @@ class HistoryManager: ObservableObject {
         }
     }
     
+    // MARK: - Image Storage Helpers
+    
+    /// 获取图片存储目录的完整路径
+    private func getImageDirectoryURL() -> URL? {
+        let fileManager = FileManager.default
+        guard let documentsUrl = fileManager.urls(for: .documentDirectory, in: .userDomainMask).first else {
+            return nil
+        }
+        let imageDir = documentsUrl.appendingPathComponent(imageDirectoryName)
+        
+        // 确保目录存在
+        if !fileManager.fileExists(atPath: imageDir.path) {
+            try? fileManager.createDirectory(at: imageDir, withIntermediateDirectories: true)
+        }
+        
+        return imageDir
+    }
+    
+    /// 将图片保存到磁盘，返回相对路径
+    private func saveImageToDisk(_ image: NSImage) -> String? {
+        guard let imageDir = getImageDirectoryURL() else { return nil }
+        
+        // 生成唯一文件名
+        let fileName = "\(UUID().uuidString).jpg"
+        let filePath = imageDir.appendingPathComponent(fileName)
+        
+        // 将 NSImage 转换为 JPEG 数据
+        guard let tiffData = image.tiffRepresentation,
+              let bitmapRep = NSBitmapImageRep(data: tiffData),
+              let jpegData = bitmapRep.representation(using: .jpeg, properties: [.compressionFactor: 0.8]) else {
+            print("Failed to convert image to JPEG")
+            return nil
+        }
+        
+        // 写入文件
+        do {
+            try jpegData.write(to: filePath)
+            print("Image saved to: \(filePath.path)")
+            return "\(imageDirectoryName)/\(fileName)"  // 返回相对路径
+        } catch {
+            print("Failed to save image: \(error)")
+            return nil
+        }
+    }
+    
+    /// 将相对路径转换为完整的文件系统 URL
+    func getFullImagePath(_ relativePath: String) -> URL? {
+        let fileManager = FileManager.default
+        guard let documentsUrl = fileManager.urls(for: .documentDirectory, in: .userDomainMask).first else {
+            return nil
+        }
+        return documentsUrl.appendingPathComponent(relativePath)
+    }
+    
+    /// 删除磁盘上的图片文件
+    private func deleteImageFromDisk(_ relativePath: String) {
+        guard let fullPath = getFullImagePath(relativePath) else { return }
+        let fileManager = FileManager.default
+        if fileManager.fileExists(atPath: fullPath.path) {
+            try? fileManager.removeItem(at: fullPath)
+            print("Deleted image: \(fullPath.path)")
+        }
+    }
+    
+    // MARK: - History CRUD
+    
     func addHistory(
         sourceText: String,
         targetText: String,
@@ -48,7 +118,8 @@ class HistoryManager: ObservableObject {
         targetLanguage: String,
         mode: PromptMode,
         customPerception: String? = nil,
-        customInstruction: String? = nil
+        customInstruction: String? = nil,
+        image: NSImage? = nil
     ) {
         let id = UUID()
         let timestamp = Date()
@@ -76,6 +147,12 @@ class HistoryManager: ObservableObject {
             customPrompt = parts.joined(separator: ", ")
         }
         
+        // 保存图片到磁盘（如果存在）
+        var imagePath: String? = nil
+        if let img = image {
+            imagePath = saveImageToDisk(img)
+        }
+        
         let item = TranslationHistoryItem(
             id: id,
             sourceText: sourceText,
@@ -85,7 +162,8 @@ class HistoryManager: ObservableObject {
             timestamp: timestamp,
             type: type,
             presetName: presetName,
-            customPrompt: customPrompt
+            customPrompt: customPrompt,
+            imagePath: imagePath
         )
         
         // Save to DB (Background)
@@ -101,6 +179,11 @@ class HistoryManager: ObservableObject {
         // Update UI immediately (Optimistic)
         if let index = self.historyItems.firstIndex(where: { $0.id == item.id }) {
             self.historyItems.remove(at: index)
+        }
+        
+        // Delete associated image from disk (if exists)
+        if let imagePath = item.imagePath {
+            deleteImageFromDisk(imagePath)
         }
         
         // Delete from DB (Background)

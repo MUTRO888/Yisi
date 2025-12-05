@@ -16,6 +16,7 @@ struct TranslationHistoryItem: Identifiable, Codable, Hashable {
     let type: HistoryType
     let presetName: String?
     let customPrompt: String?
+    let imagePath: String?  // 图片相对路径（存储在沙盒 Documents/HistoryImages/）
     
     // Helper to get a display title for the type
     var typeDisplayName: String {

@@ -109,8 +109,44 @@ class AIService: ObservableObject {
            let content = firstCandidate["content"] as? [String: Any],
            let parts = content["parts"] as? [[String: Any]],
            let firstPart = parts.first,
-           let text = firstPart["text"] as? String {
-            return text
+           let rawText = firstPart["text"] as? String {
+            
+            // 解析 AI 返回的 JSON 内容，提取 translation_result
+            let cleanJSON = extractJSON(from: rawText)
+            let parsedResult: String
+            
+            if let jsonData = cleanJSON.data(using: .utf8),
+               let jsonObj = try? JSONSerialization.jsonObject(with: jsonData) as? [String: Any] {
+                // 尝试从 JSON 中提取翻译结果
+                if let translationResult = jsonObj["translation_result"] as? String {
+                    parsedResult = translationResult
+                } else if let result = jsonObj["result"] as? String {
+                    parsedResult = result
+                } else if let answer = jsonObj["answer"] as? String {
+                    parsedResult = answer
+                } else {
+                    // 如果没有找到已知的键，返回原始文本
+                    parsedResult = rawText
+                }
+            } else {
+                // 如果不是有效的 JSON，直接使用原始文本
+                parsedResult = rawText
+            }
+            
+            // 保存到历史记录（在主线程执行 UI 更新）
+            let capturedImage = image
+            DispatchQueue.main.async {
+                HistoryManager.shared.addHistory(
+                    sourceText: "🖼️ Image Recognition",
+                    targetText: parsedResult,
+                    sourceLanguage: "Auto",
+                    targetLanguage: "Auto",
+                    mode: .defaultTranslation,
+                    image: capturedImage
+                )
+            }
+            
+            return parsedResult
         }
         
         throw NSError(domain: "AIError", code: 5, 
