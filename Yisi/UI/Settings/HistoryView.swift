@@ -156,7 +156,7 @@ struct HistoryRowView: View {
             .onTapGesture {
                 if !isExpanded {
                     // 只有未展開時，點擊才觸發展開
-                    withAnimation(.easeInOut(duration: 0.25)) {
+                    withAnimation(.spring(response: 0.4, dampingFraction: 1.0)) {
                         isExpanded = true
                     }
                 }
@@ -171,7 +171,7 @@ struct HistoryRowView: View {
                         scrollCompensation = heightDelta
                     }
                     
-                    withAnimation(.easeInOut(duration: 0.25)) {
+                    withAnimation(.spring(response: 0.4, dampingFraction: 1.0)) {
                         isExpanded = false
                     }
                     
@@ -251,36 +251,24 @@ struct HistoryRowView: View {
             VStack(alignment: .leading, spacing: 6) {
                 // Target (Translation)
                 if !item.targetText.isEmpty {
-                    let targetText = Text(item.targetText)
-                        .font(.system(size: 13, design: .serif))
-                        .foregroundColor(AppColors.text)
-                        .lineLimit(isExpanded ? nil : 1)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .fixedSize(horizontal: false, vertical: true)
-                        .layoutPriority(isExpanded ? 1 : 0)
-                    
-                    if isExpanded {
-                        targetText.textSelection(.enabled)
-                    } else {
-                        targetText
-                    }
+                    CollapsibleText(
+                        text: item.targetText,
+                        font: .system(size: 13, design: .serif),
+                        color: AppColors.text,
+                        isExpanded: isExpanded
+                    )
+                    .layoutPriority(isExpanded ? 1 : 0)
                 }
                 
                 // Source (Original)
                 if !item.sourceText.isEmpty && item.sourceText != "🖼️ Image Recognition" {
-                    let sourceText = Text(item.sourceText)
-                        .font(.system(size: 13, design: .serif))
-                        .foregroundColor(AppColors.text.opacity(0.6))
-                        .lineLimit(isExpanded ? nil : 1)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .fixedSize(horizontal: false, vertical: true)
-                        .layoutPriority(isExpanded ? 1 : 0)
-                    
-                    if isExpanded {
-                        sourceText.textSelection(.enabled)
-                    } else {
-                        sourceText
-                    }
+                    CollapsibleText(
+                        text: item.sourceText,
+                        font: .system(size: 13, design: .serif),
+                        color: AppColors.text.opacity(0.6),
+                        isExpanded: isExpanded
+                    )
+                    .layoutPriority(isExpanded ? 1 : 0)
                 }
                 
                 // Expanded Image Thumbnail
@@ -585,5 +573,46 @@ extension Date {
         let formatter = RelativeDateTimeFormatter()
         formatter.unitsStyle = .abbreviated
         return formatter.localizedString(for: self, relativeTo: Date())
+    }
+}
+
+// MARK: - Helper Views
+
+private struct CollapsibleText: View {
+    let text: String
+    let font: Font
+    let color: Color
+    let isExpanded: Bool
+    
+    @State private var singleLineHeight: CGFloat = 18 // Default approximation
+    
+    var body: some View {
+        let textContent = Text(text)
+            .font(font)
+            .foregroundColor(color)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .fixedSize(horizontal: false, vertical: true) // Force full height logic
+            .lineLimit(nil) // Always render all lines
+            .frame(height: isExpanded ? nil : singleLineHeight, alignment: .top)
+            .clipped() // The core "Drawer" effect
+            .background(
+                // Invisible measuring view for single-line height
+                Text(text)
+                    .font(font)
+                    .lineLimit(1)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(GeometryReader { geo in
+                        Color.clear.onAppear {
+                            singleLineHeight = geo.size.height
+                        }
+                    })
+                    .hidden()
+            )
+        
+        if isExpanded {
+            textContent.textSelection(.enabled)
+        } else {
+            textContent.textSelection(.disabled)
+        }
     }
 }
