@@ -34,16 +34,19 @@ struct SettingsView: View {
             .padding(.top, 14)
             .padding(.bottom, 4) // 大幅減小，讓內容區上提
             
-            // Content Area
+            // Content Area (使用 ZStack 保活視圖，避免切換時重新初始化)
             ZStack(alignment: .topLeading) {
-                // Removed opaque background color
+                // History Tab (Index 0)
+                HistoryView()
+                    .opacity(selectedTopTab == 0 ? 1 : 0)
+                    .allowsHitTesting(selectedTopTab == 0) // 隱藏時禁止點擊
                 
-                if selectedTopTab == 0 {
-                    HistoryView()
-                } else {
-                    SettingsContent()
-                }
+                // Settings Tab (Index 1)
+                SettingsContent()
+                    .opacity(selectedTopTab == 1 ? 1 : 0)
+                    .allowsHitTesting(selectedTopTab == 1)
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity) // 填充剩餘空間
         }
         .frame(minWidth: 500, minHeight: 350)
         .background(ThemeBackground().edgesIgnoringSafeArea(.all))

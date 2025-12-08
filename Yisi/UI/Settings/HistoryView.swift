@@ -16,22 +16,16 @@ struct HistoryView: View {
                         .padding(.leading, isSidebarVisible ? 130 : 0)
                         .animation(.spring(response: 0.3, dampingFraction: 0.8), value: isSidebarVisible)
                 } else {
-                    TransparentScrollView {
-                        VStack(spacing: 0) {
-                            ForEach(historyManager.filteredItems) { item in
-                                HistoryRowView(item: item) { image in
-                                    withAnimation(.easeInOut(duration: 0.2)) {
-                                        previewImage = image
-                                    }
-                                }
-                                .transition(.opacity)
+                    VirtualizedHistoryList(
+                        historyManager: historyManager,
+                        onImageClick: { image in
+                            withAnimation(.easeInOut(duration: 0.2)) {
+                                previewImage = image
                             }
                         }
-                        .padding(.vertical, 8)
-                        .padding(.leading, isSidebarVisible ? 130 : 0)
-                        .frame(maxWidth: .infinity, alignment: .top)
-                        .animation(.spring(response: 0.3, dampingFraction: 0.8), value: isSidebarVisible)
-                    }
+                    )
+                    .padding(.leading, isSidebarVisible ? 130 : 0)
+                    .animation(.spring(response: 0.3, dampingFraction: 0.8), value: isSidebarVisible)
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -285,7 +279,14 @@ struct HistoryRowView: View {
                             )
                             .shadow(color: Color.black.opacity(0.1), radius: 2, x: 0, y: 1)
                             .onTapGesture {
-                                onImageClick(image)
+                                // 加載高清原圖用於詳情頁展示
+                                if let path = item.imagePath {
+                                    DispatchQueue.global(qos: .userInitiated).async {
+                                        if let fullImage = HistoryManager.shared.getFullImage(for: path) {
+                                            DispatchQueue.main.async { onImageClick(fullImage) }
+                                        }
+                                    }
+                                }
                             }
                         
                         Text("View Image")
@@ -317,17 +318,20 @@ struct HistoryRowView: View {
     
     // MARK: - Load Thumbnail
     
+    /// 加載縮略圖（使用 HistoryManager 的緩存系統）
     private func loadThumbnail() {
-        guard let imagePath = item.imagePath,
-              let fullPath = HistoryManager.shared.getFullImagePath(imagePath) else {
+        guard let path = item.imagePath else { return }
+
+        // 1. 同步檢查內存緩存（極速，解決切換 Tab 卡頓）
+        if let cached = HistoryManager.shared.getThumbnail(for: path) {
+            self.thumbnailImage = cached
             return
         }
-        
+
+        // 2. 異步加載（首次讀取）
         DispatchQueue.global(qos: .userInitiated).async {
-            if let image = NSImage(contentsOf: fullPath) {
-                DispatchQueue.main.async {
-                    self.thumbnailImage = image
-                }
+            if let thumb = HistoryManager.shared.getThumbnail(for: path) {
+                DispatchQueue.main.async { self.thumbnailImage = thumb }
             }
         }
     }

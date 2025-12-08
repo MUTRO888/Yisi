@@ -5,24 +5,28 @@ import AppKit
 class HistoryManager: ObservableObject {
     static let shared = HistoryManager()
     @Published var historyItems: [TranslationHistoryItem] = []
-    
     @Published var selectedGroup: HistoryDateGroup = .all
     
-    /// 历史图片存储目录名
+    // MARK: - Cache System
+    /// 縮略圖緩存池 (Key: ImagePath, Value: Downsampled NSImage)
+    private let thumbnailCache = NSCache<NSString, NSImage>()
     private let imageDirectoryName = "HistoryImages"
     
+    // MARK: - Prefetch System
+    /// 預取隊列，用於提前加載即將可見的縮略圖
+    private let prefetchQueue = DispatchQueue(label: "com.yisi.thumbnail.prefetch", qos: .utility)
+    private var prefetchWorkItems: [UUID: DispatchWorkItem] = [:]
+    
     private init() {
+        thumbnailCache.countLimit = 200 // 限制緩存數量，防止內存溢出
         loadHistory()
     }
     
     var filteredItems: [TranslationHistoryItem] {
         switch selectedGroup {
-        case .all:
-            return historyItems
-        case .today:
-            return historyItems.filter { Calendar.current.isDateInToday($0.timestamp) }
-        case .yesterday:
-            return historyItems.filter { Calendar.current.isDateInYesterday($0.timestamp) }
+        case .all: return historyItems
+        case .today: return historyItems.filter { Calendar.current.isDateInToday($0.timestamp) }
+        case .yesterday: return historyItems.filter { Calendar.current.isDateInYesterday($0.timestamp) }
         case .thisWeek:
             return historyItems.filter {
                 let calendar = Calendar.current
@@ -39,167 +43,148 @@ class HistoryManager: ObservableObject {
     }
     
     func loadHistory() {
-        let items = DatabaseManager.shared.fetchAll()
-        DispatchQueue.main.async {
-            self.historyItems = items.sorted(by: { $0.timestamp > $1.timestamp })
+        DispatchQueue.global(qos: .userInitiated).async {
+            let items = DatabaseManager.shared.fetchAll()
+            let sortedItems = items.sorted(by: { $0.timestamp > $1.timestamp })
+            DispatchQueue.main.async { self.historyItems = sortedItems }
         }
     }
     
-    // MARK: - Image Storage Helpers
+    // MARK: - Image Handling (High Performance)
     
-    /// 获取图片存储目录的完整路径
+    /// 獲取縮略圖（優先查內存緩存 -> 磁盤降採樣）
+    /// - 用途：列表展示，極速加載
+    func getThumbnail(for relativePath: String) -> NSImage? {
+        let cacheKey = relativePath as NSString
+        
+        // 1. 命中內存緩存：直接返回
+        if let cachedImage = thumbnailCache.object(forKey: cacheKey) {
+            return cachedImage
+        }
+        
+        // 2. 未命中：從磁盤讀取並降採樣
+        guard let fullURL = getFullImagePath(relativePath) else { return nil }
+        
+        // 目標尺寸：100x100 (Retina 50pt)
+        if let downsampled = downsample(imageAt: fullURL, to: CGSize(width: 100, height: 100)) {
+            thumbnailCache.setObject(downsampled, forKey: cacheKey)
+            return downsampled
+        }
+        
+        return nil
+    }
+    
+    /// 獲取高清原圖（不緩存）
+    /// - 用途：詳情頁展示，保證清晰度
+    func getFullImage(for relativePath: String) -> NSImage? {
+        guard let fullURL = getFullImagePath(relativePath) else { return nil }
+        return NSImage(contentsOf: fullURL)
+    }
+    
+    /// ImageIO 高性能降採樣
+    private func downsample(imageAt imageURL: URL, to pointSize: CGSize) -> NSImage? {
+        let imageSourceOptions = [kCGImageSourceShouldCache: false] as CFDictionary
+        guard let imageSource = CGImageSourceCreateWithURL(imageURL as CFURL, imageSourceOptions) else { return nil }
+        
+        let maxDimensionInPixels = max(pointSize.width, pointSize.height) * 2 // *2 for Retina
+        let downsampleOptions = [
+            kCGImageSourceCreateThumbnailFromImageAlways: true,
+            kCGImageSourceShouldCacheImmediately: true,
+            kCGImageSourceCreateThumbnailWithTransform: true,
+            kCGImageSourceThumbnailMaxPixelSize: maxDimensionInPixels
+        ] as CFDictionary
+        
+        guard let downsampledImage = CGImageSourceCreateThumbnailAtIndex(imageSource, 0, downsampleOptions) else { return nil }
+        return NSImage(cgImage: downsampledImage, size: pointSize)
+    }
+    
+    // MARK: - Prefetch Methods
+    
+    /// 預取多個項目的縮略圖（用於即將可見的行）
+    func prefetchThumbnails(for items: [TranslationHistoryItem]) {
+        for item in items {
+            guard let path = item.imagePath,
+                  thumbnailCache.object(forKey: path as NSString) == nil,
+                  prefetchWorkItems[item.id] == nil else { continue }
+            
+            let workItem = DispatchWorkItem { [weak self] in
+                _ = self?.getThumbnail(for: path) // 填充緩存
+            }
+            prefetchWorkItems[item.id] = workItem
+            prefetchQueue.async(execute: workItem)
+        }
+    }
+    
+    /// 取消預取（當項目滾動出預取範圍）
+    func cancelPrefetch(for items: [TranslationHistoryItem]) {
+        for item in items {
+            prefetchWorkItems[item.id]?.cancel()
+            prefetchWorkItems.removeValue(forKey: item.id)
+        }
+    }
+    // MARK: - File & CRUD Helpers
+    
     private func getImageDirectoryURL() -> URL? {
         let fileManager = FileManager.default
-        guard let documentsUrl = fileManager.urls(for: .documentDirectory, in: .userDomainMask).first else {
-            return nil
-        }
+        guard let documentsUrl = fileManager.urls(for: .documentDirectory, in: .userDomainMask).first else { return nil }
         let imageDir = documentsUrl.appendingPathComponent(imageDirectoryName)
-        
-        // 确保目录存在
         if !fileManager.fileExists(atPath: imageDir.path) {
             try? fileManager.createDirectory(at: imageDir, withIntermediateDirectories: true)
         }
-        
         return imageDir
     }
-    
-    /// 将图片保存到磁盘，返回相对路径
+
     private func saveImageToDisk(_ image: NSImage) -> String? {
         guard let imageDir = getImageDirectoryURL() else { return nil }
-        
-        // 生成唯一文件名
         let fileName = "\(UUID().uuidString).jpg"
         let filePath = imageDir.appendingPathComponent(fileName)
-        
-        // 将 NSImage 转换为 JPEG 数据
         guard let tiffData = image.tiffRepresentation,
               let bitmapRep = NSBitmapImageRep(data: tiffData),
-              let jpegData = bitmapRep.representation(using: .jpeg, properties: [.compressionFactor: 0.8]) else {
-            print("Failed to convert image to JPEG")
-            return nil
-        }
-        
-        // 写入文件
-        do {
-            try jpegData.write(to: filePath)
-            print("Image saved to: \(filePath.path)")
-            return "\(imageDirectoryName)/\(fileName)"  // 返回相对路径
-        } catch {
-            print("Failed to save image: \(error)")
-            return nil
-        }
+              let jpegData = bitmapRep.representation(using: .jpeg, properties: [.compressionFactor: 0.8]) else { return nil }
+        try? jpegData.write(to: filePath)
+        return "\(imageDirectoryName)/\(fileName)"
     }
-    
-    /// 将相对路径转换为完整的文件系统 URL
+
     func getFullImagePath(_ relativePath: String) -> URL? {
         let fileManager = FileManager.default
-        guard let documentsUrl = fileManager.urls(for: .documentDirectory, in: .userDomainMask).first else {
-            return nil
-        }
+        guard let documentsUrl = fileManager.urls(for: .documentDirectory, in: .userDomainMask).first else { return nil }
         return documentsUrl.appendingPathComponent(relativePath)
     }
-    
-    /// 删除磁盘上的图片文件
+
     private func deleteImageFromDisk(_ relativePath: String) {
         guard let fullPath = getFullImagePath(relativePath) else { return }
-        let fileManager = FileManager.default
-        if fileManager.fileExists(atPath: fullPath.path) {
-            try? fileManager.removeItem(at: fullPath)
-            print("Deleted image: \(fullPath.path)")
-        }
+        try? FileManager.default.removeItem(at: fullPath)
     }
     
-    // MARK: - History CRUD
-    
-    func addHistory(
-        sourceText: String,
-        targetText: String,
-        sourceLanguage: String,
-        targetLanguage: String,
-        mode: PromptMode,
-        customPerception: String? = nil,
-        customInstruction: String? = nil,
-        image: NSImage? = nil
-    ) {
+    func addHistory(sourceText: String, targetText: String, sourceLanguage: String, targetLanguage: String, mode: PromptMode, customPerception: String? = nil, customInstruction: String? = nil, image: NSImage? = nil) {
         let id = UUID()
         let timestamp = Date()
-        
         var type: HistoryType = .translation
         var presetName: String? = nil
         var customPrompt: String? = nil
-        
         switch mode {
-        case .defaultTranslation:
-            type = .translation
-        case .userPreset(let preset):
-            type = .preset
-            presetName = preset.name
-        case .temporaryCustom:
-            type = .custom
-            // Format custom prompt for display
-            var parts: [String] = []
-            if let p = customPerception, !p.isEmpty {
-                parts.append("I perceive this as \(p)")
-            }
-            if let i = customInstruction, !i.isEmpty {
-                parts.append("please \(i)")
-            }
-            customPrompt = parts.joined(separator: ", ")
+        case .defaultTranslation: type = .translation
+        case .userPreset(let preset): type = .preset; presetName = preset.name
+        case .temporaryCustom: type = .custom; var parts: [String] = []; if let p = customPerception, !p.isEmpty { parts.append("I perceive this as \(p)") }; if let i = customInstruction, !i.isEmpty { parts.append("please \(i)") }; customPrompt = parts.joined(separator: ", ")
         }
-        
-        // 保存图片到磁盘（如果存在）
         var imagePath: String? = nil
         if let img = image {
             imagePath = saveImageToDisk(img)
         }
-        
-        let item = TranslationHistoryItem(
-            id: id,
-            sourceText: sourceText,
-            targetText: targetText,
-            sourceLanguage: sourceLanguage,
-            targetLanguage: targetLanguage,
-            timestamp: timestamp,
-            type: type,
-            presetName: presetName,
-            customPrompt: customPrompt,
-            imagePath: imagePath
-        )
-        
-        // Save to DB (Background)
-        DispatchQueue.global(qos: .userInitiated).async {
-            DatabaseManager.shared.insert(item: item)
-        }
-        
-        // Update UI immediately (Optimistic)
+        let item = TranslationHistoryItem(id: id, sourceText: sourceText, targetText: targetText, sourceLanguage: sourceLanguage, targetLanguage: targetLanguage, timestamp: timestamp, type: type, presetName: presetName, customPrompt: customPrompt, imagePath: imagePath)
+        DispatchQueue.global(qos: .userInitiated).async { DatabaseManager.shared.insert(item: item) }
         self.historyItems.insert(item, at: 0)
     }
     
     func deleteHistory(item: TranslationHistoryItem) {
-        // Update UI immediately (Optimistic)
-        if let index = self.historyItems.firstIndex(where: { $0.id == item.id }) {
-            self.historyItems.remove(at: index)
-        }
-        
-        // Delete associated image from disk (if exists)
-        if let imagePath = item.imagePath {
-            deleteImageFromDisk(imagePath)
-        }
-        
-        // Delete from DB (Background)
-        DispatchQueue.global(qos: .userInitiated).async {
-            DatabaseManager.shared.delete(id: item.id)
-        }
+        if let index = self.historyItems.firstIndex(where: { $0.id == item.id }) { self.historyItems.remove(at: index) }
+        if let imagePath = item.imagePath { deleteImageFromDisk(imagePath) }
+        DispatchQueue.global(qos: .userInitiated).async { DatabaseManager.shared.delete(id: item.id) }
     }
     
     func clearAllHistory() {
-        // Update UI immediately (Optimistic)
         self.historyItems.removeAll()
-        
-        // Clear DB (Background)
-        DispatchQueue.global(qos: .userInitiated).async {
-            DatabaseManager.shared.clearAll()
-        }
+        DispatchQueue.global(qos: .userInitiated).async { DatabaseManager.shared.clearAll() }
     }
 }
 
