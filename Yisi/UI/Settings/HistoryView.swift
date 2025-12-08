@@ -16,16 +16,45 @@ struct HistoryView: View {
                         .padding(.leading, isSidebarVisible ? 130 : 0)
                         .animation(.spring(response: 0.3, dampingFraction: 0.8), value: isSidebarVisible)
                 } else {
-                    VirtualizedHistoryList(
-                        historyManager: historyManager,
-                        onImageClick: { image in
-                            withAnimation(.easeInOut(duration: 0.2)) {
-                                previewImage = image
+                    // 使用 VStack + 分頁實現流暢動畫與高性能
+                    TransparentScrollView {
+                        VStack(spacing: 0) {
+                            ForEach(historyManager.filteredItems) { item in
+                                HistoryRowView(item: item) { image in
+                                    withAnimation(.easeInOut(duration: 0.2)) {
+                                        previewImage = image
+                                    }
+                                }
+                                .transition(.opacity)
+                            }
+                            
+                            // 「加載更多」按鈕
+                            if historyManager.hasMoreItems() {
+                                Button(action: {
+                                    withAnimation(.easeInOut(duration: 0.2)) {
+                                        historyManager.loadMoreItems()
+                                    }
+                                }) {
+                                    HStack {
+                                        Text("加載更多")
+                                            .font(.system(size: 12, design: .serif))
+                                            .foregroundColor(AppColors.primary.opacity(0.7))
+                                        Image(systemName: "chevron.down")
+                                            .font(.system(size: 10))
+                                            .foregroundColor(AppColors.primary.opacity(0.5))
+                                    }
+                                    .padding(.vertical, 12)
+                                    .frame(maxWidth: .infinity)
+                                }
+                                .buttonStyle(.plain)
+                                .padding(.horizontal, 16)
                             }
                         }
-                    )
-                    .padding(.leading, isSidebarVisible ? 130 : 0)
-                    .animation(.spring(response: 0.3, dampingFraction: 0.8), value: isSidebarVisible)
+                        .padding(.vertical, 8)
+                        .padding(.leading, isSidebarVisible ? 130 : 0)
+                        .frame(maxWidth: .infinity, alignment: .top)
+                        .animation(.spring(response: 0.3, dampingFraction: 0.8), value: isSidebarVisible)
+                    }
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -574,9 +603,23 @@ struct HistoryTypeTag: View {
 
 extension Date {
     func formattedRelative() -> String {
-        let formatter = RelativeDateTimeFormatter()
-        formatter.unitsStyle = .abbreviated
-        return formatter.localizedString(for: self, relativeTo: Date())
+        let calendar = Calendar.current
+        
+        if calendar.isDateInToday(self) {
+            return "今天"
+        } else if calendar.isDateInYesterday(self) {
+            return "昨天"
+        } else {
+            // 超過昨天的顯示具體日期
+            let components = calendar.dateComponents([.day], from: self, to: Date())
+            if let days = components.day, days < 7 {
+                return "\(days)天前"
+            } else {
+                let formatter = DateFormatter()
+                formatter.dateFormat = "M月d日"
+                return formatter.string(from: self)
+            }
+        }
     }
 }
 

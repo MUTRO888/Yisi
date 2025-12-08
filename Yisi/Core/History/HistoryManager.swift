@@ -7,6 +7,10 @@ class HistoryManager: ObservableObject {
     @Published var historyItems: [TranslationHistoryItem] = []
     @Published var selectedGroup: HistoryDateGroup = .all
     
+    // MARK: - Pagination
+    private let pageSize = 30
+    @Published var displayedItemsCount = 30 // 初始顯示數量
+    
     // MARK: - Cache System
     /// 縮略圖緩存池 (Key: ImagePath, Value: Downsampled NSImage)
     private let thumbnailCache = NSCache<NSString, NSImage>()
@@ -22,24 +26,61 @@ class HistoryManager: ObservableObject {
         loadHistory()
     }
     
+    /// 分頁後的過濾項目（只返回前 displayedItemsCount 個）
     var filteredItems: [TranslationHistoryItem] {
+        let allFiltered: [TranslationHistoryItem]
         switch selectedGroup {
-        case .all: return historyItems
-        case .today: return historyItems.filter { Calendar.current.isDateInToday($0.timestamp) }
-        case .yesterday: return historyItems.filter { Calendar.current.isDateInYesterday($0.timestamp) }
+        case .all: allFiltered = historyItems
+        case .today: allFiltered = historyItems.filter { Calendar.current.isDateInToday($0.timestamp) }
+        case .yesterday: allFiltered = historyItems.filter { Calendar.current.isDateInYesterday($0.timestamp) }
         case .thisWeek:
-            return historyItems.filter {
+            allFiltered = historyItems.filter {
                 let calendar = Calendar.current
                 guard let weekAgo = calendar.date(byAdding: .day, value: -7, to: Date()) else { return false }
                 return $0.timestamp > weekAgo && !calendar.isDateInToday($0.timestamp) && !calendar.isDateInYesterday($0.timestamp)
             }
         case .older:
-            return historyItems.filter {
+            allFiltered = historyItems.filter {
                 let calendar = Calendar.current
                 guard let weekAgo = calendar.date(byAdding: .day, value: -7, to: Date()) else { return true }
                 return $0.timestamp <= weekAgo
             }
         }
+        // 只返回前 displayedItemsCount 個項目
+        return Array(allFiltered.prefix(displayedItemsCount))
+    }
+    
+    /// 是否還有更多項目可加載
+    func hasMoreItems() -> Bool {
+        let totalCount: Int
+        switch selectedGroup {
+        case .all: totalCount = historyItems.count
+        case .today: totalCount = historyItems.filter { Calendar.current.isDateInToday($0.timestamp) }.count
+        case .yesterday: totalCount = historyItems.filter { Calendar.current.isDateInYesterday($0.timestamp) }.count
+        case .thisWeek:
+            totalCount = historyItems.filter {
+                let calendar = Calendar.current
+                guard let weekAgo = calendar.date(byAdding: .day, value: -7, to: Date()) else { return false }
+                return $0.timestamp > weekAgo && !calendar.isDateInToday($0.timestamp) && !calendar.isDateInYesterday($0.timestamp)
+            }.count
+        case .older:
+            totalCount = historyItems.filter {
+                let calendar = Calendar.current
+                guard let weekAgo = calendar.date(byAdding: .day, value: -7, to: Date()) else { return true }
+                return $0.timestamp <= weekAgo
+            }.count
+        }
+        return displayedItemsCount < totalCount
+    }
+    
+    /// 加載更多項目
+    func loadMoreItems() {
+        displayedItemsCount += pageSize
+    }
+    
+    /// 重置分頁（切換分組時調用）
+    func resetPagination() {
+        displayedItemsCount = pageSize
     }
     
     func loadHistory() {
