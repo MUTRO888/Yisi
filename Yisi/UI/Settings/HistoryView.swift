@@ -376,7 +376,7 @@ struct HistorySidebar: View {
     var body: some View {
         HStack(spacing: 0) {
             VStack(alignment: .leading, spacing: 16) {
-                ScrollView {
+                ScrollView(showsIndicators: false) {
                     VStack(alignment: .leading, spacing: 4) {
                         ForEach(HistoryDateGroup.allCases) { group in
                             SidebarItem(
@@ -385,6 +385,7 @@ struct HistorySidebar: View {
                                 action: {
                                     withAnimation {
                                         selectedGroup = group
+                                        HistoryManager.shared.resetPagination() // 切換分組時重置分頁
                                     }
                                 }
                             )

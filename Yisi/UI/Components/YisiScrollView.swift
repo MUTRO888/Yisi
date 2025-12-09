@@ -18,6 +18,10 @@ class YisiScrollView: NSScrollView {
     }
     
     private func configure() {
+        // 0. 启用 Layer 支持（关键：混合渲染中 overlay 样式需要 layer-backing）
+        self.wantsLayer = true
+        self.contentView.wantsLayer = true
+        
         // 1. 自身透明
         self.drawsBackground = false
         self.backgroundColor = .clear
@@ -40,13 +44,26 @@ class YisiScrollView: NSScrollView {
     }
 }
 
-/// 配套的 Scroller：负责剥离轨道背景
+/// 配套的 Scroller：强制实现 Overlay 自动隐藏行为
 private class YisiTransparentScroller: NSScroller {
-    override func drawKnobSlot(in slotRect: NSRect, highlight flag: Bool) {
-        // 不绘制任何轨道背景，实现完全透明
+    
+    override init(frame frameRect: NSRect) {
+        super.init(frame: frameRect)
+        // 强制 Overlay 模式（无视系统设置）
+        self.scrollerStyle = .overlay
     }
     
-    // 显式声明兼容 Overlay 模式
+    required init?(coder: NSCoder) {
+        super.init(coder: coder)
+        self.scrollerStyle = .overlay
+    }
+    
+    // 不绘制轨道背景（实现透明轨道）
+    override func drawKnobSlot(in slotRect: NSRect, highlight flag: Bool) {
+        // 空实现：完全透明轨道
+    }
+    
+    // 声明兼容 Overlay 模式
     override class var isCompatibleWithOverlayScrollers: Bool {
         return true
     }
