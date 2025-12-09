@@ -218,18 +218,18 @@ struct SettingsContent: View {
             }
             .padding(.vertical, 14) // 内部内边距调整为 14
             .padding(.horizontal, 8)
-            .frame(width: 140)
+            .frame(width: 120) // width synced with HistorySidebar
             .background(
                 ZStack {
                     VisualEffectView(material: .hudWindow, blendingMode: .behindWindow)
                     Color.white.opacity(0.1)
                 }
-                .cornerRadius(12) // 圆角微调为 12，更精致
-                .shadow(color: Color.black.opacity(0.05), radius: 10, x: 0, y: 0)
+                .cornerRadius(16) // cornerRadius synced with HistorySidebar
+                .shadow(color: Color.black.opacity(0.1), radius: 10, x: 0, y: 0) // shadow synced
             )
-            .padding(.leading, 12)
-            .padding(.top, 0) // 緊貼導航欄下方
-            .padding(.bottom, 12)
+            .padding(.leading, 8) // leading padding synced
+            .padding(.top, 8) // Sync top padding with HistorySidebar (was 0)
+            .padding(.bottom, 8) // Sync bottom padding with HistorySidebar (was 12)
             
             // Section Content
             TransparentScrollView {
