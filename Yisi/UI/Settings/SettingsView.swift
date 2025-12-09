@@ -336,6 +336,7 @@ struct GeneralSection: View {
     @AppStorage("close_mode") private var closeMode: String = "clickOutside"
     @AppStorage("app_theme") private var appTheme: String = "system"
     @AppStorage("enable_improve_feature") private var enableImproveFeature: Bool = false
+    @AppStorage("enable_deep_thinking") private var enableDeepThinking: Bool = false
     @ObservedObject private var localizationManager = LocalizationManager.shared
     
     var body: some View {
@@ -486,6 +487,23 @@ struct GeneralSection: View {
                     ElegantToggle(isOn: $enableImproveFeature)
                     
                     Text("Enable translation improvement".localized)
+                        .font(.system(size: 12, design: .serif))
+                        .foregroundColor(.secondary.opacity(0.7))
+                    
+                    Spacer()
+                }
+                
+                Divider().opacity(0.2)
+                
+                HStack {
+                    Text("Thinking".localized)
+                        .font(.system(size: 13, design: .serif))
+                        .foregroundColor(.secondary)
+                        .frame(width: 80, alignment: .leading)
+                    
+                    ElegantToggle(isOn: $enableDeepThinking)
+                    
+                    Text("Enable deep reasoning for AI".localized)
                         .font(.system(size: 12, design: .serif))
                         .foregroundColor(.secondary.opacity(0.7))
                     

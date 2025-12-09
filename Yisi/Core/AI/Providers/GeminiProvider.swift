@@ -35,15 +35,15 @@ class GeminiProvider: AIProvider {
             }
         }
         
-        // 2. 配置 Generation Config (包含 Deep Thinking 逻辑)
+        // 2. 配置 Generation Config (包含原生推理逻辑)
         var genConfig: [String: Any] = [
             "response_mime_type": "application/json",
             "temperature": config.temperature,
             "maxOutputTokens": max(2048, config.maxTokens)
         ]
         
-        // 如果是推理模型且开启了深度思考 -> 注入 thinking_config
-        if config.enableDeepThinking && isReasoningModel(config.model) {
+        // 如果是推理模型且开启了原生推理 -> 注入 thinking_config
+        if config.enableNativeReasoning && isReasoningModel(config.model) {
             genConfig["thinking_config"] = [
                 "include_thoughts": false,
                 "thinking_budget": 1024 // 或 -1

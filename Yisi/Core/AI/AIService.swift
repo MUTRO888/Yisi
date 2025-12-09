@@ -36,6 +36,34 @@ class AIService: ObservableObject {
             return "Please set your \(provider.rawValue) API Key in Settings."
         }
         
+        let model = getModel(for: provider, usage: .text)
+        let providerInstance = getProviderInstance(for: provider)
+        
+        // MARK: - 双模态推理策略
+        // 1. 获取用户设置
+        let enableDeepThinking = UserDefaults.standard.bool(forKey: "enable_deep_thinking")
+        let isReasoning = providerInstance.isReasoningModel(model)
+        
+        // 2. 决策：API 层推理 vs Prompt 层 CoT
+        let apiReasoning: Bool
+        let promptCoT: Bool
+        
+        if mode == .defaultTranslation {
+            // 翻译模式：强管控
+            // - 推理模型：通过 API 开/关原生推理能力
+            // - 非推理模型：通过 Prompt 注入 thinking_process 约束
+            apiReasoning = enableDeepThinking
+            promptCoT = enableDeepThinking && !isReasoning
+        } else {
+            // 自定义/预设模式：弱管控
+            // - 仅推理模型通过 API 开/关，非推理模型不受影响
+            // - 永远不注入 Prompt 层 CoT（保持 System Prompt 纯净）
+            apiReasoning = enableDeepThinking
+            promptCoT = false
+        }
+        
+        // 3. 生成 Prompt
+        // 注意：promptCoT 参数目前未传给 PromptCoordinator，如需启用需要扩展其接口
         let prompts = generatePrompts(
             for: mode,
             text: preprocessedText,
@@ -45,25 +73,22 @@ class AIService: ObservableObject {
             userInstruction: userInstruction
         )
         
-        let model = getModel(for: provider, usage: .text)
-        
         // 组装消息
         let messages: [AIMessage] = [
             AIMessage(role: .system, text: prompts.system),
             AIMessage(role: .user, text: prompts.user)
         ]
         
-        // 组装配置
+        // 4. 组装配置（使用决策后的 apiReasoning）
         let config = AIRequestConfig(
             apiKey: apiKey,
             model: model,
             temperature: getTemperature(for: preprocessedText),
             maxTokens: getMaxTokens(for: preprocessedText),
-            enableDeepThinking: false // 文本翻译暂不启用深度思考
+            enableNativeReasoning: apiReasoning
         )
         
-        // 使用 Provider 发送请求
-        let providerInstance = getProviderInstance(for: provider)
+        // 5. 使用 Provider 发送请求
         let rawResult = try await executeWithRetry {
             try await providerInstance.send(messages: messages, config: config)
         }
@@ -72,6 +97,7 @@ class AIService: ObservableObject {
         let cleanJSON = extractJSON(from: rawResult)
         print("DEBUG \(provider.rawValue) Response:")
         print(cleanJSON)
+        print("DEBUG: apiReasoning=\(apiReasoning), promptCoT=\(promptCoT), isReasoning=\(isReasoning)")
         
         let result = try parseTranslationResult(from: cleanJSON, mode: mode)
         
@@ -117,17 +143,21 @@ class AIService: ObservableObject {
             AIMessage(role: .user, text: instruction, image: imageData)
         ]
         
+        // 图片模式也支持 Deep Thinking 开关
+        let enableDeepThinking = UserDefaults.standard.bool(forKey: "enable_deep_thinking")
+        let providerInstance = getProviderInstance(for: provider)
+        let isReasoning = providerInstance.isReasoningModel(model)
+        
         // 组装配置
         let config = AIRequestConfig(
             apiKey: apiKey,
             model: model,
             temperature: 0.1,
             maxTokens: 4096,
-            enableDeepThinking: false
+            enableNativeReasoning: enableDeepThinking && isReasoning
         )
         
         // 使用 Provider 发送请求
-        let providerInstance = getProviderInstance(for: provider)
         let rawResult = try await providerInstance.send(messages: messages, config: config)
         
         let parsedResult = parseImageResult(rawResult)

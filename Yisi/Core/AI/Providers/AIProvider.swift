@@ -7,7 +7,7 @@ struct AIRequestConfig {
     let model: String
     let temperature: Double
     let maxTokens: Int
-    let enableDeepThinking: Bool // 关键开关
+    let enableNativeReasoning: Bool // API 层面是否开启原生推理能力（与 Prompt 无关）
 }
 
 // MARK: - 统一的消息结构 (兼容文本和多模态)
@@ -52,12 +52,26 @@ protocol AIProvider {
 
 // MARK: - 辅助扩展：判断是否为推理模型 (逻辑复用)
 extension AIProvider {
+    /// 判断给定模型是否具备原生推理能力
+    /// - Parameter model: 模型 ID
+    /// - Returns: 是否为推理模型
     func isReasoningModel(_ model: String) -> Bool {
         let lower = model.lowercased()
+        
+        // OpenAI 推理模型
         if lower.contains("o1") || lower.contains("o3") { return true }
-        if lower.contains("thinking") { return true }
+        
+        // Gemini 推理模型
         if lower.contains("gemini-2.5") { return true }
-        if lower.contains("glm-4.5") { return true } // GLM-4.5 视为推理/混合模型
+        
+        // Zhipu 推理模型
+        // GLM-4.5 系列：glm-4.5, glm-4.5-air, glm-4.5-airx, glm-4.5-x
+        if lower.contains("glm-4.5") { return true }
+        // GLM-4.6 系列
+        if lower.contains("glm-4.6") { return true }
+        // GLM-4-Plus
+        if lower.contains("glm-4-plus") { return true }
+        
         return false
     }
 }
