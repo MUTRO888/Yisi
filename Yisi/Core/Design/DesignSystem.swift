@@ -1,16 +1,35 @@
 import SwiftUI
 
 struct AppColors {
-    // Core Palette
-    static let yisiPurple = Color(hex: "555386")
-    static let yisiDeep = Color(hex: "413F6B")
-    static let yisiLight = Color(hex: "7A78AD")
-    static let mist = Color(hex: "EBEAF5")
-    static let inkMain = Color(hex: "1F1E2E")
+    // Core Palette (Dynamic)
+    static let yisiPurple = Color(dynamicProvider: { appearance in
+        appearance.isDarkMode ? Color(hex: "9D9AC6") : Color(hex: "555386") // Lightened for Dark Mode
+    })
+    
+    static let yisiDeep = Color(dynamicProvider: { appearance in
+        appearance.isDarkMode ? Color(hex: "6A6896") : Color(hex: "413F6B")
+    })
+    
+    static let yisiLight = Color(dynamicProvider: { appearance in
+        appearance.isDarkMode ? Color(hex: "B0AED6") : Color(hex: "7A78AD")
+    })
+    
+    static let mist = Color(dynamicProvider: { appearance in
+        appearance.isDarkMode ? Color(hex: "2A2836") : Color(hex: "EBEAF5") // Darker background for Dark Mode
+    })
+    
+    static let inkMain = Color(dynamicProvider: { appearance in
+        appearance.isDarkMode ? Color.white : Color(hex: "1F1E2E")
+    })
     
     // Glass Effects
-    static let glassMenu = Color.white.opacity(0.65)
-    static let glassCard = Color.white.opacity(0.85)
+    static let glassMenu = Color(dynamicProvider: { appearance in
+        appearance.isDarkMode ? Color(hex: "1A1A24").opacity(0.65) : Color.white.opacity(0.65)
+    })
+    
+    static let glassCard = Color(dynamicProvider: { appearance in
+        appearance.isDarkMode ? Color(hex: "252433").opacity(0.85) : Color.white.opacity(0.85)
+    })
     
     // Semantic Mapping
     static let primary = yisiPurple
@@ -20,7 +39,23 @@ struct AppColors {
     static let selection = mist
 }
 
+extension NSAppearance {
+    var isDarkMode: Bool {
+        if self.name == .darkAqua || self.name == .vibrantDark || self.name == .accessibilityHighContrastDarkAqua || self.name == .accessibilityHighContrastVibrantDark {
+            return true
+        }
+        return false
+    }
+}
+
 extension Color {
+    init(dynamicProvider: @escaping (NSAppearance) -> Color) {
+        self = Color(nsColor: NSColor(name: nil, dynamicProvider: { appearance in
+            let swiftUIColor = dynamicProvider(appearance)
+            return NSColor(swiftUIColor)
+        }))
+    }
+
     init(hex: String) {
         let hex = hex.trimmingCharacters(in: CharacterSet.alphanumerics.inverted)
         var int: UInt64 = 0
