@@ -42,15 +42,17 @@ class AIService: ObservableObject {
     
     // MARK: - Image Recognition
     
-    /// 处理图片识别（使用 Gemini 多模态 API）
+    /// 处理图片识别（支持多 API 提供商）
     /// - Parameters:
     ///   - image: 要识别的图片
     ///   - instruction: 给 AI 的指令（由调用方根据模式决定）
     /// - Returns: AI 的响应文本
     func processImage(_ image: NSImage, instruction: String) async throws -> String {
-        guard let apiKey = UserDefaults.standard.string(forKey: "gemini_api_key"), !apiKey.isEmpty else {
+        let provider = getProvider(for: .image)
+        
+        guard let apiKey = getAPIKey(for: provider, usage: .image), !apiKey.isEmpty else {
             throw NSError(domain: "AIError", code: 1, 
-                         userInfo: [NSLocalizedDescriptionKey: "Please set your Gemini API Key in Settings for image recognition."])
+                         userInfo: [NSLocalizedDescriptionKey: "Please set your \(provider.rawValue) API Key in Settings for image recognition."])
         }
         
         // 将 NSImage 转换为 Base64
@@ -59,10 +61,40 @@ class AIService: ObservableObject {
                          userInfo: [NSLocalizedDescriptionKey: "Failed to encode image."])
         }
         
-        let model = UserDefaults.standard.string(forKey: "gemini_model") ?? "gemini-2.0-flash-exp"
+        let model = getModel(for: provider, usage: .image)
+        
+        let parsedResult: String
+        
+        switch provider {
+        case .gemini:
+            parsedResult = try await processImageWithGemini(imageData: imageData, instruction: instruction, apiKey: apiKey, model: model)
+        case .openai:
+            parsedResult = try await processImageWithOpenAI(imageData: imageData, instruction: instruction, apiKey: apiKey, model: model)
+        case .zhipu:
+            parsedResult = try await processImageWithZhipu(imageData: imageData, instruction: instruction, apiKey: apiKey, model: model)
+        }
+        
+        // 保存到历史记录（在主线程执行 UI 更新）
+        let capturedImage = image
+        DispatchQueue.main.async {
+            HistoryManager.shared.addHistory(
+                sourceText: "", // Empty source text for image recognition
+                targetText: parsedResult,
+                sourceLanguage: "Auto",
+                targetLanguage: "Auto",
+                mode: .defaultTranslation,
+                image: capturedImage
+            )
+        }
+        
+        return parsedResult
+    }
+    
+    // MARK: - Provider-Specific Image Processing
+    
+    private func processImageWithGemini(imageData: String, instruction: String, apiKey: String, model: String) async throws -> String {
         let apiUrl = "https://generativelanguage.googleapis.com/v1beta/models/\(model):generateContent?key=\(apiKey)"
         
-        // 构建多模态请求体
         let body: [String: Any] = [
             "contents": [
                 [
@@ -99,7 +131,7 @@ class AIService: ObservableObject {
         
         guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
             let errorText = String(data: data, encoding: .utf8) ?? "Unknown error"
-            throw NSError(domain: "AIError", code: 4, userInfo: [NSLocalizedDescriptionKey: "API Error: \(errorText)"])
+            throw NSError(domain: "AIError", code: 4, userInfo: [NSLocalizedDescriptionKey: "Gemini API Error: \(errorText)"])
         }
         
         // 解析响应
@@ -110,47 +142,135 @@ class AIService: ObservableObject {
            let parts = content["parts"] as? [[String: Any]],
            let firstPart = parts.first,
            let rawText = firstPart["text"] as? String {
-            
-            // 解析 AI 返回的 JSON 内容，提取 translation_result
-            let cleanJSON = extractJSON(from: rawText)
-            let parsedResult: String
-            
-            if let jsonData = cleanJSON.data(using: .utf8),
-               let jsonObj = try? JSONSerialization.jsonObject(with: jsonData) as? [String: Any] {
-                // 尝试从 JSON 中提取翻译结果
-                if let translationResult = jsonObj["translation_result"] as? String {
-                    parsedResult = translationResult
-                } else if let result = jsonObj["result"] as? String {
-                    parsedResult = result
-                } else if let answer = jsonObj["answer"] as? String {
-                    parsedResult = answer
-                } else {
-                    // 如果没有找到已知的键，返回原始文本
-                    parsedResult = rawText
-                }
-            } else {
-                // 如果不是有效的 JSON，直接使用原始文本
-                parsedResult = rawText
-            }
-            
-            // 保存到历史记录（在主线程执行 UI 更新）
-            let capturedImage = image
-            DispatchQueue.main.async {
-                HistoryManager.shared.addHistory(
-                    sourceText: "", // Empty source text for image recognition
-                    targetText: parsedResult,
-                    sourceLanguage: "Auto",
-                    targetLanguage: "Auto",
-                    mode: .defaultTranslation,
-                    image: capturedImage
-                )
-            }
-            
-            return parsedResult
+            return parseImageResult(rawText)
         }
         
         throw NSError(domain: "AIError", code: 5, 
-                     userInfo: [NSLocalizedDescriptionKey: "Failed to parse image recognition response"])
+                     userInfo: [NSLocalizedDescriptionKey: "Failed to parse Gemini image recognition response"])
+    }
+    
+    private func processImageWithOpenAI(imageData: String, instruction: String, apiKey: String, model: String) async throws -> String {
+        let body: [String: Any] = [
+            "model": model,
+            "temperature": 0.1,
+            "max_tokens": 4096,
+            "messages": [
+                [
+                    "role": "user",
+                    "content": [
+                        [
+                            "type": "text",
+                            "text": instruction
+                        ],
+                        [
+                            "type": "image_url",
+                            "image_url": [
+                                "url": "data:image/png;base64,\(imageData)"
+                            ]
+                        ]
+                    ]
+                ]
+            ]
+        ]
+        
+        let jsonData = try JSONSerialization.data(withJSONObject: body)
+        
+        var request = URLRequest(url: URL(string: "https://api.openai.com/v1/chat/completions")!)
+        request.httpMethod = "POST"
+        request.addValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
+        request.addValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = jsonData
+        request.timeoutInterval = 60
+        
+        let (data, response) = try await URLSession.shared.data(for: request)
+        
+        guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
+            let errorText = String(data: data, encoding: .utf8) ?? "Unknown error"
+            throw NSError(domain: "AIError", code: 4, userInfo: [NSLocalizedDescriptionKey: "OpenAI API Error: \(errorText)"])
+        }
+        
+        if let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+           let choices = json["choices"] as? [[String: Any]],
+           let firstChoice = choices.first,
+           let message = firstChoice["message"] as? [String: Any],
+           let content = message["content"] as? String {
+            return parseImageResult(content)
+        }
+        
+        throw NSError(domain: "AIError", code: 5, 
+                     userInfo: [NSLocalizedDescriptionKey: "Failed to parse OpenAI image recognition response"])
+    }
+    
+    private func processImageWithZhipu(imageData: String, instruction: String, apiKey: String, model: String) async throws -> String {
+        let body: [String: Any] = [
+            "model": model,
+            "temperature": 0.1,
+            "max_tokens": 4096,
+            "messages": [
+                [
+                    "role": "user",
+                    "content": [
+                        [
+                            "type": "text",
+                            "text": instruction
+                        ],
+                        [
+                            "type": "image_url",
+                            "image_url": [
+                                "url": "data:image/png;base64,\(imageData)"
+                            ]
+                        ]
+                    ]
+                ]
+            ]
+        ]
+        
+        let jsonData = try JSONSerialization.data(withJSONObject: body)
+        
+        var request = URLRequest(url: URL(string: "https://open.bigmodel.cn/api/paas/v4/chat/completions")!)
+        request.httpMethod = "POST"
+        request.addValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
+        request.addValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = jsonData
+        request.timeoutInterval = 60
+        
+        let (data, response) = try await URLSession.shared.data(for: request)
+        
+        guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
+            let errorText = String(data: data, encoding: .utf8) ?? "Unknown error"
+            throw NSError(domain: "AIError", code: 4, userInfo: [NSLocalizedDescriptionKey: "Zhipu API Error: \(errorText)"])
+        }
+        
+        if let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+           let choices = json["choices"] as? [[String: Any]],
+           let firstChoice = choices.first,
+           let message = firstChoice["message"] as? [String: Any],
+           let content = message["content"] as? String {
+            return parseImageResult(content)
+        }
+        
+        throw NSError(domain: "AIError", code: 5, 
+                     userInfo: [NSLocalizedDescriptionKey: "Failed to parse Zhipu image recognition response"])
+    }
+    
+    /// Parse image recognition result from AI response
+    private func parseImageResult(_ rawText: String) -> String {
+        let cleanJSON = extractJSON(from: rawText)
+        
+        if let jsonData = cleanJSON.data(using: .utf8),
+           let jsonObj = try? JSONSerialization.jsonObject(with: jsonData) as? [String: Any] {
+            // 尝试从 JSON 中提取翻译结果
+            if let translationResult = jsonObj["translation_result"] as? String {
+                return translationResult
+            } else if let result = jsonObj["result"] as? String {
+                return result
+            } else if let answer = jsonObj["answer"] as? String {
+                return answer
+            }
+        }
+        
+        // 如果不是有效的 JSON，直接使用原始文本
+        return rawText
     }
     
     /// 将 NSImage 转换为 Base64 字符串
@@ -161,6 +281,69 @@ class AIService: ObservableObject {
             return nil
         }
         return pngData.base64EncodedString()
+    }
+    
+    // MARK: - API Usage Context
+    
+    enum APIUsage {
+        case text
+        case image
+    }
+    
+    /// Get the API provider for the specified usage context
+    private func getProvider(for usage: APIUsage) -> APIProvider {
+        switch usage {
+        case .text:
+            return getAPIProvider()
+        case .image:
+            // If apply_api_to_image_mode is true (or key doesn't exist, defaulting to true), use text provider
+            if shouldUseTextSettingsForImage() {
+                return getAPIProvider()
+            }
+            // Use image-specific provider
+            if let providerString = UserDefaults.standard.string(forKey: "image_api_provider"),
+               let provider = APIProvider(rawValue: providerString) {
+                return provider
+            }
+            return .gemini
+        }
+    }
+    
+    /// Get the API key for the specified provider and usage context
+    private func getAPIKey(for provider: APIProvider, usage: APIUsage) -> String? {
+        let prefix = (usage == .image && !shouldUseTextSettingsForImage()) ? "image_" : ""
+        
+        switch provider {
+        case .gemini:
+            return UserDefaults.standard.string(forKey: "\(prefix)gemini_api_key")
+        case .openai:
+            return UserDefaults.standard.string(forKey: "\(prefix)openai_api_key")
+        case .zhipu:
+            return UserDefaults.standard.string(forKey: "\(prefix)zhipu_api_key")
+        }
+    }
+    
+    /// Get the model for the specified provider and usage context
+    private func getModel(for provider: APIProvider, usage: APIUsage) -> String {
+        let prefix = (usage == .image && !shouldUseTextSettingsForImage()) ? "image_" : ""
+        
+        switch provider {
+        case .gemini:
+            return UserDefaults.standard.string(forKey: "\(prefix)gemini_model") ?? "gemini-2.0-flash-exp"
+        case .openai:
+            return UserDefaults.standard.string(forKey: "\(prefix)openai_model") ?? "gpt-4o-mini"
+        case .zhipu:
+            return UserDefaults.standard.string(forKey: "\(prefix)zhipu_model") ?? "glm-4v-flash"
+        }
+    }
+    
+    /// Check if image mode should use text settings (apply_api_to_image_mode toggle)
+    private func shouldUseTextSettingsForImage() -> Bool {
+        // Default to true if key doesn't exist
+        if UserDefaults.standard.object(forKey: "apply_api_to_image_mode") == nil {
+            return true
+        }
+        return UserDefaults.standard.bool(forKey: "apply_api_to_image_mode")
     }
     
     private func getAPIProvider() -> APIProvider {

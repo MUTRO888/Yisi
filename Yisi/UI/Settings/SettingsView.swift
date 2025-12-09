@@ -274,7 +274,44 @@ struct SidebarButton: View {
     }
 }
 
+// MARK: - Reusable API Configuration Form
+
+private struct APIConfigForm: View {
+    @Binding var provider: String
+    @Binding var geminiKey: String
+    @Binding var geminiModel: String
+    @Binding var openaiKey: String
+    @Binding var openaiModel: String
+    @Binding var zhipuKey: String
+    @Binding var zhipuModel: String
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                Text("Provider".localized)
+                    .font(.system(size: 13, design: .serif))
+                    .foregroundColor(.secondary)
+                    .frame(width: 80, alignment: .leading)
+                
+                CustomDropdown(selection: $provider, options: ["Gemini", "OpenAI", "Zhipu AI"])
+            }
+            
+            if provider == "Gemini" {
+                APIKeyInput(label: "API Key".localized, text: $geminiKey, placeholder: "Gemini API Key")
+                APIKeyInput(label: "Model".localized, text: $geminiModel, placeholder: "gemini-2.0-flash-exp", isSecure: false)
+            } else if provider == "OpenAI" {
+                APIKeyInput(label: "API Key".localized, text: $openaiKey, placeholder: "OpenAI API Key")
+                APIKeyInput(label: "Model".localized, text: $openaiModel, placeholder: "gpt-4o-mini", isSecure: false)
+            } else if provider == "Zhipu AI" {
+                APIKeyInput(label: "API Key".localized, text: $zhipuKey, placeholder: "Zhipu API Key")
+                APIKeyInput(label: "Model".localized, text: $zhipuModel, placeholder: "glm-4-flash", isSecure: false)
+            }
+        }
+    }
+}
+
 struct GeneralSection: View {
+    // Text Mode API Settings (Default)
     @AppStorage("default_source_language") private var defaultSourceLanguage: String = "Auto Detect"
     @AppStorage("default_target_language") private var defaultTargetLanguage: String = "Simplified Chinese"
     @AppStorage("gemini_api_key") private var geminiKey: String = ""
@@ -284,6 +321,18 @@ struct GeneralSection: View {
     @AppStorage("openai_model") private var openaiModel: String = "gpt-4o-mini"
     @AppStorage("zhipu_model") private var zhipuModel: String = "glm-4-flash"
     @AppStorage("api_provider") private var apiProvider: String = "Gemini"
+    
+    // Image Mode API Settings
+    @AppStorage("apply_api_to_image_mode") private var applyApiToImageMode: Bool = true
+    @AppStorage("image_api_provider") private var imageApiProvider: String = "Gemini"
+    @AppStorage("image_gemini_api_key") private var imageGeminiKey: String = ""
+    @AppStorage("image_gemini_model") private var imageGeminiModel: String = "gemini-2.0-flash-exp"
+    @AppStorage("image_openai_api_key") private var imageOpenaiKey: String = ""
+    @AppStorage("image_openai_model") private var imageOpenaiModel: String = "gpt-4o-mini"
+    @AppStorage("image_zhipu_api_key") private var imageZhipuKey: String = ""
+    @AppStorage("image_zhipu_model") private var imageZhipuModel: String = "glm-4v-flash"
+    
+    // General Settings
     @AppStorage("close_mode") private var closeMode: String = "clickOutside"
     @AppStorage("app_theme") private var appTheme: String = "system"
     @AppStorage("enable_improve_feature") private var enableImproveFeature: Bool = false
@@ -361,30 +410,53 @@ struct GeneralSection: View {
             
             Divider().opacity(0.3)
             
-            // API Configuration
+            // API Configuration (Text Mode - Default)
             VStack(alignment: .leading, spacing: 12) {
                 SectionHeader(title: "API Service".localized)
                 
-                VStack(alignment: .leading, spacing: 10) {
-                    HStack {
-                        Text("Provider".localized)
-                            .font(.system(size: 13, design: .serif))
-                            .foregroundColor(.secondary)
-                            .frame(width: 80, alignment: .leading)
-                        
-                        CustomDropdown(selection: $apiProvider, options: ["Gemini", "OpenAI", "Zhipu AI"])
-                    }
+                APIConfigForm(
+                    provider: $apiProvider,
+                    geminiKey: $geminiKey,
+                    geminiModel: $geminiModel,
+                    openaiKey: $openaiKey,
+                    openaiModel: $openaiModel,
+                    zhipuKey: $zhipuKey,
+                    zhipuModel: $zhipuModel
+                )
+                
+                Divider().opacity(0.2)
+                
+                // Toggle: Apply to Image Mode
+                HStack {
+                    Text("Image".localized)
+                        .font(.system(size: 13, design: .serif))
+                        .foregroundColor(.secondary)
+                        .frame(width: 80, alignment: .leading)
                     
-                    if apiProvider == "Gemini" {
-                        APIKeyInput(label: "API Key".localized, text: $geminiKey, placeholder: "Gemini API Key")
-                        APIKeyInput(label: "Model".localized, text: $geminiModel, placeholder: "gemini-2.0-flash-exp", isSecure: false)
-                    } else if apiProvider == "OpenAI" {
-                        APIKeyInput(label: "API Key".localized, text: $openaiKey, placeholder: "OpenAI API Key")
-                        APIKeyInput(label: "Model".localized, text: $openaiModel, placeholder: "gpt-4o-mini", isSecure: false)
-                    } else if apiProvider == "Zhipu AI" {
-                        APIKeyInput(label: "API Key".localized, text: $zhipuKey, placeholder: "Zhipu API Key")
-                        APIKeyInput(label: "Model".localized, text: $zhipuModel, placeholder: "glm-4-flash", isSecure: false)
-                    }
+                    ElegantToggle(isOn: $applyApiToImageMode)
+                    
+                    Text("Apply to Image Mode".localized)
+                        .font(.system(size: 12, design: .serif))
+                        .foregroundColor(.secondary.opacity(0.7))
+                    
+                    Spacer()
+                }
+            }
+            
+            // Separate Image API Configuration (shown when toggle is OFF)
+            if !applyApiToImageMode {
+                VStack(alignment: .leading, spacing: 12) {
+                    SectionHeader(title: "API Service (Image)".localized)
+                    
+                    APIConfigForm(
+                        provider: $imageApiProvider,
+                        geminiKey: $imageGeminiKey,
+                        geminiModel: $imageGeminiModel,
+                        openaiKey: $imageOpenaiKey,
+                        openaiModel: $imageOpenaiModel,
+                        zhipuKey: $imageZhipuKey,
+                        zhipuModel: $imageZhipuModel
+                    )
                 }
             }
             
@@ -402,8 +474,6 @@ struct GeneralSection: View {
                     
                     CustomDropdown(selection: $closeMode, options: ClosingMode.allCases.map { $0.rawValue }, displayNames: ClosingMode.allCases.map { $0.displayName.localized })
                 }
-                
-                Divider().opacity(0.2)
                 
                 Divider().opacity(0.2)
                 
