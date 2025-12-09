@@ -64,7 +64,7 @@ struct TopTabButton: View {
             VStack(spacing: 4) {
                 Text(title)
                     .font(.system(size: 14, weight: isSelected ? .medium : .regular, design: .serif))
-                    .foregroundColor(isSelected ? AppColors.primary : AppColors.text.opacity(0.7))
+                    .foregroundColor(isSelected ? .primary : .secondary)
                 
                 // Active Indicator
                 Rectangle()
@@ -290,7 +290,7 @@ private struct APIConfigForm: View {
             HStack {
                 Text("Provider".localized)
                     .font(.system(size: 13, design: .serif))
-                    .foregroundColor(AppColors.text.opacity(0.7))
+                    .foregroundColor(.secondary)
                     .frame(width: 80, alignment: .leading)
                 
                 CustomDropdown(selection: $provider, options: ["Gemini", "OpenAI", "Zhipu AI"])
@@ -348,7 +348,7 @@ struct GeneralSection: View {
                     HStack {
                         Text("Language".localized)
                             .font(.system(size: 13, design: .serif))
-                            .foregroundColor(AppColors.text.opacity(0.7))
+                            .foregroundColor(.secondary)
                             .frame(width: 80, alignment: .leading)
                         
                         CustomDropdown(
@@ -361,7 +361,7 @@ struct GeneralSection: View {
                     HStack {
                         Text("Appearance".localized)
                             .font(.system(size: 13, design: .serif))
-                            .foregroundColor(AppColors.text.opacity(0.7))
+                            .foregroundColor(.secondary)
                             .frame(width: 80, alignment: .leading)
                         
                         CustomDropdown(
@@ -383,7 +383,7 @@ struct GeneralSection: View {
                     HStack {
                         Text("Source".localized)
                             .font(.system(size: 13, design: .serif))
-                            .foregroundColor(AppColors.text.opacity(0.7))
+                            .foregroundColor(.secondary)
                             .frame(width: 80, alignment: .leading)
                         
                         CustomDropdown(
@@ -396,7 +396,7 @@ struct GeneralSection: View {
                     HStack {
                         Text("Target".localized)
                             .font(.system(size: 13, design: .serif))
-                            .foregroundColor(AppColors.text.opacity(0.7))
+                            .foregroundColor(.secondary)
                             .frame(width: 80, alignment: .leading)
                         
                         CustomDropdown(
@@ -613,7 +613,7 @@ struct APIKeyInput: View {
         HStack(alignment: .center) {
             Text(label)
                 .font(.system(size: 13, design: .serif))
-                .foregroundColor(AppColors.text.opacity(0.7))
+                .foregroundColor(.secondary)
                 .frame(width: 80, alignment: .leading)
             
             if isSecure {
@@ -995,7 +995,7 @@ struct ShortcutsSection: View {
             HStack {
                 Text("Activate".localized)
                     .font(.system(size: 13, design: .serif))
-                    .foregroundColor(AppColors.text.opacity(0.7))
+                    .foregroundColor(.secondary)
                     .frame(width: 80, alignment: .leading)
                 
                 ShortcutRecorder()
@@ -1004,7 +1004,7 @@ struct ShortcutsSection: View {
             HStack {
                 Text("Screenshot".localized)
                     .font(.system(size: 13, design: .serif))
-                    .foregroundColor(AppColors.text.opacity(0.7))
+                    .foregroundColor(.secondary)
                     .frame(width: 80, alignment: .leading)
                 
                 ScreenshotShortcutRecorder()
