@@ -329,11 +329,11 @@ class AIService: ObservableObject {
         
         switch provider {
         case .gemini:
-            return UserDefaults.standard.string(forKey: "\(prefix)gemini_model") ?? "gemini-2.0-flash-exp"
+            return UserDefaults.standard.string(forKey: "\(prefix)gemini_model") ?? "gemini-2.5-flash"
         case .openai:
             return UserDefaults.standard.string(forKey: "\(prefix)openai_model") ?? "gpt-4o-mini"
         case .zhipu:
-            return UserDefaults.standard.string(forKey: "\(prefix)zhipu_model") ?? "glm-4v-flash"
+            return UserDefaults.standard.string(forKey: "\(prefix)zhipu_model") ?? "glm-4.5-air"
         }
     }
     

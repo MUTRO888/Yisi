@@ -298,13 +298,13 @@ private struct APIConfigForm: View {
             
             if provider == "Gemini" {
                 APIKeyInput(label: "API Key".localized, text: $geminiKey, placeholder: "Gemini API Key")
-                APIKeyInput(label: "Model".localized, text: $geminiModel, placeholder: "gemini-2.0-flash-exp", isSecure: false)
+                APIKeyInput(label: "Model".localized, text: $geminiModel, placeholder: "gemini-2.5-flash", isSecure: false)
             } else if provider == "OpenAI" {
                 APIKeyInput(label: "API Key".localized, text: $openaiKey, placeholder: "OpenAI API Key")
                 APIKeyInput(label: "Model".localized, text: $openaiModel, placeholder: "gpt-4o-mini", isSecure: false)
             } else if provider == "Zhipu AI" {
                 APIKeyInput(label: "API Key".localized, text: $zhipuKey, placeholder: "Zhipu API Key")
-                APIKeyInput(label: "Model".localized, text: $zhipuModel, placeholder: "glm-4-flash", isSecure: false)
+                APIKeyInput(label: "Model".localized, text: $zhipuModel, placeholder: "glm-4.5-air", isSecure: false)
             }
         }
     }
@@ -326,11 +326,11 @@ struct GeneralSection: View {
     @AppStorage("apply_api_to_image_mode") private var applyApiToImageMode: Bool = true
     @AppStorage("image_api_provider") private var imageApiProvider: String = "Gemini"
     @AppStorage("image_gemini_api_key") private var imageGeminiKey: String = ""
-    @AppStorage("image_gemini_model") private var imageGeminiModel: String = "gemini-2.0-flash-exp"
+    @AppStorage("image_gemini_model") private var imageGeminiModel: String = "gemini-2.5-flash"
     @AppStorage("image_openai_api_key") private var imageOpenaiKey: String = ""
     @AppStorage("image_openai_model") private var imageOpenaiModel: String = "gpt-4o-mini"
     @AppStorage("image_zhipu_api_key") private var imageZhipuKey: String = ""
-    @AppStorage("image_zhipu_model") private var imageZhipuModel: String = "glm-4v-flash"
+    @AppStorage("image_zhipu_model") private var imageZhipuModel: String = "glm-4.5-air"
     
     // General Settings
     @AppStorage("close_mode") private var closeMode: String = "clickOutside"
