@@ -12,19 +12,68 @@ class AIService: ObservableObject {
     
     private init() {}
     
+    // MARK: - Provider Factory
+    
+    /// 获取对应 API 提供商的 Provider 实例
+    private func getProviderInstance(for provider: APIProvider) -> AIProvider {
+        switch provider {
+        case .gemini:
+            return GeminiProvider()
+        case .openai:
+            return OpenAIProvider()
+        case .zhipu:
+            return ZhipuProvider()
+        }
+    }
+    
+    // MARK: - Text Processing
+    
     func processText(_ text: String, mode: PromptMode = .defaultTranslation, sourceLanguage: String = "Auto Detect", targetLanguage: String = "简体中文", userPerception: String? = nil, userInstruction: String? = nil) async throws -> String {
         let provider = getAPIProvider()
         let preprocessedText = preprocessInput(text)
         
-        let result: String
-        switch provider {
-        case .openai:
-            result = try await translateWithOpenAI(preprocessedText, mode: mode, sourceLanguage: sourceLanguage, targetLanguage: targetLanguage, userPerception: userPerception, userInstruction: userInstruction)
-        case .gemini:
-            result = try await translateWithGemini(preprocessedText, mode: mode, sourceLanguage: sourceLanguage, targetLanguage: targetLanguage, userPerception: userPerception, userInstruction: userInstruction)
-        case .zhipu:
-            result = try await translateWithZhipu(preprocessedText, mode: mode, sourceLanguage: sourceLanguage, targetLanguage: targetLanguage, userPerception: userPerception, userInstruction: userInstruction)
+        guard let apiKey = UserDefaults.standard.string(forKey: getAPIKeyName(for: provider)), !apiKey.isEmpty else {
+            return "Please set your \(provider.rawValue) API Key in Settings."
         }
+        
+        let prompts = generatePrompts(
+            for: mode,
+            text: preprocessedText,
+            sourceLanguage: sourceLanguage,
+            targetLanguage: targetLanguage,
+            userPerception: userPerception,
+            userInstruction: userInstruction
+        )
+        
+        let model = getModel(for: provider, usage: .text)
+        
+        // 组装消息
+        let messages: [AIMessage] = [
+            AIMessage(role: .system, text: prompts.system),
+            AIMessage(role: .user, text: prompts.user)
+        ]
+        
+        // 组装配置
+        let config = AIRequestConfig(
+            apiKey: apiKey,
+            model: model,
+            temperature: getTemperature(for: preprocessedText),
+            maxTokens: getMaxTokens(for: preprocessedText),
+            enableDeepThinking: false // 文本翻译暂不启用深度思考
+        )
+        
+        // 使用 Provider 发送请求
+        let providerInstance = getProviderInstance(for: provider)
+        let rawResult = try await executeWithRetry {
+            try await providerInstance.send(messages: messages, config: config)
+        }
+        
+        // 解析 JSON 响应
+        let cleanJSON = extractJSON(from: rawResult)
+        print("DEBUG \(provider.rawValue) Response:")
+        print(cleanJSON)
+        
+        let result = try parseTranslationResult(from: cleanJSON, mode: mode)
         
         // Save to History
         HistoryManager.shared.addHistory(
@@ -55,24 +104,33 @@ class AIService: ObservableObject {
                          userInfo: [NSLocalizedDescriptionKey: "Please set your \(provider.rawValue) API Key in Settings for image recognition."])
         }
         
-        // 将 NSImage 转换为 Base64
-        guard let imageData = imageToBase64(image) else {
+        // 将 NSImage 转换为 Data
+        guard let imageData = imageToData(image) else {
             throw NSError(domain: "AIError", code: 2, 
                          userInfo: [NSLocalizedDescriptionKey: "Failed to encode image."])
         }
         
         let model = getModel(for: provider, usage: .image)
         
-        let parsedResult: String
+        // 组装消息（带图片）
+        let messages: [AIMessage] = [
+            AIMessage(role: .user, text: instruction, image: imageData)
+        ]
         
-        switch provider {
-        case .gemini:
-            parsedResult = try await processImageWithGemini(imageData: imageData, instruction: instruction, apiKey: apiKey, model: model)
-        case .openai:
-            parsedResult = try await processImageWithOpenAI(imageData: imageData, instruction: instruction, apiKey: apiKey, model: model)
-        case .zhipu:
-            parsedResult = try await processImageWithZhipu(imageData: imageData, instruction: instruction, apiKey: apiKey, model: model)
-        }
+        // 组装配置
+        let config = AIRequestConfig(
+            apiKey: apiKey,
+            model: model,
+            temperature: 0.1,
+            maxTokens: 4096,
+            enableDeepThinking: false
+        )
+        
+        // 使用 Provider 发送请求
+        let providerInstance = getProviderInstance(for: provider)
+        let rawResult = try await providerInstance.send(messages: messages, config: config)
+        
+        let parsedResult = parseImageResult(rawResult)
         
         // 保存到历史记录（在主线程执行 UI 更新）
         let capturedImage = image
@@ -90,168 +148,7 @@ class AIService: ObservableObject {
         return parsedResult
     }
     
-    // MARK: - Provider-Specific Image Processing
-    
-    private func processImageWithGemini(imageData: String, instruction: String, apiKey: String, model: String) async throws -> String {
-        let apiUrl = "https://generativelanguage.googleapis.com/v1beta/models/\(model):generateContent?key=\(apiKey)"
-        
-        let body: [String: Any] = [
-            "contents": [
-                [
-                    "parts": [
-                        ["text": instruction],
-                        [
-                            "inline_data": [
-                                "mime_type": "image/png",
-                                "data": imageData
-                            ]
-                        ]
-                    ]
-                ]
-            ],
-            "generationConfig": [
-                "temperature": 0.1,
-                "maxOutputTokens": 4096
-            ]
-        ]
-        
-        let jsonData = try JSONSerialization.data(withJSONObject: body)
-        
-        guard let url = URL(string: apiUrl) else {
-            throw NSError(domain: "AIError", code: 3, userInfo: [NSLocalizedDescriptionKey: "Invalid URL"])
-        }
-        
-        var request = URLRequest(url: url)
-        request.httpMethod = "POST"
-        request.addValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.httpBody = jsonData
-        request.timeoutInterval = 60
-        
-        let (data, response) = try await URLSession.shared.data(for: request)
-        
-        guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
-            let errorText = String(data: data, encoding: .utf8) ?? "Unknown error"
-            throw NSError(domain: "AIError", code: 4, userInfo: [NSLocalizedDescriptionKey: "Gemini API Error: \(errorText)"])
-        }
-        
-        // 解析响应
-        if let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
-           let candidates = json["candidates"] as? [[String: Any]],
-           let firstCandidate = candidates.first,
-           let content = firstCandidate["content"] as? [String: Any],
-           let parts = content["parts"] as? [[String: Any]],
-           let firstPart = parts.first,
-           let rawText = firstPart["text"] as? String {
-            return parseImageResult(rawText)
-        }
-        
-        throw NSError(domain: "AIError", code: 5, 
-                     userInfo: [NSLocalizedDescriptionKey: "Failed to parse Gemini image recognition response"])
-    }
-    
-    private func processImageWithOpenAI(imageData: String, instruction: String, apiKey: String, model: String) async throws -> String {
-        let body: [String: Any] = [
-            "model": model,
-            "temperature": 0.1,
-            "max_tokens": 4096,
-            "messages": [
-                [
-                    "role": "user",
-                    "content": [
-                        [
-                            "type": "text",
-                            "text": instruction
-                        ],
-                        [
-                            "type": "image_url",
-                            "image_url": [
-                                "url": "data:image/png;base64,\(imageData)"
-                            ]
-                        ]
-                    ]
-                ]
-            ]
-        ]
-        
-        let jsonData = try JSONSerialization.data(withJSONObject: body)
-        
-        var request = URLRequest(url: URL(string: "https://api.openai.com/v1/chat/completions")!)
-        request.httpMethod = "POST"
-        request.addValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
-        request.addValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.httpBody = jsonData
-        request.timeoutInterval = 60
-        
-        let (data, response) = try await URLSession.shared.data(for: request)
-        
-        guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
-            let errorText = String(data: data, encoding: .utf8) ?? "Unknown error"
-            throw NSError(domain: "AIError", code: 4, userInfo: [NSLocalizedDescriptionKey: "OpenAI API Error: \(errorText)"])
-        }
-        
-        if let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
-           let choices = json["choices"] as? [[String: Any]],
-           let firstChoice = choices.first,
-           let message = firstChoice["message"] as? [String: Any],
-           let content = message["content"] as? String {
-            return parseImageResult(content)
-        }
-        
-        throw NSError(domain: "AIError", code: 5, 
-                     userInfo: [NSLocalizedDescriptionKey: "Failed to parse OpenAI image recognition response"])
-    }
-    
-    private func processImageWithZhipu(imageData: String, instruction: String, apiKey: String, model: String) async throws -> String {
-        let body: [String: Any] = [
-            "model": model,
-            "temperature": 0.1,
-            "max_tokens": 4096,
-            "messages": [
-                [
-                    "role": "user",
-                    "content": [
-                        [
-                            "type": "text",
-                            "text": instruction
-                        ],
-                        [
-                            "type": "image_url",
-                            "image_url": [
-                                "url": "data:image/png;base64,\(imageData)"
-                            ]
-                        ]
-                    ]
-                ]
-            ]
-        ]
-        
-        let jsonData = try JSONSerialization.data(withJSONObject: body)
-        
-        var request = URLRequest(url: URL(string: "https://open.bigmodel.cn/api/paas/v4/chat/completions")!)
-        request.httpMethod = "POST"
-        request.addValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
-        request.addValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.httpBody = jsonData
-        request.timeoutInterval = 60
-        
-        let (data, response) = try await URLSession.shared.data(for: request)
-        
-        guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
-            let errorText = String(data: data, encoding: .utf8) ?? "Unknown error"
-            throw NSError(domain: "AIError", code: 4, userInfo: [NSLocalizedDescriptionKey: "Zhipu API Error: \(errorText)"])
-        }
-        
-        if let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
-           let choices = json["choices"] as? [[String: Any]],
-           let firstChoice = choices.first,
-           let message = firstChoice["message"] as? [String: Any],
-           let content = message["content"] as? String {
-            return parseImageResult(content)
-        }
-        
-        throw NSError(domain: "AIError", code: 5, 
-                     userInfo: [NSLocalizedDescriptionKey: "Failed to parse Zhipu image recognition response"])
-    }
+    // MARK: - Image Helpers
     
     /// Parse image recognition result from AI response
     private func parseImageResult(_ rawText: String) -> String {
@@ -273,14 +170,14 @@ class AIService: ObservableObject {
         return rawText
     }
     
-    /// 将 NSImage 转换为 Base64 字符串
-    private func imageToBase64(_ image: NSImage) -> String? {
+    /// 将 NSImage 转换为 Data
+    private func imageToData(_ image: NSImage) -> Data? {
         guard let tiffData = image.tiffRepresentation,
               let bitmapImage = NSBitmapImageRep(data: tiffData),
               let pngData = bitmapImage.representation(using: .png, properties: [:]) else {
             return nil
         }
-        return pngData.base64EncodedString()
+        return pngData
     }
     
     // MARK: - API Usage Context
@@ -320,6 +217,18 @@ class AIService: ObservableObject {
             return UserDefaults.standard.string(forKey: "\(prefix)openai_api_key")
         case .zhipu:
             return UserDefaults.standard.string(forKey: "\(prefix)zhipu_api_key")
+        }
+    }
+    
+    /// Get the API key name for a provider (for text usage)
+    private func getAPIKeyName(for provider: APIProvider) -> String {
+        switch provider {
+        case .gemini:
+            return "gemini_api_key"
+        case .openai:
+            return "openai_api_key"
+        case .zhipu:
+            return "zhipu_api_key"
         }
     }
     
@@ -650,240 +559,5 @@ class AIService: ObservableObject {
         
         throw lastError ?? NSError(domain: "TranslationError", code: 99, 
                                    userInfo: [NSLocalizedDescriptionKey: "Unknown error after retries"])
-    }
-    
-    // MARK: - API Calls
-    
-    private func translateWithOpenAI(_ text: String, mode: PromptMode, sourceLanguage: String, targetLanguage: String, userPerception: String?, userInstruction: String?) async throws -> String {
-        guard let apiKey = UserDefaults.standard.string(forKey: "openai_api_key"), !apiKey.isEmpty else {
-            return "Please set your OpenAI API Key in Settings."
-        }
-        
-        let prompts = generatePrompts(
-            for: mode,
-            text: text,
-            sourceLanguage: sourceLanguage,
-            targetLanguage: targetLanguage,
-            userPerception: userPerception,
-            userInstruction: userInstruction
-        )
-        
-        let model = UserDefaults.standard.string(forKey: "openai_model") ?? "gpt-4o-mini"
-        
-        let body: [String: Any] = [
-            "model": model,
-            "temperature": getTemperature(for: text),
-            "messages": [
-                ["role": "system", "content": prompts.system],
-                ["role": "user", "content": prompts.user]
-            ],
-            "response_format": ["type": "json_object"]
-        ]
-        
-        let jsonData = try JSONSerialization.data(withJSONObject: body)
-        
-        var request = URLRequest(url: URL(string: "https://api.openai.com/v1/chat/completions")!)
-        request.httpMethod = "POST"
-        request.addValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
-        request.addValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.httpBody = jsonData
-        
-        let (data, response) = try await URLSession.shared.data(for: request)
-        
-        guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
-            if let errorText = String(data: data, encoding: .utf8) {
-                throw NSError(domain: "TranslationError", code: 1, userInfo: [NSLocalizedDescriptionKey: "API Error: \(errorText)"])
-            }
-            throw NSError(domain: "TranslationError", code: 1, userInfo: [NSLocalizedDescriptionKey: "Unknown API Error"])
-        }
-        
-        if let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
-           let choices = json["choices"] as? [[String: Any]],
-           let firstChoice = choices.first,
-           let message = firstChoice["message"] as? [String: Any],
-           let content = message["content"] as? String {
-            
-            // Parse JSON response
-            let cleanJSON = extractJSON(from: content)
-            
-            // DEBUG: Print raw response
-            print("DEBUG OpenAI Response:")
-            print(cleanJSON)
-            
-            return try parseTranslationResult(from: cleanJSON, mode: mode)
-        }
-        
-        // DEBUG: Print full error response
-        if let errorStr = String(data: data, encoding: .utf8) {
-            print("DEBUG OpenAI Full Response Error:")
-            print(errorStr)
-        }
-        
-        throw NSError(domain: "TranslationError", code: 3, 
-                     userInfo: [NSLocalizedDescriptionKey: "Failed to parse translation response structure"])
-    }
-    
-    
-    private func translateWithGemini(_ text: String, mode: PromptMode, sourceLanguage: String, targetLanguage: String, userPerception: String?, userInstruction: String?) async throws -> String {
-        return try await executeWithRetry {
-            guard let apiKey = UserDefaults.standard.string(forKey: "gemini_api_key"), !apiKey.isEmpty else {
-                return "Please set your Gemini API Key in Settings."
-            }
-            
-            let prompts = generatePrompts(
-                for: mode,
-                text: text,
-                sourceLanguage: sourceLanguage,
-                targetLanguage: targetLanguage,
-                userPerception: userPerception,
-                userInstruction: userInstruction
-            )
-            
-            let model = UserDefaults.standard.string(forKey: "gemini_model") ?? "gemini-2.0-flash-exp"
-            let apiUrl = "https://generativelanguage.googleapis.com/v1beta/models/\(model):generateContent?key=\(apiKey)"
-            
-            // Use proper system_instruction field (Gemini best practice)
-            let body: [String: Any] = [
-                "system_instruction": [
-                    "parts": [["text": prompts.system]]
-                ],
-                "contents": [
-                    [
-                        "parts": [
-                            ["text": prompts.user]
-                        ]
-                    ]
-                ],
-                "generationConfig": [
-                    "response_mime_type": "application/json",
-                    "temperature": self.getTemperature(for: text),
-                    "maxOutputTokens": max(2048, self.getMaxTokens(for: text))  // 增加最小值到 2048
-                ]
-            ]
-            
-            let jsonData = try JSONSerialization.data(withJSONObject: body)
-            
-            guard let url = URL(string: apiUrl) else {
-                throw NSError(domain: "TranslationError", code: 1, userInfo: [NSLocalizedDescriptionKey: "Invalid URL"])
-            }
-            
-            var request = URLRequest(url: url)
-            request.httpMethod = "POST"
-            request.addValue("application/json", forHTTPHeaderField: "Content-Type")
-            request.httpBody = jsonData
-            request.timeoutInterval = 90  // 90 second timeout for long texts
-            
-            let (data, response) = try await URLSession.shared.data(for: request)
-            
-            guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
-                print("❌ Gemini API Error (HTTP Status: \((response as? HTTPURLResponse)?.statusCode ?? 0))")
-                if let errorText = String(data: data, encoding: .utf8) {
-                    print("API Error Response:")
-                    print(errorText)
-                    throw NSError(domain: "GeminiAPIError", code: 1, userInfo: [NSLocalizedDescriptionKey: errorText])
-                }
-                throw NSError(domain: "GeminiAPIError", code: 1, userInfo: [NSLocalizedDescriptionKey: "Unknown API Error"])
-            }
-            
-            if let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
-               let candidates = json["candidates"] as? [[String: Any]],
-               let firstCandidate = candidates.first,
-               let content = firstCandidate["content"] as? [String: Any],
-               let parts = content["parts"] as? [[String: Any]],
-               let firstPart = parts.first,
-               let text = firstPart["text"] as? String {
-                
-                 // Parse JSON response
-                let cleanJSON = self.extractJSON(from: text)
-                
-                // DEBUG: Print raw response
-                print("DEBUG Gemini Response:")
-                print(cleanJSON)
-                
-                return try self.parseTranslationResult(from: cleanJSON, mode: mode)
-            }
-             
-            // Return raw API response as error
-            let rawResponse = String(data: data, encoding: .utf8) ?? "Unknown error"
-            throw NSError(domain: "GeminiAPIError", code: 1, 
-                         userInfo: [NSLocalizedDescriptionKey: rawResponse])
-        }
-    }
-    
-    
-    private func translateWithZhipu(_ text: String, mode: PromptMode, sourceLanguage: String, targetLanguage: String, userPerception: String?, userInstruction: String?) async throws -> String {
-        return try await executeWithRetry {
-            guard let apiKey = UserDefaults.standard.string(forKey: "zhipu_api_key"), !apiKey.isEmpty else {
-                return "Please set your Zhipu API Key in Settings."
-            }
-            
-            let prompts = generatePrompts(
-                for: mode,
-                text: text,
-                sourceLanguage: sourceLanguage,
-                targetLanguage: targetLanguage,
-                userPerception: userPerception,
-                userInstruction: userInstruction
-            )
-            
-            let model = UserDefaults.standard.string(forKey: "zhipu_model") ?? "glm-4-flash"
-            
-            let body: [String: Any] = [
-                "model": model,
-                "messages": [
-                    ["role": "system", "content": prompts.system],
-                    ["role": "user", "content": prompts.user]
-                ],
-                "temperature": self.getTemperature(for: text),
-                "max_tokens": self.getMaxTokens(for: text)
-            ]
-            
-            let jsonData = try JSONSerialization.data(withJSONObject: body)
-            
-            var request = URLRequest(url: URL(string: "https://open.bigmodel.cn/api/paas/v4/chat/completions")!)
-            request.httpMethod = "POST"
-            request.addValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
-            request.addValue("application/json", forHTTPHeaderField: "Content-Type")
-            request.httpBody = jsonData
-            request.timeoutInterval = 90  // 90 second timeout for long texts
-            
-            let (data, response) = try await URLSession.shared.data(for: request)
-            
-            guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
-                if let errorText = String(data: data, encoding: .utf8) {
-                    throw NSError(domain: "TranslationError", code: 1, userInfo: [NSLocalizedDescriptionKey: "API Error: \(errorText)"])
-                }
-                throw NSError(domain: "TranslationError", code: 1, userInfo: [NSLocalizedDescriptionKey: "Unknown API Error"])
-            }
-            
-            if let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
-               let choices = json["choices"] as? [[String: Any]],
-               let firstChoice = choices.first,
-               let message = firstChoice["message"] as? [String: Any],
-                let content = message["content"] as? String {
-                
-                // DEBUG: Print input and raw response
-                print("DEBUG Zhipu Input Text: \(text.prefix(100))...")
-                print("DEBUG Zhipu Raw Content: \(content)")
-                
-                 // Parse JSON response
-                let cleanJSON = self.extractJSON(from: content)
-                
-                // DEBUG: Print raw response
-                print("DEBUG Zhipu Response:")
-                print(cleanJSON)
-                
-                return try self.parseTranslationResult(from: cleanJSON, mode: mode)
-            }
-            
-            // DEBUG: Print full error response
-            if let errorStr = String(data: data, encoding: .utf8) {
-                print("DEBUG Zhipu Full Response Error:")
-                print(errorStr)
-            }
-            
-            throw NSError(domain: "TranslationError", code: 3, 
-                         userInfo: [NSLocalizedDescriptionKey: "Failed to parse translation response structure"])
-        }
     }
 }
