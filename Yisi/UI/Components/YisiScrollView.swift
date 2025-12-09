@@ -34,13 +34,27 @@ class YisiScrollView: NSScrollView {
         // 3. 滚动行为配置
         self.hasVerticalScroller = true
         self.hasHorizontalScroller = false
+        
+        // 关键：强制自动隐藏滚动条
         self.autohidesScrollers = true
         
         // 4. 核心样式：Overlay (悬浮且自动隐藏)
+        // 注意：scrollerStyle 必须在设置 scroller 之后再次确认，或者在 setVerticalScroller 之前设置
         self.scrollerStyle = .overlay
+        self.scrollerKnobStyle = .default
         
         // 5. 注入自定义 Scroller
-        self.verticalScroller = YisiTransparentScroller()
+        let scroller = YisiTransparentScroller()
+        self.verticalScroller = scroller
+        
+        // 再次强制设置样式，防止被重置
+        self.scrollerStyle = .overlay
+    }
+    
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        // 视图上窗时闪烁一下滚动条，确保状态正确初始化
+        self.flashScrollers()
     }
 }
 
@@ -49,12 +63,17 @@ private class YisiTransparentScroller: NSScroller {
     
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
-        // 强制 Overlay 模式（无视系统设置）
-        self.scrollerStyle = .overlay
+        self.commonInit()
     }
     
     required init?(coder: NSCoder) {
         super.init(coder: coder)
+        self.commonInit()
+    }
+    
+    private func commonInit() {
+        // 确保 Scroller 自身也支持 Layer
+        self.wantsLayer = true
         self.scrollerStyle = .overlay
     }
     
