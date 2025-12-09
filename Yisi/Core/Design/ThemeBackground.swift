@@ -6,13 +6,14 @@ struct ThemeBackground: View {
             // Base: Frosted Glass (Essential for "frosted transparent" requirement)
             VisualEffectView(material: .hudWindow, blendingMode: .behindWindow)
             
-            // Tint Overlay: Purely neutral/white to enhance the frosted look without color cast
+            // Brightness Lift: Slightly brighten the dark glass for better legibility
+            Color.white.opacity(0.06)
             
             // 1. General Sheen (Subtle Purple Tint)
             LinearGradient(
                 gradient: Gradient(colors: [
                     AppColors.yisiPurple.opacity(0.03), // Just a hint of purple
-                    Color.white.opacity(0.02)
+                    Color.white.opacity(0.04)
                 ]),
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
@@ -21,7 +22,7 @@ struct ThemeBackground: View {
             // 2. Top Left Highlight (Light Reflection)
             RadialGradient(
                 gradient: Gradient(colors: [
-                    Color.white.opacity(0.1),
+                    Color.white.opacity(0.15),
                     Color.white.opacity(0)
                 ]),
                 center: UnitPoint(x: 0.1, y: 0.2),

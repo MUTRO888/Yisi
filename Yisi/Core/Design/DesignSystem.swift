@@ -1,4 +1,5 @@
 import SwiftUI
+import AppKit
 
 struct AppColors {
     // Core Palette
@@ -16,7 +17,18 @@ struct AppColors {
     static let primary = yisiPurple
     static let secondary = yisiLight
     static let background = mist
-    static let text = inkMain
+    
+    static var text: Color {
+        let color = NSColor(name: nil, dynamicProvider: { appearance in
+            let match = appearance.bestMatch(from: [.darkAqua, .aqua])
+            if match == .darkAqua {
+                return NSColor.white
+            }
+            return NSColor(srgbRed: 0.1216, green: 0.1176, blue: 0.1804, alpha: 1.0)
+        })
+        return Color(nsColor: color)
+    }
+    
     static let selection = mist
 }
 
