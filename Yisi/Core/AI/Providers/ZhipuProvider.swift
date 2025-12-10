@@ -3,13 +3,45 @@ import Foundation
 class ZhipuProvider: AIProvider {
     var provider: APIProvider = .zhipu
     
+    // MARK: - ReasoningCapability 实现
+    
+    /// Zhipu 推理模型判断
+    /// - GLM-4.5 系列：glm-4.5, glm-4.5-air, glm-4.5-airx, glm-4.5-x
+    /// - GLM-4.6 系列
+    /// - GLM-4-Plus
+    func isReasoningModel(_ model: String) -> Bool {
+        let lower = model.lowercased()
+        return lower.contains("glm-4.5") ||
+               lower.contains("glm-4.6") ||
+               lower.contains("glm-4-plus")
+    }
+    
+    /// Zhipu 推理参数配置
+    /// - thinking.type = "enabled"  开启思考模式
+    /// - thinking.type = "disabled" 关闭思考模式（必须显式发送）
+    func configureReasoning(body: inout [String: Any], model: String, enabled: Bool) {
+        guard isReasoningModel(model) else { return }
+        
+        // Zhipu 默认开启动态思考，必须显式发送 disabled 来关闭
+        body["thinking"] = ["type": enabled ? "enabled" : "disabled"]
+        
+        // Thinking 模式需要更多 token
+        if enabled {
+            body["max_tokens"] = 8192
+        }
+        
+        print("DEBUG Zhipu: Thinking mode \(enabled ? "ENABLED" : "DISABLED") for model \(model)")
+    }
+    
+    // MARK: - AIProvider 实现
+    
     func send(messages: [AIMessage], config: AIRequestConfig) async throws -> String {
         let apiUrl = "https://open.bigmodel.cn/api/paas/v4/chat/completions"
         guard let url = URL(string: apiUrl) else {
             throw NSError(domain: "AIError", code: 1, userInfo: [NSLocalizedDescriptionKey: "Invalid URL"])
         }
         
-        // 复用 OpenAI 的消息格式逻辑
+        // 1. 构建消息格式
         let apiMessages = messages.map { msg -> [String: Any] in
             var content: Any = msg.content.text
             if let imageData = msg.content.image {
@@ -21,29 +53,18 @@ class ZhipuProvider: AIProvider {
             return ["role": msg.role.rawValue, "content": content]
         }
         
+        // 2. 构建请求 body
         var body: [String: Any] = [
             "model": config.model,
             "messages": apiMessages,
             "temperature": config.temperature,
-            // Thinking 模式需要更多 token，因为会返回 reasoning_content + content
-            "max_tokens": (isReasoningModel(config.model) && config.enableNativeReasoning) ? 8192 : config.maxTokens
+            "max_tokens": config.maxTokens
         ]
         
-        // MARK: - Zhipu 推理模式控制
-        // 对于 GLM-4.5/4.6/4-Plus 等推理模型，通过 thinking.type 参数控制
-        // thinking.type = "enabled" 开启混合推理模式
-        // thinking.type = "disabled" 关闭混合推理模式
-        // 注意：这与 web_search 工具无关，web_search 是 tools 参数下的独立工具
-        if isReasoningModel(config.model) && config.enableNativeReasoning {
-            body["thinking"] = [
-                "type": "enabled"
-            ]
-            print("DEBUG Zhipu: Thinking mode ENABLED for model \(config.model)")
-        } else {
-            print("DEBUG Zhipu: Thinking mode DISABLED (isReasoning=\(isReasoningModel(config.model)), enableNativeReasoning=\(config.enableNativeReasoning))")
-        }
-        // 注意：不需要显式发送 "disabled"，不传 thinking 参数即为默认行为
+        // 3. 配置推理参数（使用协议方法）
+        configureReasoning(body: &body, model: config.model, enabled: config.enableNativeReasoning)
         
+        // 4. 发送请求
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.addValue("Bearer \(config.apiKey)", forHTTPHeaderField: "Authorization")
@@ -63,35 +84,39 @@ class ZhipuProvider: AIProvider {
             throw NSError(domain: "ZhipuProvider", code: 1, userInfo: [NSLocalizedDescriptionKey: errorText])
         }
         
-        if let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
-           let choices = json["choices"] as? [[String: Any]],
-           let firstChoice = choices.first,
-           let message = firstChoice["message"] as? [String: Any] {
-            
-            // 标准响应：content 是字符串
-            if let content = message["content"] as? String {
-                return content
-            }
-            
-            // Thinking 模式响应：content 可能是数组 [{"type": "thinking", "thinking": "..."}, {"type": "text", "text": "..."}]
-            if let contentArray = message["content"] as? [[String: Any]] {
-                // 查找 type == "text" 的部分
-                for item in contentArray {
-                    if let type = item["type"] as? String, type == "text",
-                       let text = item["text"] as? String {
-                        return text
-                    }
+        // 5. 解析响应
+        return try parseResponse(data: data)
+    }
+    
+    // MARK: - Private Helpers
+    
+    private func parseResponse(data: Data) throws -> String {
+        guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let choices = json["choices"] as? [[String: Any]],
+              let firstChoice = choices.first,
+              let message = firstChoice["message"] as? [String: Any] else {
+            throw NSError(domain: "ZhipuProvider", code: 2, userInfo: [NSLocalizedDescriptionKey: "Failed to parse response"])
+        }
+        
+        // 标准响应：content 是字符串
+        if let content = message["content"] as? String {
+            return content
+        }
+        
+        // Thinking 模式响应：content 可能是数组
+        // [{\"type\": \"thinking\", \"thinking\": \"...\"}, {\"type\": \"text\", \"text\": \"...\"}]
+        if let contentArray = message["content"] as? [[String: Any]] {
+            // 优先查找 type == "text"
+            for item in contentArray {
+                if let type = item["type"] as? String, type == "text",
+                   let text = item["text"] as? String {
+                    return text
                 }
-                // 如果没有 text 类型，尝试返回第一个有内容的项
-                for item in contentArray {
-                    if let text = item["text"] as? String, !text.isEmpty {
-                        return text
-                    }
-                    if let thinking = item["thinking"] as? String, !thinking.isEmpty {
-                        // 如果只有 thinking 内容，返回它（虽然不太可能）
-                        print("DEBUG: Only thinking content found, returning it")
-                        return thinking
-                    }
+            }
+            // 备选：返回第一个有内容的项
+            for item in contentArray {
+                if let text = item["text"] as? String, !text.isEmpty {
+                    return text
                 }
             }
         }

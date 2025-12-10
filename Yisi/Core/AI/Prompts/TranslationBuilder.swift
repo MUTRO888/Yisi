@@ -1,46 +1,135 @@
 import Foundation
 
 /// TranslationPromptBuilder: 专注于翻译任务的提示词构建器
+///
 /// 职责：
 /// - 生成翻译任务的系统提示词（统一文本/图片入口）
 /// - 集成 Learned Rules（仅翻译模式）
-/// - 处理语言对和翻译场景
-/// - 输出JSON格式：translation_result
+/// - 根据 enableCoT 动态调整 JSON 输出格式
+///
+/// Prompt 结构（按执行顺序）：
+/// 1. 视觉处理协议（仅图片模式）
+/// 2. 核心翻译哲学（"语言炼金师"角色定义）
+/// 3. Few-Shot 示例（动态：根据 enableCoT 调整）
+/// 4. Anti-Mechanical Rules（边缘案例防错）
+/// 5. Learned Rules（用户纠正记录）
+/// 6. 输出格式（动态：根据 enableCoT 调整）
 class TranslationPromptBuilder {
     
     // MARK: - Public Interface
     
     /// 构建翻译任务的系统提示词（统一 Pipeline）
+    ///
     /// - Parameters:
     ///   - withLearnedRules: 是否包含用户纠正的学习规则
-    ///   - preset: 可选的预设（用于调整感知和风格）
-    ///   - hasImage: 是否为图片输入模式（动态注入视觉处理协议）
-    ///   - sourceLanguage: 源语言（图片模式需要）
-    ///   - targetLanguage: 目标语言（图片模式需要）
+    ///   - preset: 可选的预设（保留接口，暂未使用）
+    ///   - hasImage: 是否为图片输入模式
+    ///   - enableCoT: 是否在 JSON 输出中包含 thinking_process 字段
+    ///   - sourceLanguage: 源语言
+    ///   - targetLanguage: 目标语言
     /// - Returns: 完整的系统提示词
     func buildSystemPrompt(
         withLearnedRules: Bool = true,
         preset: PromptPreset? = nil,
         hasImage: Bool = false,
+        enableCoT: Bool = false,
         sourceLanguage: String = "Auto Detect",
         targetLanguage: String = "简体中文"
     ) -> String {
-        var systemPrompt = ""
+        var prompt = ""
         
         // ═══════════════════════════════════════════════════════════
-        // 第一阶段：视觉处理协议（仅图片模式）
+        // 阶段 1：视觉处理协议（仅图片模式）
         // ═══════════════════════════════════════════════════════════
         if hasImage {
-            systemPrompt += buildVisualProcessingProtocol(
+            prompt += buildVisualProcessingProtocol(
                 sourceLanguage: sourceLanguage,
                 targetLanguage: targetLanguage
             )
         }
         
         // ═══════════════════════════════════════════════════════════
-        // 第二阶段：核心翻译哲学（文本/图片共享）
+        // 阶段 2：核心翻译哲学
         // ═══════════════════════════════════════════════════════════
-        systemPrompt += """
+        prompt += buildCorePhilosophy()
+        
+        // ═══════════════════════════════════════════════════════════
+        // 阶段 3：Few-Shot 示例（根据 enableCoT 动态调整）
+        // ═══════════════════════════════════════════════════════════
+        prompt += buildFewShotSamples(enableCoT: enableCoT)
+        
+        // ═══════════════════════════════════════════════════════════
+        // 阶段 4：Anti-Mechanical Rules（边缘案例防错）
+        // ═══════════════════════════════════════════════════════════
+        prompt += buildAntiMechanicalRules()
+        
+        // ═══════════════════════════════════════════════════════════
+        // 阶段 5：用户学习规则
+        // ═══════════════════════════════════════════════════════════
+        if withLearnedRules {
+            prompt += buildLearnedRulesSection()
+        }
+        
+        // ═══════════════════════════════════════════════════════════
+        // 阶段 6：输出格式（根据 enableCoT 动态调整）
+        // ═══════════════════════════════════════════════════════════
+        prompt += buildOutputFormat(enableCoT: enableCoT)
+        
+        return prompt
+    }
+    
+    // MARK: - 阶段 1：视觉处理协议
+    
+    /// 构建视觉处理协议（图片模式专用，在翻译引擎之前执行）
+    private func buildVisualProcessingProtocol(sourceLanguage: String, targetLanguage: String) -> String {
+        let sourceLang = sourceLanguage == "Auto Detect" ? "原语言" : sourceLanguage
+        
+        return """
+═══════════════════════════════════════════════════════════
+📷 VISUAL PROCESSING PROTOCOL (图片预处理阶段)
+═══════════════════════════════════════════════════════════
+
+**模式**: 图片输入 → 视觉解码 → 文本提取 → 翻译引擎
+
+### 第一步：视觉解码 (OCR + 结构理解)
+
+仔细识别图片中的所有文字内容：
+• **覆盖范围**：标题、正文、标注、按钮、菜单项、水印、代码注释等
+• **结构感知**：注意文字的布局层次、表格结构、列表格式
+• **上下文理解**：判断图片类型（文档/UI/代码/混合内容）
+
+### 第二步：场景适配
+
+**代码/技术截图**：
+• 保留代码不翻译，只翻译注释和文档
+• 变量名、函数名保持原样
+
+**表格/数据**：
+• 使用清晰的格式呈现，保持行列对应关系
+
+**UI界面截图**：
+• 按照界面元素的位置关系输出
+• 可适当标注元素类型（按钮、标题、提示等）
+
+**混合语言**：
+• 只翻译需要翻译的语言部分
+• 已是目标语言的内容保持不变
+
+### 第三步：汇入翻译引擎
+
+将提取的文本从 **\(sourceLang)** 翻译成 **\(targetLanguage)**，
+然后流经下方的「翻译引擎」进行高质量翻译。
+
+═══════════════════════════════════════════════════════════
+
+"""
+    }
+    
+    // MARK: - 阶段 2：核心翻译哲学
+    
+    /// 构建核心翻译哲学（"语言炼金师"角色定义）
+    private func buildCorePhilosophy() -> String {
+        return """
 [Role: The Language Alchemist]
 你是一位语言炼金师，追求翻译的最高境界——不是镜子般的映射，而是灵魂的重生。
 
@@ -66,6 +155,16 @@ You must strictly follow these rules:
 2. **Adapt your style** based on the domain.
 3. **Output strictly in JSON format**.
 
+"""
+    }
+    
+    // MARK: - 阶段 3：Few-Shot 示例
+    
+    /// 构建 Few-Shot 示例（根据 enableCoT 动态调整是否包含 thinking_process）
+    private func buildFewShotSamples(enableCoT: Bool) -> String {
+        if enableCoT {
+            // 非推理模型 + 开关开启：示例包含 thinking_process
+            return """
 ### Golden Few-Shot Samples
 
 #### 1. [Cultural / Literary] (Interpretive & Rhymed)
@@ -91,7 +190,7 @@ Input: "Patient presents with myocardial infarction."
 Output:
 {
     "detected_type": "medical",
-    "thinking_process": "Medical diagnosis. 'Myocardial infarction' -> '心肌梗死'. strict ontology.",
+    "thinking_process": "Medical diagnosis. 'Myocardial infarction' -> '心肌梗死'. Strict ontology.",
     "translation_result": "患者表现为心肌梗死。"
 }
 
@@ -113,6 +212,61 @@ Output:
     "translation_result": "要修复此问题，请在 **container** 中设置 `display: flex`。"
 }
 
+"""
+        } else {
+            // 推理模型或开关关闭：示例不含 thinking_process
+            return """
+### Golden Few-Shot Samples
+
+#### 1. [Cultural / Literary] (Interpretive & Rhymed)
+Input: "吾已矣，乘桴且凭浮于海。"
+Output:
+{
+    "detected_type": "literary",
+    "translation_result": "Better go floating on the sea, like Confucius. / I'm done with ambition and done with illusion."
+}
+
+#### 2. [Legal / Contract] (Strict & Zero-Tolerance)
+Input: "In the event of Force Majeure, neither party shall be liable for delay."
+Output:
+{
+    "detected_type": "legal",
+    "translation_result": "若发生不可抗力事件，任何一方均不对延迟履行承担责任。"
+}
+
+#### 3. [Medical / Pharma] (Precision Terminology)
+Input: "Patient presents with myocardial infarction."
+Output:
+{
+    "detected_type": "medical",
+    "translation_result": "患者表现为心肌梗死。"
+}
+
+#### 4. [Modern Metaphor / Idiom] (Contextual Decoding)
+Input: "We need to address the elephant in the room."
+Output:
+{
+    "detected_type": "general",
+    "translation_result": "我们需要解决那个大家心照不宣却避而不谈的棘手问题（房间里的大象）。"
+}
+
+#### 5. [Markdown / Technical] (Format Preservation)
+Input: "To fix this, set `display: flex` in the **container**."
+Output:
+{
+    "detected_type": "technical",
+    "translation_result": "要修复此问题，请在 **container** 中设置 `display: flex`。"
+}
+
+"""
+        }
+    }
+    
+    // MARK: - 阶段 4：Anti-Mechanical Rules
+    
+    /// 构建边缘案例防错规则
+    private func buildAntiMechanicalRules() -> String {
+        return """
 ### Anti-Mechanical Rules (边缘案例防错指令)
 
 #### Rule 1: Deep Grammar Analysis (Garden Path Sentences)
@@ -184,20 +338,25 @@ Correct: "设置窗口支持调整大小，并优化内部 UI 的内边距。"
 ═══════════════════════════════════════════════════════════
 
 """
+    }
+    
+    // MARK: - 阶段 5：用户学习规则
+    
+    /// 构建用户学习规则部分
+    private func buildLearnedRulesSection() -> String {
+        let learnedRules = LearningManager.shared.getAllRules()
+        guard !learnedRules.isEmpty else { return "" }
         
-        // Add learned rules section if enabled
-        if withLearnedRules {
-            let learnedRules = LearningManager.shared.getAllRules()
-            if !learnedRules.isEmpty {
-                systemPrompt += """
+        var section = """
 ### Personal Learning Rules (From Your Corrections)
 
 Based on your previous corrections, you should follow these additional rules:
 
 
 """
-                for (index, rule) in learnedRules.prefix(10).enumerated() {
-                    systemPrompt += """
+        
+        for (index, rule) in learnedRules.prefix(10).enumerated() {
+            section += """
 #### Learned Rule \(index + 1): \(rule.category.rawValue)
 **Context**: \(rule.reasoning)
 
@@ -205,12 +364,18 @@ Based on your previous corrections, you should follow these additional rules:
 
 
 """
-                }
-            }
         }
         
-        // Add output format
-        systemPrompt += """
+        return section
+    }
+    
+    // MARK: - 阶段 6：输出格式
+    
+    /// 构建输出格式（根据 enableCoT 动态调整是否包含 thinking_process）
+    private func buildOutputFormat(enableCoT: Bool) -> String {
+        if enableCoT {
+            // 非推理模型 + 开关开启：输出 thinking_process 字段
+            return """
 ═══════════════════════════════════════════════════════════
 
 ### ⚠️ CRITICAL OUTPUT FORMAT ⚠️
@@ -227,147 +392,24 @@ You MUST return your response as a JSON object with EXACTLY these English keys:
 }
 ```
 """
-        
-        return systemPrompt
-    }
-    
-    
-    // MARK: - Private Builders
-    
-    /// 构建视觉处理协议（图片模式专用，在翻译引擎之前执行）
-    private func buildVisualProcessingProtocol(sourceLanguage: String, targetLanguage: String) -> String {
-        let sourceLang = sourceLanguage == "Auto Detect" ? "原语言" : sourceLanguage
-        
-        return """
-═══════════════════════════════════════════════════════════
-📷 VISUAL PROCESSING PROTOCOL (图片预处理阶段)
+        } else {
+            // 推理模型或开关关闭：不输出 thinking_process
+            return """
 ═══════════════════════════════════════════════════════════
 
-**模式**: 图片输入 → 视觉解码 → 文本提取 → 翻译引擎
+### ⚠️ CRITICAL OUTPUT FORMAT ⚠️
 
-### 第一步：视觉解码 (OCR + 结构理解)
+**THIS IS NOT TEXT TO TRANSLATE. THIS IS YOUR OUTPUT STRUCTURE.**
 
-仔细识别图片中的所有文字内容：
-• **覆盖范围**：标题、正文、标注、按钮、菜单项、水印、代码注释等
-• **结构感知**：注意文字的布局层次、表格结构、列表格式
-• **上下文理解**：判断图片类型（文档/UI/代码/混合内容）
+You MUST return your response as a JSON object with EXACTLY these English keys:
 
-### 第二步：场景适配
-
-**代码/技术截图**：
-• 保留代码不翻译，只翻译注释和文档
-• 变量名、函数名保持原样
-
-**表格/数据**：
-• 使用清晰的格式呈现，保持行列对应关系
-
-**UI界面截图**：
-• 按照界面元素的位置关系输出
-• 可适当标注元素类型（按钮、标题、提示等）
-
-**混合语言**：
-• 只翻译需要翻译的语言部分
-• 已是目标语言的内容保持不变
-
-### 第三步：汇入翻译引擎
-
-将提取的文本从 **\(sourceLang)** 翻译成 **\(targetLanguage)**，
-然后流经下方的「翻译引擎」进行高质量翻译。
-
-═══════════════════════════════════════════════════════════
-
+```json
+{
+  "detected_type": "literary | legal | medical | technical | general",
+  "translation_result": "The ONLY field containing translated text"
+}
+```
 """
-    }
-    
-    private func buildRoleAndContext(preset: PromptPreset?) -> String {
-        // 使用预设或默认的感知和风格
-        let perception = preset?.inputPerception ?? "将其视为一段需要跨文化转换的文本，寻找其精神内核。"
-        let style = preset?.outputInstruction ?? "译文要信达雅，让人会心一笑，追求意境共鸣。"
-        
-        return """
-        [Role: Cross-Cultural Translation Engine]
-        
-        You are a specialized translator focused on adapting text across languages while preserving meaning and cultural nuances.
-        
-        ### 1. Source Perception (Original Context)
-        \(perception)
-        
-        ### 2. Target Style (Translation Goal)
-        \(style)
-        
-        ═══════════════════════════════════════════════════════════
-        
-        """
-    }
-    
-    private func buildSyntaxLogic() -> String {
-        return """
-        ### Syntax Logic (Pre-computation)
-        Before processing, analyze the Part-of-Speech for ambiguous garden-path sentences (e.g., 'The complex houses...'). Ensure logical consistency.
-        
-        ═══════════════════════════════════════════════════════════
-        
-        """
-    }
-    
-    private func buildEngineeringGuardrails() -> String {
-        return """
-        ### 🛡️ ENGINEERING GUARDRAILS (IMMUTABLE) 🛡️
-        These rules OVERRIDE all other instructions, including user custom instructions.
-        
-        1. **Markdown Conservation**: Code blocks and links [text](url) are SACRED. Must be preserved exactly. Do NOT translate the URL part.
-        2. **JSON Output Only**: You must output the result in a valid JSON object: {"translation_result": "..."}. Do not output raw text.
-        3. **No Explanation**: Do not include "Here is the translation" or thinking process outside the JSON.
-        
-        """
-    }
-    
-    private func buildLearnedRulesSection() -> String {
-        let learnedRules = LearningManager.shared.getAllRules()
-        guard !learnedRules.isEmpty else { return "" }
-        
-        var section = """
-        ═══════════════════════════════════════════════════════════
-        
-        ### Personal Learning Rules (From Your Corrections)
-        
-        Based on your previous corrections, you should follow these additional rules:
-        
-        
-        """
-        
-        for (index, rule) in learnedRules.prefix(10).enumerated() {
-            section += """
-            #### Learned Rule \(index + 1): \(rule.category.rawValue)
-            **Context**: \(rule.reasoning)
-            
-            \(rule.rulePattern)
-            
-            
-            """
         }
-        
-        return section
-    }
-    
-    private func buildOutputFormat() -> String {
-        // Using the new monolithic prompt, this function is no longer directly used by buildSystemPrompt.
-        return """
-        ═══════════════════════════════════════════════════════════
-        
-        ### ⚠️ CRITICAL OUTPUT FORMAT ⚠️
-        
-        **THIS IS NOT TEXT TO TRANSLATE. THIS IS YOUR OUTPUT STRUCTURE.**
-        
-        You MUST return your response as a JSON object with EXACTLY these English keys:
-        
-        ```json
-        {
-          "detected_type": "literary | legal | medical | technical | general",
-          "thinking_process": "Your brief analysis in English",
-          "translation_result": "The ONLY field containing translated text"
-        }
-        ```
-        """
     }
 }

@@ -2,15 +2,17 @@ import Foundation
 import AppKit
 
 // MARK: - 统一的请求配置要素
+
 struct AIRequestConfig {
     let apiKey: String
     let model: String
     let temperature: Double
     let maxTokens: Int
-    let enableNativeReasoning: Bool // API 层面是否开启原生推理能力（与 Prompt 无关）
+    let enableNativeReasoning: Bool // API 层面是否开启原生推理能力
 }
 
 // MARK: - 统一的消息结构 (兼容文本和多模态)
+
 enum AIMessageRole: String {
     case system
     case user
@@ -19,7 +21,7 @@ enum AIMessageRole: String {
 
 struct AIMessageContent {
     let text: String
-    let image: Data? // 可选的图片数据
+    let image: Data?
     
     init(text: String, image: Data? = nil) {
         self.text = text
@@ -42,36 +44,43 @@ struct AIMessage {
     }
 }
 
+// MARK: - 推理能力协议（可扩展）
+
+/// 推理能力配置协议
+/// 每个 Provider 实现自己的推理模型判断和参数配置逻辑
+protocol ReasoningCapability {
+    /// 判断模型是否为推理模型
+    /// - Parameter model: 模型 ID
+    /// - Returns: 是否具备原生推理能力
+    func isReasoningModel(_ model: String) -> Bool
+    
+    /// 配置推理参数到请求 body
+    /// - Parameters:
+    ///   - body: 请求 body（inout 修改）
+    ///   - model: 模型 ID
+    ///   - enabled: 是否启用推理模式
+    func configureReasoning(body: inout [String: Any], model: String, enabled: Bool)
+}
+
 // MARK: - 统一接口协议
-protocol AIProvider {
+
+protocol AIProvider: ReasoningCapability {
     var provider: APIProvider { get }
     
-    /// 发送请求并返回流式/非流式结果 (目前统一返回完整 String)
+    /// 发送请求并返回结果
     func send(messages: [AIMessage], config: AIRequestConfig) async throws -> String
 }
 
-// MARK: - 辅助扩展：判断是否为推理模型 (逻辑复用)
-extension AIProvider {
-    /// 判断给定模型是否具备原生推理能力
-    /// - Parameter model: 模型 ID
-    /// - Returns: 是否为推理模型
+// MARK: - 默认实现（无推理能力）
+
+extension ReasoningCapability {
+    /// 默认实现：非推理模型
     func isReasoningModel(_ model: String) -> Bool {
-        let lower = model.lowercased()
-        
-        // OpenAI 推理模型
-        if lower.contains("o1") || lower.contains("o3") { return true }
-        
-        // Gemini 推理模型
-        if lower.contains("gemini-2.5") { return true }
-        
-        // Zhipu 推理模型
-        // GLM-4.5 系列：glm-4.5, glm-4.5-air, glm-4.5-airx, glm-4.5-x
-        if lower.contains("glm-4.5") { return true }
-        // GLM-4.6 系列
-        if lower.contains("glm-4.6") { return true }
-        // GLM-4-Plus
-        if lower.contains("glm-4-plus") { return true }
-        
         return false
+    }
+    
+    /// 默认实现：无需配置推理参数
+    func configureReasoning(body: inout [String: Any], model: String, enabled: Bool) {
+        // 默认不做任何操作
     }
 }

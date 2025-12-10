@@ -25,6 +25,7 @@ class PromptCoordinator {
     ///   - mode: 提示词模式（翻译/预设/临时自定义）
     ///   - withLearnedRules: 是否包含用户纠正的学习规则
     ///   - hasImage: 是否为图片输入（仅翻译模式使用）
+    ///   - enableCoT: 是否输出 thinking_process 字段（仅翻译模式 + 非推理模型 + 开关开启）
     ///   - sourceLanguage: 源语言（图片模式需要）
     ///   - targetLanguage: 目标语言（图片模式需要）
     /// - Returns: 完整的系统提示词
@@ -32,6 +33,7 @@ class PromptCoordinator {
         for mode: PromptMode,
         withLearnedRules: Bool = true,
         hasImage: Bool = false,
+        enableCoT: Bool = false,
         sourceLanguage: String = "Auto Detect",
         targetLanguage: String = "简体中文"
     ) -> String {
@@ -42,20 +44,20 @@ class PromptCoordinator {
                 withLearnedRules: withLearnedRules,
                 preset: nil,
                 hasImage: hasImage,
+                enableCoT: enableCoT,
                 sourceLanguage: sourceLanguage,
                 targetLanguage: targetLanguage
             )
             
         case .userPreset(let preset):
-            // 预设模式：使用预设Builder（AI 自动检测语言）
+            // 预设模式：使用预设 Builder（不控制 CoT，用户自行处理）
             return presetBuilder.buildSystemPrompt(preset: preset)
             
         case .temporaryCustom:
-            // 临时自定义：这个需要从外部传入input/output
+            // 临时自定义：不控制 CoT，用户自行处理
             return customBuilder.buildSystemPrompt(inputContext: nil, outputRequirement: nil)
         }
     }
-    
     /// 生成临时自定义任务的系统提示词
     /// - Parameters:
     ///   - inputContext: 用户输入的任务理解
@@ -95,6 +97,7 @@ class PromptCoordinator {
     ///   - mode: 提示词模式
     ///   - sourceLanguage: 源语言
     ///   - targetLanguage: 目标语言
+    ///   - enableCoT: 是否输出 thinking_process 字段
     ///   - customPerception: 自定义感知（用于自定义模式）
     ///   - customInstruction: 自定义指令（用于自定义模式）
     /// - Returns: 给 AI 的图片处理系统提示词
@@ -102,6 +105,7 @@ class PromptCoordinator {
         mode: PromptMode,
         sourceLanguage: String,
         targetLanguage: String,
+        enableCoT: Bool = false,
         customPerception: String? = nil,
         customInstruction: String? = nil
     ) -> String {
@@ -112,6 +116,7 @@ class PromptCoordinator {
                 for: mode,
                 withLearnedRules: true,
                 hasImage: true,
+                enableCoT: enableCoT,
                 sourceLanguage: sourceLanguage,
                 targetLanguage: targetLanguage
             )

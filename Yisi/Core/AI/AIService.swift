@@ -50,27 +50,38 @@ class AIService: ObservableObject {
         
         if mode == .defaultTranslation {
             // 翻译模式：强管控
-            // - 推理模型：通过 API 开/关原生推理能力
-            // - 非推理模型：通过 Prompt 注入 thinking_process 约束
-            apiReasoning = enableDeepThinking
-            promptCoT = enableDeepThinking && !isReasoning
+            if enableDeepThinking {
+                // 开关打开
+                if isReasoning {
+                    // 推理模型：启用 API 推理，不加 Prompt CoT（避免双重推理）
+                    apiReasoning = true
+                    promptCoT = false
+                } else {
+                    // 非推理模型：通过 Prompt 添加 thinking_process
+                    apiReasoning = false  // 非推理模型不支持 API 推理
+                    promptCoT = true
+                }
+            } else {
+                // 开关关闭：无论模型类型，都不启用任何推理
+                apiReasoning = false
+                promptCoT = false
+            }
         } else {
             // 自定义/预设模式：弱管控
-            // - 仅推理模型通过 API 开/关，非推理模型不受影响
-            // - 永远不注入 Prompt 层 CoT（保持 System Prompt 纯净）
-            apiReasoning = enableDeepThinking
-            promptCoT = false
+            // 只对推理模型受开关影响，非推理模型不受影响
+            apiReasoning = isReasoning && enableDeepThinking
+            promptCoT = false  // 不控制 Prompt，用户自行处理
         }
         
-        // 3. 生成 Prompt
-        // 注意：promptCoT 参数目前未传给 PromptCoordinator，如需启用需要扩展其接口
+        // 3. 生成 Prompt（传递 promptCoT 参数）
         let prompts = generatePrompts(
             for: mode,
             text: preprocessedText,
             sourceLanguage: sourceLanguage,
             targetLanguage: targetLanguage,
             userPerception: userPerception,
-            userInstruction: userInstruction
+            userInstruction: userInstruction,
+            enableCoT: promptCoT  // 新增：传递 CoT 控制
         )
         
         // 组装消息
@@ -143,10 +154,27 @@ class AIService: ObservableObject {
             AIMessage(role: .user, text: instruction, image: imageData)
         ]
         
-        // 图片模式也支持 Deep Thinking 开关
+        // MARK: - 图片模式双模态推理策略（与文本模式一致）
         let enableDeepThinking = UserDefaults.standard.bool(forKey: "enable_deep_thinking")
         let providerInstance = getProviderInstance(for: provider)
         let isReasoning = providerInstance.isReasoningModel(model)
+        
+        // 图片模式目前默认使用翻译模式逻辑
+        // TODO: 未来如需支持图片模式的自定义/预设，需要扩展此逻辑
+        let apiReasoning: Bool
+        if enableDeepThinking {
+            // 开关打开
+            if isReasoning {
+                // 推理模型：启用 API 推理
+                apiReasoning = true
+            } else {
+                // 非推理模型：不支持 API 推理
+                apiReasoning = false
+            }
+        } else {
+            // 开关关闭：不启用推理
+            apiReasoning = false
+        }
         
         // 组装配置
         let config = AIRequestConfig(
@@ -154,7 +182,7 @@ class AIService: ObservableObject {
             model: model,
             temperature: 0.1,
             maxTokens: 4096,
-            enableNativeReasoning: enableDeepThinking && isReasoning
+            enableNativeReasoning: apiReasoning
         )
         
         // 使用 Provider 发送请求
@@ -486,7 +514,8 @@ class AIService: ObservableObject {
         sourceLanguage: String,
         targetLanguage: String,
         userPerception: String?,
-        userInstruction: String?
+        userInstruction: String?,
+        enableCoT: Bool = false  // 新增：是否在翻译模式输出 thinking_process
     ) -> (system: String, user: String) {
         // AI 自动检测语言，无需预先检测
         let systemPrompt: String
@@ -498,7 +527,8 @@ class AIService: ObservableObject {
         } else {
             systemPrompt = PromptCoordinator.shared.generateSystemPrompt(
                 for: mode,
-                withLearnedRules: true
+                withLearnedRules: true,
+                enableCoT: enableCoT  // 传递 CoT 控制
             )
         }
         
@@ -536,8 +566,11 @@ class AIService: ObservableObject {
     }
     
     private func getMaxTokens(for text: String) -> Int {
-        // Translation is usually 1.5-2x original, 3x is safe
-        return min(4096, max(512, text.count * 3))
+        // Translation output is typically 1.5-3x input length (especially CN<->EN)
+        // Plus JSON overhead (detected_type, thinking_process, etc.) ~500 tokens
+        // No hard cap - let the provider's native limit handle it
+        let estimatedTokens = text.count * 3 + 500  // 3x for translation expansion + JSON overhead
+        return max(1024, estimatedTokens)  // Minimum 1024 tokens
     }
     
     private func validateResponse(_ response: TranslationResponse, originalText: String) throws {

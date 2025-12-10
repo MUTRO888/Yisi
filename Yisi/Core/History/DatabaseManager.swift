@@ -6,10 +6,15 @@ class DatabaseManager {
     private var db: OpaquePointer?
     private let dbName = "YisiHistory.sqlite"
     
+    // 串行队列保护 SQLite 访问（SQLite 默认不是线程安全的）
+    private let dbQueue = DispatchQueue(label: "com.yisi.database", qos: .userInitiated)
+    
     private init() {
-        openDatabase()
-        createTable()
-        migrateDatabase()  // 执行迁移以确保字段兼容
+        dbQueue.sync {
+            openDatabase()
+            createTable()
+            migrateDatabase()
+        }
     }
     
     private func getDatabasePath() -> String {
@@ -72,6 +77,12 @@ class DatabaseManager {
     }
     
     func insert(item: TranslationHistoryItem) {
+        dbQueue.async { [weak self] in
+            self?.insertInternal(item: item)
+        }
+    }
+    
+    private func insertInternal(item: TranslationHistoryItem) {
         let insertStatementString = "INSERT INTO translation_history (id, sourceText, targetText, sourceLanguage, targetLanguage, timestamp, type, presetName, customPrompt, imagePath) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);"
         var insertStatement: OpaquePointer?
         
@@ -110,6 +121,12 @@ class DatabaseManager {
     }
     
     func fetchAll() -> [TranslationHistoryItem] {
+        return dbQueue.sync {
+            fetchAllInternal()
+        }
+    }
+    
+    private func fetchAllInternal() -> [TranslationHistoryItem] {
         let queryStatementString = "SELECT * FROM translation_history ORDER BY timestamp DESC;"
         var queryStatement: OpaquePointer?
         var items: [TranslationHistoryItem] = []
@@ -168,6 +185,12 @@ class DatabaseManager {
     }
     
     func delete(id: UUID) {
+        dbQueue.async { [weak self] in
+            self?.deleteInternal(id: id)
+        }
+    }
+    
+    private func deleteInternal(id: UUID) {
         let deleteStatementString = "DELETE FROM translation_history WHERE id = ?;"
         var deleteStatement: OpaquePointer?
         
@@ -187,6 +210,12 @@ class DatabaseManager {
     }
     
     func clearAll() {
+        dbQueue.async { [weak self] in
+            self?.clearAllInternal()
+        }
+    }
+    
+    private func clearAllInternal() {
         let deleteStatementString = "DELETE FROM translation_history;"
         var deleteStatement: OpaquePointer?
         

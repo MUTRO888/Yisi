@@ -3,6 +3,34 @@ import Foundation
 class OpenAIProvider: AIProvider {
     var provider: APIProvider = .openai
     
+    // MARK: - ReasoningCapability 实现
+    
+    /// OpenAI 推理模型判断
+    /// - O1 系列：o1, o1-preview, o1-mini
+    /// - O3 系列：o3, o3-mini
+    func isReasoningModel(_ model: String) -> Bool {
+        let lower = model.lowercased()
+        return lower.contains("o1") || lower.contains("o3")
+    }
+    
+    /// OpenAI 推理参数配置
+    /// - O1/O3 系列使用 reasoning_effort 参数控制推理强度
+    /// - 注意：O1 不支持 max_tokens，需使用 max_completion_tokens
+    func configureReasoning(body: inout [String: Any], model: String, enabled: Bool) {
+        guard isReasoningModel(model) else { return }
+        
+        // O1 系列不支持 max_tokens
+        body.removeValue(forKey: "max_tokens")
+        
+        if enabled {
+            // 启用时可设置 reasoning_effort（目前 O1 preview 可能不支持）
+            // body["reasoning_effort"] = "medium"
+            print("DEBUG OpenAI: Reasoning model \(model) - native reasoning always enabled")
+        }
+    }
+    
+    // MARK: - AIProvider 实现
+    
     func send(messages: [AIMessage], config: AIRequestConfig) async throws -> String {
         let apiUrl = "https://api.openai.com/v1/chat/completions"
         guard let url = URL(string: apiUrl) else {
@@ -29,15 +57,14 @@ class OpenAIProvider: AIProvider {
             "model": config.model,
             "messages": apiMessages,
             "temperature": config.temperature,
+            "max_tokens": config.maxTokens,
             "response_format": ["type": "json_object"]
         ]
         
-        // O1 系列暂不支持 max_tokens (使用 max_completion_tokens)，这里做简单兼容
-        if !config.model.lowercased().contains("o1") {
-            body["max_tokens"] = config.maxTokens
-        }
+        // 3. 配置推理参数（使用协议方法）
+        configureReasoning(body: &body, model: config.model, enabled: config.enableNativeReasoning)
         
-        // 3. 发送请求
+        // 4. 发送请求
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.addValue("Bearer \(config.apiKey)", forHTTPHeaderField: "Authorization")
