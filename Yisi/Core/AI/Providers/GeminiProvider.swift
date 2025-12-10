@@ -6,26 +6,56 @@ class GeminiProvider: AIProvider {
     // MARK: - ReasoningCapability 实现
     
     /// Gemini 推理模型判断
-    /// - Gemini-2.5 系列具备推理能力
+    /// - Gemini 3 系列：gemini-3-pro, gemini-3-pro-preview 等
+    /// - Gemini 2.5 系列：gemini-2.5-pro, gemini-2.5-flash, gemini-2.5-flash-lite 等
     func isReasoningModel(_ model: String) -> Bool {
-        return model.lowercased().contains("gemini-2.5")
+        let lower = model.lowercased()
+        return lower.contains("gemini-3") ||
+               lower.contains("gemini-2.5")
+    }
+    
+    /// 判断是否为 Gemini 3 系列模型
+    private func isGemini3Model(_ model: String) -> Bool {
+        return model.lowercased().contains("gemini-3")
     }
     
     /// Gemini 推理参数配置
-    /// - 通过 thinking_config 控制推理模式
-    /// - 只在启用时配置，不配置则使用默认行为
+    /// - Gemini 3 系列：使用 thinkingLevel ("low"/"high")
+    /// - Gemini 2.5 系列：使用 thinkingBudget (-1=动态, 0=关闭, >0=预算)
+    /// - 需要显式配置来开启或关闭思考模式
     func configureReasoning(body: inout [String: Any], model: String, enabled: Bool) {
-        guard isReasoningModel(model) && enabled else { return }
+        guard isReasoningModel(model) else { return }
         
-        // Gemini 只在启用时注入 thinking_config
         var genConfig = body["generationConfig"] as? [String: Any] ?? [:]
-        genConfig["thinking_config"] = [
-            "include_thoughts": false,
-            "thinking_budget": 1024
-        ]
-        body["generationConfig"] = genConfig
         
-        print("DEBUG Gemini: Thinking mode ENABLED for model \(model)")
+        if isGemini3Model(model) {
+            // Gemini 3 系列：无法完全关闭思考，只能设置 low/high
+            // 注意：Gemini 3 Pro 不支持关闭思考功能
+            genConfig["thinkingConfig"] = [
+                "thinkingLevel": enabled ? "high" : "low"
+            ]
+            print("DEBUG Gemini: Thinking level \(enabled ? "HIGH" : "LOW") for model \(model)")
+        } else {
+            // Gemini 2.5 系列：可以通过 thinkingBudget 控制
+            // -1 = 动态思考, 0 = 关闭思考, >0 = 指定预算
+            if enabled {
+                genConfig["thinkingConfig"] = [
+                    "thinkingBudget": 8192  // 启用时使用较大预算
+                ]
+            } else {
+                genConfig["thinkingConfig"] = [
+                    "thinkingBudget": 0  // 显式关闭思考
+                ]
+            }
+            print("DEBUG Gemini: Thinking mode \(enabled ? "ENABLED (budget: 8192)" : "DISABLED (budget: 0)") for model \(model)")
+        }
+        
+        // Thinking 模式需要更多输出 token
+        if enabled {
+            genConfig["maxOutputTokens"] = 8192
+        }
+        
+        body["generationConfig"] = genConfig
     }
     
     // MARK: - AIProvider 实现
@@ -62,8 +92,8 @@ class GeminiProvider: AIProvider {
         }
         
         // 2. 配置 Generation Config
-        var genConfig: [String: Any] = [
-            "response_mime_type": "application/json",
+        let genConfig: [String: Any] = [
+            "responseMimeType": "application/json",
             "temperature": config.temperature,
             "maxOutputTokens": max(2048, config.maxTokens)
         ]
@@ -73,7 +103,7 @@ class GeminiProvider: AIProvider {
             "generationConfig": genConfig
         ]
         if let sys = systemInstruction {
-            body["system_instruction"] = sys
+            body["systemInstruction"] = sys
         }
         
         // 3. 配置推理参数（使用协议方法）
@@ -90,23 +120,54 @@ class GeminiProvider: AIProvider {
         request.httpMethod = "POST"
         request.addValue("application/json", forHTTPHeaderField: "Content-Type")
         request.httpBody = try JSONSerialization.data(withJSONObject: body)
-        request.timeoutInterval = 90
+        request.timeoutInterval = 120  // Thinking 模式可能需要更长时间
         
         let (data, response) = try await URLSession.shared.data(for: request)
+        
+        // DEBUG: 打印原始响应
+        if let rawResponse = String(data: data, encoding: .utf8) {
+            print("DEBUG Gemini Raw Response: \(rawResponse.prefix(500))")
+        }
         
         guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
             let errorText = String(data: data, encoding: .utf8) ?? "Unknown Error"
             throw NSError(domain: "GeminiProvider", code: 1, userInfo: [NSLocalizedDescriptionKey: errorText])
         }
         
-        if let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
-           let candidates = json["candidates"] as? [[String: Any]],
-           let firstCandidate = candidates.first,
-           let content = firstCandidate["content"] as? [String: Any],
-           let parts = content["parts"] as? [[String: Any]],
-           let firstPart = parts.first,
-           let text = firstPart["text"] as? String {
-            return text
+        // 5. 解析响应
+        return try parseResponse(data: data)
+    }
+    
+    /// 解析 Gemini API 响应
+    /// - 标准响应：parts 数组中的 text 字段
+    /// - Thinking 模式：可能包含 thought 和 text 两种类型的 parts
+    private func parseResponse(data: Data) throws -> String {
+        guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let candidates = json["candidates"] as? [[String: Any]],
+              let firstCandidate = candidates.first,
+              let content = firstCandidate["content"] as? [String: Any],
+              let parts = content["parts"] as? [[String: Any]] else {
+            throw NSError(domain: "GeminiProvider", code: 2, userInfo: [NSLocalizedDescriptionKey: "Failed to parse response"])
+        }
+        
+        // Thinking 模式响应：可能包含 thought 和 text 两种 parts
+        // 优先查找 text 类型的 part（跳过 thought）
+        for part in parts {
+            // 如果有 thought 字段，说明是思考内容，跳过
+            if part["thought"] != nil {
+                continue
+            }
+            // 返回 text 字段内容
+            if let text = part["text"] as? String {
+                return text
+            }
+        }
+        
+        // 备选：返回第一个有 text 的 part
+        for part in parts {
+            if let text = part["text"] as? String, !text.isEmpty {
+                return text
+            }
         }
         
         throw NSError(domain: "GeminiProvider", code: 2, userInfo: [NSLocalizedDescriptionKey: "Failed to parse response"])
