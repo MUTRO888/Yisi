@@ -101,13 +101,11 @@ class CustomPromptBuilder {
         """
     }
     
-    // MARK: - Image Processing
-    
     /// 构建自定义图片处理的提示词
     /// - Parameters:
     ///   - inputContext: 用户定义的图片理解方式
     ///   - outputRequirement: 用户期望的输出要求
-    /// - Returns: 图片处理指令
+    /// - Returns: 图片处理系统提示词
     func buildImagePrompt(inputContext: String?, outputRequirement: String?) -> String {
         let perception = inputContext?.isEmpty == false 
             ? "我理解这张图片是：\(inputContext!)" 
@@ -129,11 +127,23 @@ class CustomPromptBuilder {
         
         ═══════════════════════════════════════════════════════════
         
-        ### 输出要求
+        ### 🛡️ ENGINEERING GUARDRAILS 🛡️
         
-        • 直接输出处理结果
-        • 不需要 JSON 格式，输出纯文本即可
-        • 如果需要列举多个项目，使用清晰的格式
+        1. **Plain Text Result**: Your result MUST be plain text. NO special tokens, NO HTML.
+        2. **JSON Output Only**: You MUST output in JSON format.
+        3. **No Meta-Commentary**: Do not include phrases like "Here is the result" outside JSON.
+        
+        ═══════════════════════════════════════════════════════════
+        
+        ### ⚠️ CRITICAL OUTPUT FORMAT ⚠️
+        
+        You MUST return your response as a JSON object:
+        
+        ```json
+        {
+          "result": "Your answer in plain text - NO HTML, NO special tokens like <|begin_of_box|>"
+        }
+        ```
         """
     }
 }

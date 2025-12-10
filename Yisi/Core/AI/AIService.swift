@@ -26,6 +26,31 @@ class AIService: ObservableObject {
         }
     }
     
+    // MARK: - Public Helpers
+    
+    /// 判断是否应该在 Prompt 中启用 CoT（thinking_process 字段）
+    /// 供 TranslationView 在生成图片提示词时使用
+    /// - Parameters:
+    ///   - mode: 提示词模式
+    ///   - usage: API 使用场景（文本/图片）
+    /// - Returns: 是否应该启用 promptCoT
+    func shouldEnableCoT(for mode: PromptMode, usage: APIUsage = .image) -> Bool {
+        // 只有翻译模式才考虑 promptCoT
+        guard mode == .defaultTranslation else { return false }
+        
+        let enableDeepThinking = UserDefaults.standard.bool(forKey: "enable_deep_thinking")
+        guard enableDeepThinking else { return false }
+        
+        // 检查当前模型是否为推理模型
+        let provider = getProvider(for: usage)
+        let model = getModel(for: provider, usage: usage)
+        let providerInstance = getProviderInstance(for: provider)
+        let isReasoning = providerInstance.isReasoningModel(model)
+        
+        // 非推理模型 + 开关开启 = 需要 promptCoT
+        return !isReasoning
+    }
+    
     // MARK: - Text Processing
     
     func processText(_ text: String, mode: PromptMode = .defaultTranslation, sourceLanguage: String = "Auto Detect", targetLanguage: String = "简体中文", userPerception: String? = nil, userInstruction: String? = nil) async throws -> String {
@@ -131,9 +156,10 @@ class AIService: ObservableObject {
     /// 处理图片识别（支持多 API 提供商）
     /// - Parameters:
     ///   - image: 要识别的图片
-    ///   - instruction: 给 AI 的指令（由调用方根据模式决定）
+    ///   - instruction: 给 AI 的系统指令
+    ///   - mode: 提示词模式（翻译/预设/自定义）
     /// - Returns: AI 的响应文本
-    func processImage(_ image: NSImage, instruction: String) async throws -> String {
+    func processImage(_ image: NSImage, instruction: String, mode: PromptMode = .defaultTranslation) async throws -> String {
         let provider = getProvider(for: .image)
         
         guard let apiKey = getAPIKey(for: provider, usage: .image), !apiKey.isEmpty else {
@@ -149,32 +175,40 @@ class AIService: ObservableObject {
         
         let model = getModel(for: provider, usage: .image)
         
-        // 组装消息（带图片）
+        // 组装消息：系统提示词 + 用户消息（带图片）
         let messages: [AIMessage] = [
-            AIMessage(role: .user, text: instruction, image: imageData)
+            AIMessage(role: .system, text: instruction, image: nil),
+            AIMessage(role: .user, text: "Please process this image according to the instructions.", image: imageData)
         ]
         
-        // MARK: - 图片模式双模态推理策略（与文本模式一致）
+        // MARK: - 图片模式双模态推理策略（与文本模式完全一致）
         let enableDeepThinking = UserDefaults.standard.bool(forKey: "enable_deep_thinking")
         let providerInstance = getProviderInstance(for: provider)
         let isReasoning = providerInstance.isReasoningModel(model)
         
-        // 图片模式目前默认使用翻译模式逻辑
-        // TODO: 未来如需支持图片模式的自定义/预设，需要扩展此逻辑
         let apiReasoning: Bool
-        if enableDeepThinking {
-            // 开关打开
-            if isReasoning {
-                // 推理模型：启用 API 推理
-                apiReasoning = true
+        
+        if mode == .defaultTranslation {
+            // 翻译模式：强管控
+            if enableDeepThinking {
+                if isReasoning {
+                    // 推理模型：启用 API 推理
+                    apiReasoning = true
+                } else {
+                    // 非推理模型：不支持 API 推理（promptCoT 在 Prompt 层控制）
+                    apiReasoning = false
+                }
             } else {
-                // 非推理模型：不支持 API 推理
+                // 开关关闭：不启用推理
                 apiReasoning = false
             }
         } else {
-            // 开关关闭：不启用推理
-            apiReasoning = false
+            // 预设/自定义模式：弱管控
+            // 只对推理模型受开关影响
+            apiReasoning = isReasoning && enableDeepThinking
         }
+        
+        print("DEBUG Image: mode=\(mode), apiReasoning=\(apiReasoning), isReasoning=\(isReasoning), model=\(model)")
         
         // 组装配置
         let config = AIRequestConfig(
@@ -190,15 +224,15 @@ class AIService: ObservableObject {
         
         let parsedResult = parseImageResult(rawResult)
         
-        // 保存到历史记录（在主线程执行 UI 更新）
+        // 保存到历史记录
         let capturedImage = image
         DispatchQueue.main.async {
             HistoryManager.shared.addHistory(
-                sourceText: "", // Empty source text for image recognition
+                sourceText: "",
                 targetText: parsedResult,
                 sourceLanguage: "Auto",
                 targetLanguage: "Auto",
-                mode: .defaultTranslation,
+                mode: mode,
                 image: capturedImage
             )
         }
@@ -210,7 +244,9 @@ class AIService: ObservableObject {
     
     /// Parse image recognition result from AI response
     private func parseImageResult(_ rawText: String) -> String {
-        let cleanJSON = extractJSON(from: rawText)
+        // 先清理可能的特殊 token
+        let cleanedText = stripSpecialTokens(rawText)
+        let cleanJSON = extractJSON(from: cleanedText)
         
         if let jsonData = cleanJSON.data(using: .utf8),
            let jsonObj = try? JSONSerialization.jsonObject(with: jsonData) as? [String: Any] {
@@ -224,8 +260,31 @@ class AIService: ObservableObject {
             }
         }
         
-        // 如果不是有效的 JSON，直接使用原始文本
-        return rawText
+        // 如果不是有效的 JSON，返回清理后的文本
+        return cleanedText
+    }
+    
+    /// 清理模型输出中的特殊 token
+    private func stripSpecialTokens(_ text: String) -> String {
+        var result = text
+        
+        // 常见的特殊 token 模式
+        let patterns = [
+            #"<\|begin_of_box\|>"#,
+            #"<\|end_of_box\|>"#,
+            #"<\|im_start\|>"#,
+            #"<\|im_end\|>"#,
+            #"<\|endoftext\|>"#
+        ]
+        
+        for pattern in patterns {
+            if let regex = try? NSRegularExpression(pattern: pattern, options: []) {
+                let range = NSRange(result.startIndex..., in: result)
+                result = regex.stringByReplacingMatches(in: result, options: [], range: range, withTemplate: "")
+            }
+        }
+        
+        return result.trimmingCharacters(in: .whitespacesAndNewlines)
     }
     
     /// 将 NSImage 转换为 Data

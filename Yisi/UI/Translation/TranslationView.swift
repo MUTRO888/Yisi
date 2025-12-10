@@ -526,16 +526,20 @@ struct TranslationView: View {
         do {
             let mode = determineMode()
             
+            // 判断是否需要在 Prompt 中启用 CoT（针对翻译模式 + 非推理模型）
+            let enableCoT = AIService.shared.shouldEnableCoT(for: mode, usage: .image)
+            
             // 使用 PromptCoordinator 生成图片处理的系统提示词
             let instruction = PromptCoordinator.shared.generateImageSystemPrompt(
                 mode: mode,
                 sourceLanguage: sourceLanguage.rawValue,
                 targetLanguage: targetLanguage.rawValue,
+                enableCoT: enableCoT,
                 customPerception: mode == .temporaryCustom ? customInputPerception : nil,
                 customInstruction: mode == .temporaryCustom ? customOutputInstruction : nil
             )
             
-            translatedText = try await AIService.shared.processImage(image, instruction: instruction)
+            translatedText = try await AIService.shared.processImage(image, instruction: instruction, mode: mode)
         } catch {
             print("❌ IMAGE RECOGNITION ERROR:")
             print("   Error: \(error)")
