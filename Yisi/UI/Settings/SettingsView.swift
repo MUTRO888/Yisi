@@ -205,6 +205,7 @@ struct ScreenshotShortcutRecorder: View {
 struct SettingsContent: View {
     @State private var selectedSection: String = "General"
     @ObservedObject private var localizationManager = LocalizationManager.shared
+    @Environment(\.colorScheme) var currentColorScheme
     
     var body: some View {
         HStack(spacing: 0) {
@@ -220,12 +221,22 @@ struct SettingsContent: View {
             .padding(.horizontal, 8)
             .frame(width: 120) // width synced with HistorySidebar
             .background(
-                ZStack {
-                    VisualEffectView(material: .hudWindow, blendingMode: .behindWindow)
-                    Color.white.opacity(0.1)
+                Group {
+                    if currentColorScheme == .dark {
+                        ZStack {
+                            Color(hex: "29292C")
+                            RoundedRectangle(cornerRadius: 16)
+                                .stroke(Color.white.opacity(0.1), lineWidth: 0.5)
+                        }
+                    } else {
+                        ZStack {
+                            VisualEffectView(material: .hudWindow, blendingMode: .behindWindow)
+                            Color.white.opacity(0.1)
+                        }
+                    }
                 }
                 .cornerRadius(16) // cornerRadius synced with HistorySidebar
-                .shadow(color: Color.black.opacity(0.1), radius: 10, x: 0, y: 0) // shadow synced
+                .shadow(color: Color.black.opacity(currentColorScheme == .dark ? 0.5 : 0.1), radius: 10, x: 0, y: 0) // shadow synced
             )
             .padding(.leading, 8) // leading padding synced
             .padding(.top, 8) // Sync top padding with HistorySidebar (was 0)
@@ -334,7 +345,7 @@ struct GeneralSection: View {
     
     // General Settings
     @AppStorage("close_mode") private var closeMode: String = "clickOutside"
-    @AppStorage("app_theme") private var appTheme: String = "system"
+    @AppStorage("app_theme") private var appTheme: String = "light"
     @AppStorage("enable_improve_feature") private var enableImproveFeature: Bool = false
     @AppStorage("enable_deep_thinking") private var enableDeepThinking: Bool = false
     @ObservedObject private var localizationManager = LocalizationManager.shared
@@ -367,10 +378,16 @@ struct GeneralSection: View {
                         
                         CustomDropdown(
                             selection: $appTheme,
-                            options: ["system", "light", "dark"],
-                            displayNames: ["System".localized, "Light".localized, "Dark".localized]
+                            options: ["light", "dark"],
+                            displayNames: ["Light".localized, "Dark".localized]
                         )
                     }
+                    .onAppear {
+                        if appTheme == "system" {
+                            appTheme = "light"
+                        }
+                    }
+
                 }
             }
             
@@ -1265,6 +1282,7 @@ struct CustomDropdown: View {
 
 struct ElegantToggle: View {
     @Binding var isOn: Bool
+    @Environment(\.colorScheme) var currentColorScheme
     
     var body: some View {
         Button(action: {
@@ -1274,7 +1292,7 @@ struct ElegantToggle: View {
         }) {
             ZStack(alignment: isOn ? .trailing : .leading) {
                 RoundedRectangle(cornerRadius: 10)
-                    .fill(isOn ? AppColors.primary : AppColors.primary.opacity(0.15))
+                    .fill(isOn ? AppColors.primary : (currentColorScheme == ColorScheme.dark ? Color.white.opacity(0.25) : AppColors.primary.opacity(0.15)))
                     .frame(width: 32, height: 18)
                 
                 Circle()

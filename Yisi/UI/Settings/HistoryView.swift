@@ -5,6 +5,7 @@ struct HistoryView: View {
     @State private var isSidebarVisible = false
     @State private var showClearConfirmation = false
     @State private var previewImage: NSImage? = nil // State for modal image preview
+    @Environment(\.colorScheme) var currentColorScheme
     
     var body: some View {
         ZStack(alignment: .leading) {
@@ -339,6 +340,7 @@ struct HistorySidebar: View {
     @Binding var isVisible: Bool
     @Binding var selectedGroup: HistoryDateGroup
     var onClearAll: () -> Void
+    @Environment(\.colorScheme) var currentColorScheme
     
     var body: some View {
         HStack(spacing: 0) {
@@ -385,12 +387,22 @@ struct HistorySidebar: View {
             }
             .frame(width: 120)
             .background(
-                ZStack {
-                    VisualEffectView(material: .hudWindow, blendingMode: .behindWindow)
-                    Color.white.opacity(0.1)
+                Group {
+                    if currentColorScheme == .dark {
+                        ZStack {
+                            Color(hex: "29292C")
+                            RoundedRectangle(cornerRadius: 16)
+                                .stroke(Color.white.opacity(0.1), lineWidth: 0.5)
+                        }
+                    } else {
+                        ZStack {
+                            VisualEffectView(material: .hudWindow, blendingMode: .behindWindow)
+                            Color.white.opacity(0.1)
+                        }
+                    }
                 }
                 .cornerRadius(16)
-                .shadow(color: Color.black.opacity(0.1), radius: 10, x: 0, y: 0)
+                .shadow(color: Color.black.opacity(currentColorScheme == .dark ? 0.5 : 0.1), radius: 10, x: 0, y: 0)
             )
             .padding(.leading, 8)
             .padding(.vertical, 8)

@@ -19,7 +19,7 @@ struct AppColors {
     })
     
     static let inkMain = Color(dynamicProvider: { appearance in
-        appearance.isDarkMode ? Color.white : Color(hex: "1F1E2E")
+        appearance.isDarkMode ? Color(hex: "E6E5EB") : Color(hex: "1F1E2E") // Softened White for Dark Mode
     })
     
     // Glass Effects
