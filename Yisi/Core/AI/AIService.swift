@@ -481,20 +481,63 @@ class AIService: ObservableObject {
         // Trim again after removing code fences
         jsonString = jsonString.trimmingCharacters(in: .whitespacesAndNewlines)
         
-        // Only extract JSON object if it's wrapped in extra text
-        // Check if the entire string is already a valid JSON object
-        if jsonString.hasPrefix("{") && jsonString.hasSuffix("}") {
-            // Already looks like clean JSON, return as-is
+        // Check if it's already valid JSON by attempting to parse
+        if jsonString.hasPrefix("{") {
+            if let data = jsonString.data(using: .utf8),
+               let _ = try? JSONSerialization.jsonObject(with: data) {
+                // Already valid JSON, return as-is
+                return jsonString
+            }
+        }
+        
+        // Find the first '{' and use brace matching to find the corresponding '}'
+        guard let startIndex = jsonString.firstIndex(of: "{") else {
             return jsonString
         }
         
-        // If we have curly braces but they're not at the start/end, extract the JSON object
-        if let startIndex = jsonString.firstIndex(of: "{"),
-           let endIndex = jsonString.lastIndex(of: "}") {
-            jsonString = String(jsonString[startIndex...endIndex])
+        // Brace matching that respects string literals
+        var braceCount = 0
+        var inString = false
+        var escapeNext = false
+        var endIndex: String.Index?
+        
+        for (offset, char) in jsonString[startIndex...].enumerated() {
+            let currentIndex = jsonString.index(startIndex, offsetBy: offset)
+            
+            if escapeNext {
+                escapeNext = false
+                continue
+            }
+            
+            if char == "\\" && inString {
+                escapeNext = true
+                continue
+            }
+            
+            if char == "\"" {
+                inString = !inString
+                continue
+            }
+            
+            if !inString {
+                if char == "{" {
+                    braceCount += 1
+                } else if char == "}" {
+                    braceCount -= 1
+                    if braceCount == 0 {
+                        endIndex = currentIndex
+                        break
+                    }
+                }
+            }
         }
         
-        return jsonString
+        if let endIndex = endIndex {
+            return String(jsonString[startIndex...endIndex])
+        }
+        
+        // Fallback: return from first brace to end
+        return String(jsonString[startIndex...])
     }
     
     private func parseTranslationResult(from jsonString: String, mode: PromptMode) throws -> String {
@@ -503,45 +546,136 @@ class AIService: ObservableObject {
                          userInfo: [NSLocalizedDescriptionKey: "Failed to parse JSON"])
         }
         
-        guard let jsonObj = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
-            // If JSON parsing fails, but the string looks like plain text, return it
-            let trimmed = jsonString.trimmingCharacters(in: .whitespacesAndNewlines)
-            if !trimmed.isEmpty && !trimmed.hasPrefix("{") && !trimmed.hasSuffix("}") {
-                return trimmed
+        // 1. 首先嘗試標準 JSON 解析
+        if let jsonObj = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+            let possibleKeys = [
+                "translation_result",  // TranslationBuilder
+                "result",              // CustomBuilder, PresetBuilder
+                "answer",              // Fallback
+                "content",             // Some AI variants
+                "output",              // Alternative
+                "text"                 // Plain response
+            ]
+            
+            for key in possibleKeys {
+                if let result = jsonObj[key] {
+                    if let stringResult = result as? String, !stringResult.isEmpty {
+                        return stringResult
+                    } else if let dictResult = result as? [String: Any] {
+                        return formatNestedResult(dictResult)
+                    }
+                }
             }
+            
+            // JSON 有效但沒有找到預期的 key
+            let availableKeys = jsonObj.keys.joined(separator: ", ")
+            print("DEBUG: Available JSON keys: \(availableKeys)")
             throw NSError(domain: "TranslationError", code: 3, 
-                         userInfo: [NSLocalizedDescriptionKey: "Invalid JSON format: \(jsonString.prefix(100))"])
+                         userInfo: [NSLocalizedDescriptionKey: "No valid result key found. Available keys: \(availableKeys)"])
         }
         
-        // Try all possible keys that different AI providers might use
-        let possibleKeys = [
-            "translation_result",  // TranslationBuilder
-            "result",              // CustomBuilder, PresetBuilder
-            "answer",              // Fallback
-            "content",             // Some AI variants
-            "output",              // Alternative
-            "text"                 // Plain response
+        // 2. JSON 解析失敗：嘗試正則表達式直接提取
+        // 這處理了當內層 JSON 中的引號未正確轉義的情況（智谱的markdown代码块问题）
+        if let extracted = extractTranslationResultViaRegex(from: jsonString) {
+            print("DEBUG: Used regex fallback to extract translation_result")
+            return extracted
+        }
+        
+        // 3. 如果不是 JSON 格式的純文本，直接返回
+        let trimmed = jsonString.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !trimmed.isEmpty && !trimmed.hasPrefix("{") {
+            return trimmed
+        }
+        
+        throw NSError(domain: "TranslationError", code: 3, 
+                     userInfo: [NSLocalizedDescriptionKey: "Invalid JSON format: \(jsonString.prefix(100))"])
+    }
+    
+    /// 使用正則表達式從 JSON-like 字符串中提取 translation_result 的值
+    /// 當 JSON 包含未轉義的引號時（如智谱返回的 markdown code block），標準 JSON 解析會失敗
+    /// 這個方法直接查找 key 並提取到 JSON 結束位置
+    private func extractTranslationResultViaRegex(from text: String) -> String? {
+        // 查找各種可能的 key
+        let keys = ["translation_result", "result", "answer"]
+        
+        for key in keys {
+            // 查找 "key": " 模式
+            let pattern = "\"\(key)\"\\s*:\\s*\""
+            guard let regex = try? NSRegularExpression(pattern: pattern, options: []),
+                  let match = regex.firstMatch(in: text, options: [], range: NSRange(text.startIndex..., in: text)) else {
+                continue
+            }
+            
+            // 找到匹配後，從匹配結束位置開始提取值
+            let valueStartIndex = text.index(text.startIndex, offsetBy: match.range.upperBound)
+            
+            // 策略：找到 JSON 結束模式 - 通常是 "\n} 或 "}
+            // 由於內部引號已被解除轉義，我們不能依賴引號匹配
+            // 而是查找 JSON 對象的結束標誌
+            if let extractedValue = extractValueUntilJsonEnd(from: text, startingAt: valueStartIndex) {
+                return extractedValue
+            }
+        }
+        
+        return nil
+    }
+    
+    /// 提取值直到 JSON 結束
+    /// 查找結束模式："} 或 "\n} 或 " }（引號後跟可選空白和右括號）
+    private func extractValueUntilJsonEnd(from text: String, startingAt startIndex: String.Index) -> String? {
+        let substring = String(text[startIndex...])
+        
+        // 查找結束模式：引號後跟可選空白/換行和右括號
+        // 先嘗試精確匹配 "\n} 模式
+        let endPatterns = [
+            "\"\n}",      // 標準 JSON 格式
+            "\"\r\n}",    // Windows 換行
+            "\"}",        // 緊湊格式
+            "\" }",       // 有空格
+            "\"  }",      // 多空格
         ]
         
-        // Try each key
-        for key in possibleKeys {
-            if let result = jsonObj[key] {
-                if let stringResult = result as? String, !stringResult.isEmpty {
-                    return stringResult
-                } else if let dictResult = result as? [String: Any] {
-                    // Handle nested object (e.g., {title: "...", author: "..."})
-                    return formatNestedResult(dictResult)
+        var earliestEnd: String.Index?
+        
+        for pattern in endPatterns {
+            if let range = substring.range(of: pattern) {
+                let endPos = substring.index(range.lowerBound, offsetBy: 0)
+                if earliestEnd == nil || endPos < earliestEnd! {
+                    earliestEnd = endPos
                 }
             }
         }
         
-        // If all keys failed, provide detailed error
-        let availableKeys = jsonObj.keys.joined(separator: ", ")
-        print("DEBUG: Available JSON keys: \(availableKeys)")
-        print("DEBUG: Full JSON content: \(jsonString)")
+        // 如果找到了結束位置，提取內容
+        if let endIndex = earliestEnd {
+            var result = String(substring[..<endIndex])
+            // 處理常見的轉義序列
+            result = result.replacingOccurrences(of: "\\n", with: "\n")
+            result = result.replacingOccurrences(of: "\\t", with: "\t")
+            result = result.replacingOccurrences(of: "\\r", with: "\r")
+            result = result.replacingOccurrences(of: "\\\"", with: "\"")
+            result = result.replacingOccurrences(of: "\\\\", with: "\\")
+            return result
+        }
         
-        throw NSError(domain: "TranslationError", code: 3, 
-                     userInfo: [NSLocalizedDescriptionKey: "No valid result key found. Available keys: \(availableKeys)"])
+        // 備用方案：如果沒找到標準結束模式，返回到字符串結尾
+        // 但排除最後的 } 和可能的 ] 字符
+        var result = substring
+        // 從末尾移除常見的 JSON 結束字符
+        while result.hasSuffix("}") || result.hasSuffix("]") || result.hasSuffix("\n") || result.hasSuffix("\"") {
+            result = String(result.dropLast())
+        }
+        
+        if !result.isEmpty {
+            // 處理轉義
+            result = result.replacingOccurrences(of: "\\n", with: "\n")
+            result = result.replacingOccurrences(of: "\\t", with: "\t")
+            result = result.replacingOccurrences(of: "\\\"", with: "\"")
+            result = result.replacingOccurrences(of: "\\\\", with: "\\")
+            return result
+        }
+        
+        return nil
     }
     
     // Format nested JSON object into readable string

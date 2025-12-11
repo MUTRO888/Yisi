@@ -11,6 +11,12 @@ class HistoryManager: ObservableObject {
     private let pageSize = 30
     @Published var displayedItemsCount = 30 // 初始顯示數量
     
+    // MARK: - Cached Filtering (性能優化核心)
+    /// 緩存的過濾結果，避免每次訪問都重新計算
+    private var cachedFilteredItems: [TranslationHistoryItem] = []
+    private var lastFilteredGroup: HistoryDateGroup = .all
+    private var lastHistoryItemsCount: Int = 0
+    
     // MARK: - Cache System
     /// 縮略圖緩存池 (Key: ImagePath, Value: Downsampled NSImage)
     private let thumbnailCache = NSCache<NSString, NSImage>()
@@ -26,51 +32,67 @@ class HistoryManager: ObservableObject {
         loadHistory()
     }
     
-    /// 分頁後的過濾項目（只返回前 displayedItemsCount 個）
+    // MARK: - Filtered Items (高性能版)
+    
+    /// 分頁後的過濾項目（使用緩存，避免重複計算）
     var filteredItems: [TranslationHistoryItem] {
-        let allFiltered: [TranslationHistoryItem]
-        switch selectedGroup {
-        case .all: allFiltered = historyItems
-        case .today: allFiltered = historyItems.filter { Calendar.current.isDateInToday($0.timestamp) }
-        case .yesterday: allFiltered = historyItems.filter { Calendar.current.isDateInYesterday($0.timestamp) }
-        case .thisWeek:
-            allFiltered = historyItems.filter {
-                let calendar = Calendar.current
-                guard let weekAgo = calendar.date(byAdding: .day, value: -7, to: Date()) else { return false }
-                return $0.timestamp > weekAgo && !calendar.isDateInToday($0.timestamp) && !calendar.isDateInYesterday($0.timestamp)
-            }
-        case .older:
-            allFiltered = historyItems.filter {
-                let calendar = Calendar.current
-                guard let weekAgo = calendar.date(byAdding: .day, value: -7, to: Date()) else { return true }
-                return $0.timestamp <= weekAgo
-            }
+        // 檢查緩存是否有效
+        if !isCacheValid {
+            rebuildFilterCache()
         }
         // 只返回前 displayedItemsCount 個項目
-        return Array(allFiltered.prefix(displayedItemsCount))
+        return Array(cachedFilteredItems.prefix(displayedItemsCount))
     }
     
-    /// 是否還有更多項目可加載
-    func hasMoreItems() -> Bool {
-        let totalCount: Int
+    /// 檢查緩存是否仍然有效
+    private var isCacheValid: Bool {
+        return lastFilteredGroup == selectedGroup && lastHistoryItemsCount == historyItems.count
+    }
+    
+    /// 重建過濾緩存（僅在數據變化時調用）
+    /// 性能優化：預計算日期邊界，避免對每個項目調用 Calendar 方法
+    private func rebuildFilterCache() {
+        let calendar = Calendar.current
+        let now = Date()
+        
+        // 預計算所有日期邊界（一次性計算，而不是每個項目都計算）
+        let todayStart = calendar.startOfDay(for: now)
+        let yesterdayStart = calendar.date(byAdding: .day, value: -1, to: todayStart)!
+        let twoDaysAgoStart = calendar.date(byAdding: .day, value: -2, to: todayStart)!
+        let weekAgoStart = calendar.date(byAdding: .day, value: -7, to: todayStart)!
+        
         switch selectedGroup {
-        case .all: totalCount = historyItems.count
-        case .today: totalCount = historyItems.filter { Calendar.current.isDateInToday($0.timestamp) }.count
-        case .yesterday: totalCount = historyItems.filter { Calendar.current.isDateInYesterday($0.timestamp) }.count
+        case .all:
+            cachedFilteredItems = historyItems
+        case .today:
+            // 時間戳 >= 今天開始
+            cachedFilteredItems = historyItems.filter { $0.timestamp >= todayStart }
+        case .yesterday:
+            // 時間戳 >= 昨天開始 且 < 今天開始
+            cachedFilteredItems = historyItems.filter { 
+                $0.timestamp >= yesterdayStart && $0.timestamp < todayStart 
+            }
         case .thisWeek:
-            totalCount = historyItems.filter {
-                let calendar = Calendar.current
-                guard let weekAgo = calendar.date(byAdding: .day, value: -7, to: Date()) else { return false }
-                return $0.timestamp > weekAgo && !calendar.isDateInToday($0.timestamp) && !calendar.isDateInYesterday($0.timestamp)
-            }.count
+            // 時間戳 >= 一周前 且 < 昨天開始（排除今天和昨天）
+            cachedFilteredItems = historyItems.filter { 
+                $0.timestamp >= weekAgoStart && $0.timestamp < twoDaysAgoStart 
+            }
         case .older:
-            totalCount = historyItems.filter {
-                let calendar = Calendar.current
-                guard let weekAgo = calendar.date(byAdding: .day, value: -7, to: Date()) else { return true }
-                return $0.timestamp <= weekAgo
-            }.count
+            // 時間戳 < 一周前
+            cachedFilteredItems = historyItems.filter { $0.timestamp < weekAgoStart }
         }
-        return displayedItemsCount < totalCount
+        
+        // 更新緩存標記
+        lastFilteredGroup = selectedGroup
+        lastHistoryItemsCount = historyItems.count
+    }
+    
+    /// 是否還有更多項目可加載（使用緩存）
+    func hasMoreItems() -> Bool {
+        if !isCacheValid {
+            rebuildFilterCache()
+        }
+        return displayedItemsCount < cachedFilteredItems.count
     }
     
     /// 加載更多項目
@@ -81,6 +103,8 @@ class HistoryManager: ObservableObject {
     /// 重置分頁（切換分組時調用）
     func resetPagination() {
         displayedItemsCount = pageSize
+        // 強制重建緩存
+        lastHistoryItemsCount = -1
     }
     
     func loadHistory() {

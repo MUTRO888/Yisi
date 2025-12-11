@@ -16,16 +16,16 @@ struct HistoryView: View {
                         .padding(.leading, isSidebarVisible ? 130 : 0)
                         .animation(.spring(response: 0.3, dampingFraction: 0.8), value: isSidebarVisible)
                 } else {
-                    // 使用 VStack + 分頁實現流暢動畫與高性能
-                    TransparentScrollView {
-                        VStack(spacing: 0) {
+                    // 使用原生 ScrollView + LazyVStack 實現真正的虛擬化高性能渲染
+                    ScrollView(showsIndicators: false) {
+                        LazyVStack(spacing: 0) {
                             ForEach(historyManager.filteredItems) { item in
                                 HistoryRowView(item: item) { image in
                                     withAnimation(.easeInOut(duration: 0.2)) {
                                         previewImage = image
                                     }
                                 }
-                                .transition(.opacity)
+                                // 移除 .transition(.opacity)，避免切換分組時的動畫開銷
                             }
                             
                             // 「加載更多」按鈕
@@ -53,8 +53,12 @@ struct HistoryView: View {
                         .padding(.vertical, 8)
                         .padding(.leading, isSidebarVisible ? 130 : 0)
                         .frame(maxWidth: .infinity, alignment: .top)
-                        .animation(.spring(response: 0.3, dampingFraction: 0.8), value: isSidebarVisible)
+                        .animation(.easeInOut(duration: 0.25), value: isSidebarVisible)
+                        // 關鍵優化：使用 .id() 強制在切換分組時完全刷新列表
+                        .id(historyManager.selectedGroup)
                     }
+                    .scrollContentBackground(.hidden) // macOS 13+ 透明背景
+                    .background(Color.clear)
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -66,7 +70,7 @@ struct HistoryView: View {
                 .contentShape(Rectangle())
                 .onHover { hovering in
                     if hovering {
-                        withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                        withAnimation(.easeInOut(duration: 0.2)) {
                             isSidebarVisible = true
                         }
                     }
@@ -141,9 +145,6 @@ struct HistoryRowView: View {
     @State private var isHovering = false
     @State private var isExpanded = false
     @State private var thumbnailImage: NSImage? = nil
-    @State private var expandedHeight: CGFloat = 0
-    @State private var collapsedHeight: CGFloat = 0
-    @State private var scrollCompensation: CGFloat = 0
     
     /// 是否為圖片記錄
     private var isImageRecord: Bool {
@@ -151,19 +152,18 @@ struct HistoryRowView: View {
     }
     
     var body: some View {
-        // 1. 核心容器：強制頂部對齊，消除中心擴展導致的位移
+        // 1. 核心容器：強制頂部對齊
         VStack(alignment: .leading, spacing: 0) {
             
-            // 2. 內容區域 (可點擊展開，但展開後不響應收起)
+            // 2. 內容區域 (可點擊展開)
             ZStack(alignment: .topTrailing) {
                 contentLayout
                 
                 // 刪除按鈕 (僅 Hover 顯示)
                 if isHovering {
                     Button(action: {
-                        withAnimation {
-                            HistoryManager.shared.deleteHistory(item: item)
-                        }
+                        // 直接刪除，不用動畫包裹整體
+                        HistoryManager.shared.deleteHistory(item: item)
                     }) {
                         Image(systemName: "xmark")
                             .font(.system(size: 10, weight: .light))
@@ -172,14 +172,13 @@ struct HistoryRowView: View {
                             .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
-                    .transition(.opacity)
                 }
             }
             .contentShape(Rectangle())
             .onTapGesture {
                 if !isExpanded {
-                    // 只有未展開時，點擊才觸發展開
-                    withAnimation(.spring(response: 0.4, dampingFraction: 1.0)) {
+                    // 使用簡單的 easeInOut 動畫，比 spring 更輕量
+                    withAnimation(.easeInOut(duration: 0.25)) {
                         isExpanded = true
                     }
                 }
@@ -188,19 +187,8 @@ struct HistoryRowView: View {
             // 3. 底部收起欄 (僅展開時顯示)
             if isExpanded {
                 Button(action: {
-                    // 計算收起時需要補償的高度差
-                    let heightDelta = expandedHeight - collapsedHeight
-                    if heightDelta > 0 {
-                        scrollCompensation = heightDelta
-                    }
-                    
-                    withAnimation(.spring(response: 0.4, dampingFraction: 1.0)) {
+                    withAnimation(.easeInOut(duration: 0.25)) {
                         isExpanded = false
-                    }
-                    
-                    // 重置補償值（在下一個運行循環）
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                        scrollCompensation = 0
                     }
                 }) {
                     HStack {
@@ -215,29 +203,9 @@ struct HistoryRowView: View {
                     .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
-                .transition(.opacity)
             }
         }
-        // 4. 外觀修飾
-        .background(
-            GeometryReader { geo in
-                Color.clear
-                    .onAppear {
-                        // 記錄初始（collapsed）高度
-                        if collapsedHeight == 0 {
-                            collapsedHeight = geo.size.height
-                        }
-                    }
-                    .onChange(of: geo.size.height) { _, newHeight in
-                        // 追蹤高度變化
-                        if isExpanded {
-                            expandedHeight = newHeight
-                        } else {
-                            collapsedHeight = newHeight
-                        }
-                    }
-            }
-        )
+        // 4. 外觀修飾 - 移除了 GeometryReader 高度追蹤，避免頻繁狀態更新
         .background(
             RoundedRectangle(cornerRadius: 12)
                 .fill(isHovering || isExpanded ? Color.primary.opacity(0.02) : Color.clear)
@@ -248,7 +216,6 @@ struct HistoryRowView: View {
         )
         .padding(.horizontal, 16)
         .padding(.vertical, 4)
-        .preference(key: ScrollCompensationKey.self, value: scrollCompensation)
         .onHover { isHovering = $0 }
         .onAppear { loadThumbnail() }
     }
@@ -383,7 +350,10 @@ struct HistorySidebar: View {
                                 title: group.localizedName,
                                 isSelected: selectedGroup == group,
                                 action: {
-                                    withAnimation {
+                                    // 使用 transaction 禁用列表動畫，只保留側邊欄動畫
+                                    var transaction = Transaction()
+                                    transaction.disablesAnimations = true
+                                    withTransaction(transaction) {
                                         selectedGroup = group
                                         HistoryManager.shared.resetPagination() // 切換分組時重置分頁
                                     }
@@ -436,7 +406,7 @@ struct HistorySidebar: View {
         }
         .onHover { hovering in
             if !hovering {
-                withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
+                withAnimation(.easeInOut(duration: 0.25)) {
                     isVisible = false
                 }
             }
