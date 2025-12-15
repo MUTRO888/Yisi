@@ -112,6 +112,15 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         GlobalShortcutManager.shared.onScreenshotTriggered = { [weak self] in
             self?.handleScreenshotShortcut()
         }
+        
+        // 截图界面双击 -> 打开图片上传窗口
+        ScreenCaptureManager.shared.onOpenUploadWindow = {
+            print("DEBUG: AppDelegate received onOpenUploadWindow callback")
+            DispatchQueue.main.async {
+                print("DEBUG: Calling showImageUploadWindow")
+                WindowManager.shared.showImageUploadWindow()
+            }
+        }
     }
     
     private func handleScreenshotShortcut() {

@@ -68,11 +68,11 @@ struct TranslationView: View {
         return .defaultTranslation  // fallback
     }
     
-    init(originalText: String, errorMessage: String? = nil, imageContext: NSImage? = nil) {
+    init(originalText: String, errorMessage: String? = nil, imageContext: NSImage? = nil, startInImageMode: Bool = false) {
         self.originalText = originalText
         self.errorMessage = errorMessage
         _imageContext = State(initialValue: imageContext)
-        _isImageMode = State(initialValue: imageContext != nil)
+        _isImageMode = State(initialValue: imageContext != nil || startInImageMode)
         
         let defaultSource = UserDefaults.standard.string(forKey: "default_source_language") ?? Language.auto.rawValue
         let defaultTarget = UserDefaults.standard.string(forKey: "default_target_language") ?? Language.simplifiedChinese.rawValue
@@ -361,10 +361,18 @@ struct TranslationView: View {
                 WindowManager.shared.close()
             }
         }.task {
-            // Only auto-translate if NOT in custom mode
-            // In custom mode, user needs to input their requirements first
-            if !originalText.isEmpty && determineMode() != .temporaryCustom {
-                await performTranslation()
+            // Auto-process based on mode and content type
+            let mode = determineMode()
+            
+            if mode != .temporaryCustom {
+                // Image mode: auto-process if we have an image (e.g., from screenshot shortcut)
+                if isImageMode && imageContext != nil {
+                    await performImageRecognition()
+                }
+                // Text mode: auto-translate if we have text
+                else if !originalText.isEmpty {
+                    await performTranslation()
+                }
             }
         }
         .onChange(of: inputPerceptionHeight) { _, newValue in
@@ -436,6 +444,13 @@ struct TranslationView: View {
                     imageContext = image
                     translatedText = ""
                 }
+                // Auto-process image (like text mode)
+                // Only in non-custom mode where user doesn't need to specify instructions first
+                if determineMode() != .temporaryCustom {
+                    Task {
+                        await performImageRecognition()
+                    }
+                }
             }
         }
         
@@ -456,6 +471,12 @@ struct TranslationView: View {
                             self.imageContext = image
                             self.translatedText = ""
                         }
+                        // Auto-process image after drop (like text mode)
+                        if self.determineMode() != .temporaryCustom {
+                            Task {
+                                await self.performImageRecognition()
+                            }
+                        }
                     }
                 }
             }
@@ -472,6 +493,12 @@ struct TranslationView: View {
                         withAnimation(.easeOut(duration: 0.2)) {
                             self.imageContext = image
                             self.translatedText = ""
+                        }
+                        // Auto-process image after drop (like text mode)
+                        if self.determineMode() != .temporaryCustom {
+                            Task {
+                                await self.performImageRecognition()
+                            }
                         }
                     }
                 }

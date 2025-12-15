@@ -12,6 +12,9 @@ class ScreenCaptureManager {
     /// 截图完成回调
     var onCaptureComplete: ((NSImage) -> Void)?
     
+    /// 用户选择打开上传窗口的回调（双击触发）
+    var onOpenUploadWindow: (() -> Void)?
+    
     private init() {}
     
     /// 显示截图 Overlay
@@ -48,6 +51,12 @@ class ScreenCaptureManager {
         }
         overlayView.onCancel = { [weak self] in
             self?.dismissCapture()
+        }
+        overlayView.onOpenUploadWindow = { [weak self] in
+            print("DEBUG: onOpenUploadWindow triggered in OverlayView")
+            self?.dismissCapture()
+            print("DEBUG: About to call Manager.onOpenUploadWindow, is nil? \(self?.onOpenUploadWindow == nil)")
+            self?.onOpenUploadWindow?()
         }
         
         panel.contentView = overlayView
