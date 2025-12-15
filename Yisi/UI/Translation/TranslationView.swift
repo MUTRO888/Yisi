@@ -367,10 +367,10 @@ struct TranslationView: View {
                 await performTranslation()
             }
         }
-        .onChange(of: inputPerceptionHeight) { newValue in
+        .onChange(of: inputPerceptionHeight) { _, newValue in
             adjustWindowHeight(delta: newValue - 24) // 24 is base height
         }
-        .onChange(of: outputInstructionHeight) { newValue in
+        .onChange(of: outputInstructionHeight) { _, newValue in
             adjustWindowHeight(delta: newValue - 24)
         }
     }
@@ -386,14 +386,7 @@ struct TranslationView: View {
         // We need to track the previous height to know the incremental change
         // But here we are getting the absolute height from the binding
         
-        // Better approach:
-        // Calculate total desired height of inputs
-        let totalInputHeight = inputPerceptionHeight + outputInstructionHeight
-        let baseInputHeight: CGFloat = 48 // 24 + 24
-        
-        // The growth needed
-        // The growth needed
-        // let growth = totalInputHeight - baseInputHeight
+        // Calculate the difference in total height to resize window
         
         // We also need to know the current window height to apply the difference?
         // No, we should probably just resize the window based on the content change.

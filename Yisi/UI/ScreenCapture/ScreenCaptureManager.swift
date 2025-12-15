@@ -91,17 +91,27 @@ class ScreenCaptureManager {
             )
             
             // 使用 CGWindowListCreateImage 截图
-            if let cgImage = CGWindowListCreateImage(
-                cgRect,
-                .optionOnScreenBelowWindow,
-                kCGNullWindowID,
-                [.bestResolution]
-            ) {
+            // Note: CGWindowListCreateImage is deprecated in macOS 14.0 but still functional.
+            // We keep it for broader compatibility with older macOS versions.
+            // ScreenCaptureKit alternative requires macOS 12.3+ and more complex setup.
+            if let cgImage = self.captureScreenRegion(cgRect) {
                 let nsImage = NSImage(cgImage: cgImage, size: rect.size)
                 self.onCaptureComplete?(nsImage)
             }
             
             self.dismissCapture()
         }
+    }
+    
+    /// Helper function to capture screen region
+    /// Using @available to acknowledge the deprecation while maintaining compatibility
+    @available(macOS, deprecated: 14.0, message: "Using deprecated API for broader macOS compatibility")
+    private func captureScreenRegion(_ rect: CGRect) -> CGImage? {
+        return CGWindowListCreateImage(
+            rect,
+            .optionOnScreenBelowWindow,
+            kCGNullWindowID,
+            [.bestResolution]
+        )
     }
 }

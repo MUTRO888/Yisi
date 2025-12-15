@@ -61,9 +61,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         // Total height = 2*3 + 2.5*2 = 6 + 5 = 11
         // Top Y = (22 - 11) / 2 = 5.5
         
-        let startY: CGFloat = 5.5
         let lineHeight: CGFloat = 2.0
-        let gap: CGFloat = 2.5
         
         // Line 1 (Top) - Width 14
         // Note: Cocoa coords (0,0) is bottom-left.
@@ -118,7 +116,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     
     private func handleScreenshotShortcut() {
         print("Screenshot shortcut triggered")
-        ScreenCaptureManager.shared.startCapture { [weak self] image in
+        ScreenCaptureManager.shared.startCapture { image in
             // 截图完成，显示翻译窗口（带图片上下文）
             DispatchQueue.main.async {
                 WindowManager.shared.showWithImage(image: image)
