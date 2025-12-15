@@ -37,7 +37,7 @@ struct HistoryView: View {
                                     }
                                 }) {
                                     HStack {
-                                        Text("加載更多")
+                                        Text("Load More".localized)
                                             .font(.system(size: 12, design: .serif))
                                             .foregroundColor(AppColors.primary.opacity(0.7))
                                         Image(systemName: "chevron.down")
@@ -286,7 +286,7 @@ struct HistoryRowView: View {
                                 }
                             }
                         
-                        Text("View Image")
+                        Text("View Image".localized)
                             .font(.system(size: 11, design: .serif))
                             .foregroundColor(.secondary)
                     }
@@ -589,17 +589,19 @@ extension Date {
         let calendar = Calendar.current
         
         if calendar.isDateInToday(self) {
-            return "今天"
+            return "Today".localized
         } else if calendar.isDateInYesterday(self) {
-            return "昨天"
+            return "Yesterday".localized
         } else {
             // 超過昨天的顯示具體日期
             let components = calendar.dateComponents([.day], from: self, to: Date())
             if let days = components.day, days < 7 {
-                return "\(days)天前"
+                let format = "%d days ago".localized
+                return String(format: format, days)
             } else {
                 let formatter = DateFormatter()
-                formatter.dateFormat = "M月d日"
+                let language = LocalizationManager.shared.language
+                formatter.dateFormat = language == "zh" ? "M月d日" : "MMM d"
                 return formatter.string(from: self)
             }
         }

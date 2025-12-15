@@ -712,7 +712,7 @@ struct PromptsSection: View {
                     PresetRadioRow(
                         id: DEFAULT_TRANSLATION_PRESET_ID,
                         name: "默认翻译".localized,
-                        description: "标准翻译模式，支持 Learned Rules",
+                        description: "Standard translation mode, supports Learned Rules".localized,
                         isSelected: selectedPresetId == DEFAULT_TRANSLATION_PRESET_ID,
                         onSelect: { selectedPresetId = DEFAULT_TRANSLATION_PRESET_ID }
                     )

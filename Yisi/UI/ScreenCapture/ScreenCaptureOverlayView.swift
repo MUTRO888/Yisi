@@ -167,7 +167,7 @@ class ScreenCaptureOverlayView: NSView {
     
     /// 绘制操作指引 HUD
     private func drawHUD() {
-        let hudText = "拖拽选区 · 双击上传 · 右键取消"
+        let hudText = "Drag to select · Double-click to upload · Right-click to cancel".localized
         let attributes: [NSAttributedString.Key: Any] = [
             .font: NSFont.systemFont(ofSize: 13, weight: .medium),
             .foregroundColor: NSColor.white

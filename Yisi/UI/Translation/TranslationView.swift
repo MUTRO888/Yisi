@@ -89,7 +89,7 @@ struct TranslationView: View {
                 VStack(alignment: .leading, spacing: 16) {
                     // Narrative Input Structure
                     HStack(alignment: .top, spacing: 6) {
-                        Text("I perceive this as")
+                        Text("I perceive this as".localized)
                             .font(.system(size: 16, weight: .light, design: .serif))
                             .foregroundColor(.secondary)
                             // .padding(.top, 2) Removed for alignment with zero-inset editor
@@ -97,7 +97,7 @@ struct TranslationView: View {
                         NarrativeTextField(
                             text: $customInputPerception,
                             height: $inputPerceptionHeight,
-                            placeholder: "Ancient Poetry"
+                            placeholder: "Ancient Poetry".localized
                         )
                         .frame(minWidth: 120)
                         
@@ -108,7 +108,7 @@ struct TranslationView: View {
                     }
                     
                     HStack(alignment: .top, spacing: 6) {
-                        Text("please")
+                        Text("please".localized)
                             .font(.system(size: 16, weight: .light, design: .serif))
                             .foregroundColor(.secondary)
                             // .padding(.top, 2)
@@ -116,7 +116,7 @@ struct TranslationView: View {
                         NarrativeTextField(
                             text: $customOutputInstruction,
                             height: $outputInstructionHeight,
-                            placeholder: "translate to modern English"
+                            placeholder: "translate to modern English".localized
                         )
                         .frame(minWidth: 180)
                         
