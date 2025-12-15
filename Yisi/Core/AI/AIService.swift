@@ -133,7 +133,7 @@ class AIService: ObservableObject {
         let cleanJSON = extractJSON(from: rawResult)
         print("DEBUG \(provider.rawValue) Response:")
         print(cleanJSON)
-        print("DEBUG: apiReasoning=\(apiReasoning), promptCoT=\(promptCoT), isReasoning=\(isReasoning)")
+        print("DEBUG: apiReasoning=\(apiReasoning), promptCoT=\(promptCoT), modelSupportsReasoning=\(isReasoning)")
         
         let result = try parseTranslationResult(from: cleanJSON, mode: mode)
         
@@ -452,9 +452,25 @@ class AIService: ObservableObject {
     }
     
     private func extractJSON(from text: String) -> String {
-        var jsonString = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        var processingText = text
         
-        // Remove common AI preambles
+        // 1. First try to find Markdown code block using Regex
+        // Matches ```json, ```JSON, or just ``` followed by content and ending with ```
+        // Use GREEDY matching ([\s\S]*) to capture everything until the LAST closing fence.
+        // This is necessary because the JSON content itself might contain code blocks (e.g. ```swift),
+        // and lazy matching would stop prematurely at the internal backticks.
+        let pattern = #"```(?:[a-zA-Z]+)?\s*([\s\S]*)\s*```"#
+        if let regex = try? NSRegularExpression(pattern: pattern, options: []),
+           let match = regex.firstMatch(in: text, options: [], range: NSRange(text.startIndex..., in: text)),
+           let range = Range(match.range(at: 1), in: text) {
+            processingText = String(text[range])
+        }
+        
+        var jsonString = processingText.trimmingCharacters(in: .whitespacesAndNewlines)
+        
+        // 2. Remove common AI preambles if we didn't match a code block (or if code block kept them inside?? unlikely but safe)
+        // Only do this if we haven't already isolated a code block, OR do it anyway as cleanup.
+        // Since we might have switched processingText, let's just clean up preambles from whatever we have.
         let preambles = [
             "Here is the translation:",
             "Translation:",
@@ -470,15 +486,7 @@ class AIService: ObservableObject {
             }
         }
         
-        // Remove markdown code blocks if present (Zhipu AI wraps JSON in ```json ... ```)
-        if jsonString.contains("```json") {
-            jsonString = jsonString.replacingOccurrences(of: "```json", with: "")
-        }
-        if jsonString.contains("```") {
-            jsonString = jsonString.replacingOccurrences(of: "```", with: "")
-        }
-        
-        // Trim again after removing code fences
+        // Trim again after removing code fences (if any were removed by regex or preambles)
         jsonString = jsonString.trimmingCharacters(in: .whitespacesAndNewlines)
         
         // Check if it's already valid JSON by attempting to parse
@@ -490,7 +498,7 @@ class AIService: ObservableObject {
             }
         }
         
-        // Find the first '{' and use brace matching to find the corresponding '}'
+        // 3. Find the first '{' and use brace matching to find the corresponding '}'
         guard let startIndex = jsonString.firstIndex(of: "{") else {
             return jsonString
         }
@@ -509,7 +517,7 @@ class AIService: ObservableObject {
                 continue
             }
             
-            if char == "\\" && inString {
+            if char == "\\" { // This handles escaping any character, not just quotes
                 escapeNext = true
                 continue
             }
