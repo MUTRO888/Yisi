@@ -183,10 +183,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 switch captureError {
                 case .permissionDenied:
                     error = "Accessibility permission required to capture text."
-                case .noFocusedElement, .noSelection:
+                case .noSelection:
                     break
-                case .other(let msg):
-                    print("Capture error: \(msg)")
                 }
             }
             

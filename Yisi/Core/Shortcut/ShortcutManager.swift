@@ -3,123 +3,151 @@ import Cocoa
 class GlobalShortcutManager: ObservableObject {
     static let shared = GlobalShortcutManager()
     
-    private var monitor: Any?
+    private var eventTap: CFMachPort?
+    private var runLoopSource: CFRunLoopSource?
+    
     @Published var triggerCount = 0
     
-    // MARK: - Callbacks
-    
-    /// 翻译快捷键回调
     var onShortcutTriggered: (() -> Void)?
-    
-    /// 截图快捷键回调
     var onScreenshotTriggered: (() -> Void)?
     
-    // MARK: - Translate Shortcut
+    private var translateShortcut: Shortcut
+    private var screenshotShortcut: Shortcut
     
-    private var currentKeyCode: UInt16
-    private var currentModifiers: NSEvent.ModifierFlags
-    
-    // MARK: - Screenshot Shortcut
-    
-    private var screenshotKeyCode: UInt16
-    private var screenshotModifiers: NSEvent.ModifierFlags
+    private struct Shortcut {
+        var keyCode: UInt16
+        var modifiers: NSEvent.ModifierFlags
+        
+        func matches(keyCode: UInt16, flags: CGEventFlags) -> Bool {
+            guard self.keyCode == keyCode else { return false }
+            
+            var eventModifiers: NSEvent.ModifierFlags = []
+            if flags.contains(.maskCommand) { eventModifiers.insert(.command) }
+            if flags.contains(.maskControl) { eventModifiers.insert(.control) }
+            if flags.contains(.maskAlternate) { eventModifiers.insert(.option) }
+            if flags.contains(.maskShift) { eventModifiers.insert(.shift) }
+            
+            let clean = eventModifiers.intersection(.deviceIndependentFlagsMask)
+            let target = modifiers.intersection(.deviceIndependentFlagsMask)
+            return clean == target
+        }
+    }
     
     private init() {
-        // Default translate shortcut: Command + Control + Y (keyCode 16)
-        let savedKeyCode = UserDefaults.standard.integer(forKey: "global_shortcut_key")
-        let savedModifiers = UserDefaults.standard.integer(forKey: "global_shortcut_modifiers")
+        translateShortcut = Self.loadShortcut(
+            keyKey: "global_shortcut_key",
+            modKey: "global_shortcut_modifiers",
+            defaultKey: 16,  // Y
+            defaultMods: [.command, .control]
+        )
         
-        if savedKeyCode != 0 {
-            self.currentKeyCode = UInt16(savedKeyCode)
-            self.currentModifiers = NSEvent.ModifierFlags(rawValue: UInt(savedModifiers))
-        } else {
-            self.currentKeyCode = 16 // Y
-            self.currentModifiers = [.command, .control]
-        }
-        
-        // Default screenshot shortcut: Command + Shift + X (keyCode 7)
-        let savedScreenshotKey = UserDefaults.standard.integer(forKey: "screenshot_shortcut_key")
-        let savedScreenshotModifiers = UserDefaults.standard.integer(forKey: "screenshot_shortcut_modifiers")
-        
-        if savedScreenshotKey != 0 {
-            self.screenshotKeyCode = UInt16(savedScreenshotKey)
-            self.screenshotModifiers = NSEvent.ModifierFlags(rawValue: UInt(savedScreenshotModifiers))
-        } else {
-            self.screenshotKeyCode = 7 // X
-            self.screenshotModifiers = [.command, .shift]
-        }
+        screenshotShortcut = Self.loadShortcut(
+            keyKey: "screenshot_shortcut_key",
+            modKey: "screenshot_shortcut_modifiers",
+            defaultKey: 7,   // X
+            defaultMods: [.command, .shift]
+        )
         
         startMonitoring()
     }
     
-    // MARK: - Update Shortcuts
+    private static func loadShortcut(keyKey: String, modKey: String, defaultKey: UInt16, defaultMods: NSEvent.ModifierFlags) -> Shortcut {
+        let savedKey = UserDefaults.standard.integer(forKey: keyKey)
+        let savedMods = UserDefaults.standard.integer(forKey: modKey)
+        
+        if savedKey != 0 {
+            return Shortcut(keyCode: UInt16(savedKey), modifiers: NSEvent.ModifierFlags(rawValue: UInt(savedMods)))
+        }
+        return Shortcut(keyCode: defaultKey, modifiers: defaultMods)
+    }
+    
+    // MARK: - Public API
     
     func updateShortcut(keyCode: UInt16, modifiers: NSEvent.ModifierFlags) {
-        self.currentKeyCode = keyCode
-        self.currentModifiers = modifiers
-        
+        translateShortcut = Shortcut(keyCode: keyCode, modifiers: modifiers)
         UserDefaults.standard.set(Int(keyCode), forKey: "global_shortcut_key")
         UserDefaults.standard.set(Int(modifiers.rawValue), forKey: "global_shortcut_modifiers")
     }
     
     func updateScreenshotShortcut(keyCode: UInt16, modifiers: NSEvent.ModifierFlags) {
-        self.screenshotKeyCode = keyCode
-        self.screenshotModifiers = modifiers
-        
+        screenshotShortcut = Shortcut(keyCode: keyCode, modifiers: modifiers)
         UserDefaults.standard.set(Int(keyCode), forKey: "screenshot_shortcut_key")
         UserDefaults.standard.set(Int(modifiers.rawValue), forKey: "screenshot_shortcut_modifiers")
     }
     
-    // MARK: - Getters for UI
+    var currentScreenshotKeyCode: UInt16 { screenshotShortcut.keyCode }
+    var currentScreenshotModifiers: NSEvent.ModifierFlags { screenshotShortcut.modifiers }
     
-    var currentScreenshotKeyCode: UInt16 { screenshotKeyCode }
-    var currentScreenshotModifiers: NSEvent.ModifierFlags { screenshotModifiers }
-    
-    // MARK: - Monitoring
+    // MARK: - Event Tap
     
     func startMonitoring() {
-        // We need to request accessibility permissions for this to work globally
         let options: NSDictionary = [kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String : true]
-        let accessEnabled = AXIsProcessTrustedWithOptions(options)
+        AXIsProcessTrustedWithOptions(options)
         
-        if !accessEnabled {
-            print("Accessibility access not granted")
-        }
+        stopMonitoring()
         
-        // Monitor for key down events
-        if monitor != nil {
-            NSEvent.removeMonitor(monitor!)
-        }
-        monitor = NSEvent.addGlobalMonitorForEvents(matching: .keyDown) { [weak self] event in
-            self?.handleEvent(event)
-        }
+        let eventMask = CGEventMask(1 << CGEventType.keyDown.rawValue)
+        let selfPointer = Unmanaged.passUnretained(self).toOpaque()
+        
+        eventTap = CGEvent.tapCreate(
+            tap: .cgSessionEventTap,
+            place: .headInsertEventTap,
+            options: .defaultTap,
+            eventsOfInterest: eventMask,
+            callback: { (_, type, event, refcon) -> Unmanaged<CGEvent>? in
+                guard let refcon = refcon else { return Unmanaged.passUnretained(event) }
+                let manager = Unmanaged<GlobalShortcutManager>.fromOpaque(refcon).takeUnretainedValue()
+                return manager.handleEvent(type: type, event: event)
+            },
+            userInfo: selfPointer
+        )
+        
+        guard let tap = eventTap else { return }
+        
+        runLoopSource = CFMachPortCreateRunLoopSource(kCFAllocatorDefault, tap, 0)
+        CFRunLoopAddSource(CFRunLoopGetCurrent(), runLoopSource, .commonModes)
+        CGEvent.tapEnable(tap: tap, enable: true)
     }
     
-    private func handleEvent(_ event: NSEvent) {
-        let flags = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
+    private func stopMonitoring() {
+        if let tap = eventTap {
+            CGEvent.tapEnable(tap: tap, enable: false)
+            if let source = runLoopSource {
+                CFRunLoopRemoveSource(CFRunLoopGetCurrent(), source, .commonModes)
+            }
+        }
+        eventTap = nil
+        runLoopSource = nil
+    }
+    
+    private func handleEvent(type: CGEventType, event: CGEvent) -> Unmanaged<CGEvent>? {
+        if type == .tapDisabledByTimeout || type == .tapDisabledByUserInput {
+            if let tap = eventTap { CGEvent.tapEnable(tap: tap, enable: true) }
+            return Unmanaged.passUnretained(event)
+        }
         
-        // Check translate shortcut
-        if flags == currentModifiers && event.keyCode == currentKeyCode {
-            print("Global shortcut triggered!")
+        let keyCode = UInt16(event.getIntegerValueField(.keyboardEventKeycode))
+        let flags = event.flags
+        
+        if translateShortcut.matches(keyCode: keyCode, flags: flags) {
             DispatchQueue.main.async {
                 self.triggerCount += 1
                 self.onShortcutTriggered?()
             }
-            return
+            return nil  // Consume event to preserve text selection
         }
         
-        // Check screenshot shortcut
-        if flags == screenshotModifiers && event.keyCode == screenshotKeyCode {
-            print("Screenshot shortcut triggered!")
+        if screenshotShortcut.matches(keyCode: keyCode, flags: flags) {
             DispatchQueue.main.async {
                 self.onScreenshotTriggered?()
             }
+            return nil
         }
+        
+        return Unmanaged.passUnretained(event)
     }
     
     deinit {
-        if let monitor = monitor {
-            NSEvent.removeMonitor(monitor)
-        }
+        stopMonitoring()
     }
 }
