@@ -18,7 +18,7 @@ enum ClosingMode: String, CaseIterable, Identifiable {
 
 struct SettingsView: View {
     @State private var selectedTopTab: Int = 0 // 0: History, 1: Settings
-    @AppStorage("app_theme") private var appTheme: String = "system"
+    @AppStorage("app_theme") private var appTheme: String = "light"
     @ObservedObject private var localizationManager = LocalizationManager.shared
     
     var body: some View {
@@ -330,7 +330,7 @@ struct GeneralSection: View {
     @AppStorage("zhipu_api_key") private var zhipuKey: String = ""
     @AppStorage("gemini_model") private var geminiModel: String = "gemini-2.0-flash-exp"
     @AppStorage("openai_model") private var openaiModel: String = "gpt-4o-mini"
-    @AppStorage("zhipu_model") private var zhipuModel: String = "glm-4-flash"
+    @AppStorage("zhipu_model") private var zhipuModel: String = "GLM-4.5-Air"
     @AppStorage("api_provider") private var apiProvider: String = "Gemini"
     
     // Image Mode API Settings
@@ -341,7 +341,7 @@ struct GeneralSection: View {
     @AppStorage("image_openai_api_key") private var imageOpenaiKey: String = ""
     @AppStorage("image_openai_model") private var imageOpenaiModel: String = "gpt-4o-mini"
     @AppStorage("image_zhipu_api_key") private var imageZhipuKey: String = ""
-    @AppStorage("image_zhipu_model") private var imageZhipuModel: String = "glm-4.5-air"
+    @AppStorage("image_zhipu_model") private var imageZhipuModel: String = "GLM-4.5V"
     
     // General Settings
     @AppStorage("close_mode") private var closeMode: String = "clickOutside"
@@ -675,7 +675,7 @@ struct APIKeyInput: View {
 }
 
 struct PromptsSection: View {
-    @AppStorage("preset_mode_enabled") private var presetModeEnabled: Bool = false
+    @AppStorage("preset_mode_enabled") private var presetModeEnabled: Bool = true
     @AppStorage("selected_preset_id") private var selectedPresetId: String = DEFAULT_TRANSLATION_PRESET_ID
     @State private var presets: [PromptPreset] = []
     @State private var showEditSheet: Bool = false

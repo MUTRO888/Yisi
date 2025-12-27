@@ -4,7 +4,7 @@ import Combine
 class LocalizationManager: ObservableObject {
     static let shared = LocalizationManager()
     
-    @AppStorage("app_language") var language: String = "en" {
+    @AppStorage("app_language") var language: String = "zh" {
         didSet {
             objectWillChange.send()
         }

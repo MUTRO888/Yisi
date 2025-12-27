@@ -4,7 +4,7 @@ import SwiftUI
 struct YisiApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
     
-    @AppStorage("app_theme") private var appTheme: String = "system"
+    @AppStorage("app_theme") private var appTheme: String = "light"
     
     var body: some Scene {
         Settings {

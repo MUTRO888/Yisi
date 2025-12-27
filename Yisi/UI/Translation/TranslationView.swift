@@ -22,7 +22,7 @@ struct TranslationView: View {
     @State private var showImproveSuccess: Bool = false
     
     @AppStorage("enable_custom_mode_popup") private var enableCustomModePopup: Bool = false  // Legacy, now="preset_mode_enabled"
-    @AppStorage("preset_mode_enabled") private var presetModeEnabled: Bool = false
+    @AppStorage("preset_mode_enabled") private var presetModeEnabled: Bool = true
     @AppStorage("selected_preset_id") private var selectedPresetId: String = DEFAULT_TRANSLATION_PRESET_ID
     @State private var customInputPerception: String = ""
     @State private var customOutputInstruction: String = ""

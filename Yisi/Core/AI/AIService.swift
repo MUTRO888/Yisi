@@ -131,9 +131,6 @@ class AIService: ObservableObject {
         
         // 解析 JSON 响应
         let cleanJSON = extractJSON(from: rawResult)
-        print("DEBUG \(provider.rawValue) Response:")
-        print(cleanJSON)
-        print("DEBUG: apiReasoning=\(apiReasoning), promptCoT=\(promptCoT), modelSupportsReasoning=\(isReasoning)")
         
         let result = try parseTranslationResult(from: cleanJSON, mode: mode)
         
@@ -207,8 +204,6 @@ class AIService: ObservableObject {
             // 只对推理模型受开关影响
             apiReasoning = isReasoning && enableDeepThinking
         }
-        
-        print("DEBUG Image: mode=\(mode), apiReasoning=\(apiReasoning), isReasoning=\(isReasoning), model=\(model)")
         
         // 组装配置
         let config = AIRequestConfig(
@@ -359,7 +354,8 @@ class AIService: ObservableObject {
         case .openai:
             return UserDefaults.standard.string(forKey: "\(prefix)openai_model") ?? "gpt-4o-mini"
         case .zhipu:
-            return UserDefaults.standard.string(forKey: "\(prefix)zhipu_model") ?? "glm-4.5-air"
+            let defaultModel = (usage == .image) ? "GLM-4.5V" : "GLM-4.5-Air"
+            return UserDefaults.standard.string(forKey: "\(prefix)zhipu_model") ?? defaultModel
         }
     }
     

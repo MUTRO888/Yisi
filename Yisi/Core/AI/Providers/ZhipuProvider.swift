@@ -30,7 +30,6 @@ class ZhipuProvider: AIProvider {
             body["max_tokens"] = 8192
         }
         
-        print("DEBUG Zhipu: Thinking mode \(enabled ? "ENABLED" : "DISABLED") for model \(model)")
     }
     
     // MARK: - AIProvider 实现
@@ -70,14 +69,11 @@ class ZhipuProvider: AIProvider {
         request.addValue("Bearer \(config.apiKey)", forHTTPHeaderField: "Authorization")
         request.addValue("application/json", forHTTPHeaderField: "Content-Type")
         request.httpBody = try JSONSerialization.data(withJSONObject: body)
-        request.timeoutInterval = 120  // Thinking 模式可能需要更长时间
+        request.timeoutInterval = 120
         
         let (data, response) = try await URLSession.shared.data(for: request)
         
-        // DEBUG: 打印原始响应
-        if let rawResponse = String(data: data, encoding: .utf8) {
-            print("DEBUG Zhipu Raw Response: \(rawResponse.prefix(500))")
-        }
+
         
         guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
             let errorText = String(data: data, encoding: .utf8) ?? "Unknown Error"
