@@ -2,142 +2,217 @@ import SwiftUI
 
 struct HistoryView: View {
     @ObservedObject private var historyManager = HistoryManager.shared
-    @State private var isSidebarVisible = false
-    @State private var showClearConfirmation = false
-    @State private var previewImage: NSImage? = nil // State for modal image preview
+    @State private var previewImage: NSImage? = nil
     @Environment(\.colorScheme) var currentColorScheme
     
+    // Optical Lens State
+    @State private var isSearchVisible = false // Capsule Visible (Surface Tension)
+    @State private var isSearchExpanded = false // Bar Expanded (Active Lens)
+    @State private var hoverTimer: Timer?
+    // Removed expandTimer to prevent accidental triggers
+    
     var body: some View {
-        ZStack(alignment: .leading) {
-            // Main Content
+        ZStack(alignment: .bottom) {
+            // 1. Main Content Stream (The Stage)
             VStack(spacing: 0) {
-                // List
                 if historyManager.filteredItems.isEmpty {
-                    EmptyHistoryView()
-                        .padding(.leading, isSidebarVisible ? 130 : 0)
-                        .animation(.spring(response: 0.3, dampingFraction: 0.8), value: isSidebarVisible)
+                    // Empty State
+                    if !historyManager.searchQuery.isEmpty {
+                        // Search - No Results
+                         VStack(spacing: 12) {
+                            Spacer()
+                            Image(systemName: "magnifyingglass")
+                                .font(.system(size: 32, weight: .light))
+                                .foregroundColor(.secondary.opacity(0.3))
+                            Text("No matches found".localized)
+                                .font(.system(size: 14, weight: .medium, design: .serif))
+                                .foregroundColor(.secondary.opacity(0.8))
+                            Spacer()
+                        }
+                    } else {
+                        // No History at all
+                        EmptyHistoryView()
+                    }
                 } else {
-                    // 使用原生 ScrollView + LazyVStack 實現真正的虛擬化高性能渲染
+                    // Content List
                     ScrollView(showsIndicators: false) {
                         LazyVStack(spacing: 0) {
+                            Color.clear.frame(height: 20)
+                            
                             ForEach(historyManager.filteredItems) { item in
                                 HistoryRowView(item: item) { image in
                                     withAnimation(.easeInOut(duration: 0.2)) {
                                         previewImage = image
                                     }
                                 }
-                                // 移除 .transition(.opacity)，避免切換分組時的動畫開銷
+                                .frame(maxWidth: 600)
+                                .transition(.opacity.combined(with: .move(edge: .bottom))) // Dissolve / Re-aggregate
                             }
                             
-                            // 「加載更多」按鈕
+                            
                             if historyManager.hasMoreItems() {
                                 Button(action: {
-                                    withAnimation(.easeInOut(duration: 0.2)) {
-                                        historyManager.loadMoreItems()
-                                    }
+                                    withAnimation { historyManager.loadMoreItems() }
                                 }) {
-                                    HStack {
-                                        Text("Load More".localized)
-                                            .font(.system(size: 12, design: .serif))
-                                            .foregroundColor(AppColors.primary.opacity(0.7))
-                                        Image(systemName: "chevron.down")
-                                            .font(.system(size: 10))
-                                            .foregroundColor(AppColors.primary.opacity(0.5))
-                                    }
-                                    .padding(.vertical, 12)
-                                    .frame(maxWidth: .infinity)
+                                    Text("Load More".localized)
+                                        .font(.system(size: 12, design: .serif))
+                                        .foregroundColor(.secondary.opacity(0.5))
+                                        .padding(.vertical, 20)
                                 }
                                 .buttonStyle(.plain)
-                                .padding(.horizontal, 16)
                             }
+                            
+                            Color.clear.frame(height: 100)
                         }
-                        .padding(.vertical, 8)
-                        .padding(.leading, isSidebarVisible ? 130 : 0)
-                        .frame(maxWidth: .infinity, alignment: .top)
-                        .animation(.easeInOut(duration: 0.25), value: isSidebarVisible)
-                        // 關鍵優化：使用 .id() 強制在切換分組時完全刷新列表
-                        .id(historyManager.selectedGroup)
+                        .frame(maxWidth: .infinity)
                     }
-                    .scrollContentBackground(.hidden) // macOS 13+ 透明背景
-                    .background(Color.clear)
+                    .scrollContentBackground(.hidden)
+                    // Scene Management: Recede only when "Focusing" (Expanded + Empty)
+                    .blur(radius: (isSearchExpanded && historyManager.searchQuery.isEmpty) ? 8 : 0)
+                    .scaleEffect((isSearchExpanded && historyManager.searchQuery.isEmpty) ? 0.98 : 1)
+                    // Interaction: Block ONLY if we are in "Focus Mode" (Empty Search).
+                    // If showing results (Query !Empty), we MUST allow interaction.
+                    .allowsHitTesting(!(isSearchExpanded && historyManager.searchQuery.isEmpty))
+                    .animation(.easeOut(duration: 0.3), value: isSearchExpanded)
+                    .animation(.easeOut(duration: 0.3), value: historyManager.searchQuery.isEmpty)
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .contentShape(Rectangle()) // Capture taps on empty space
+            .onTapGesture {
+                // Exit Mechanism: Click Outside
+                if isSearchExpanded {
+                    withAnimation(.easeOut(duration: 0.3)) {
+                        isSearchExpanded = false
+                        // If no text, hide completely
+                        if historyManager.searchQuery.isEmpty {
+                            isSearchVisible = false
+                        }
+                        // If text exists, we just collapse to "Badge" mode to let user view results.
+                        // We DO NOT clear text on background tap anymore, to prevent accidental loss of results.
+                    }
+                }
+            }
             
-            // Hover Trigger Zone (Left Edge)
-            Rectangle()
-                .fill(Color.clear)
-                .frame(width: 20)
-                .contentShape(Rectangle())
-                .onHover { hovering in
-                    if hovering {
-                        withAnimation(.easeInOut(duration: 0.2)) {
-                            isSidebarVisible = true
+            // 2. Optical Lens (Periscope)
+            PeriscopeSearchField(
+                text: $historyManager.searchQuery,
+                isVisible: $isSearchVisible,
+                isExpanded: $isSearchExpanded
+            )
+            .padding(.bottom, 12) // Total offset 12px (previously 30+8=38)
+            .zIndex(10)
+            .onHover { mirroring in
+                isHoveringBar = mirroring
+                checkHoverState()
+            }
+            
+            // 3. Trigger Zone (Bottom 18%)
+            GeometryReader { geo in
+                VStack {
+                    Spacer()
+                    Color.clear
+                        .frame(height: geo.size.height * 0.18)
+                        .contentShape(Rectangle())
+                        .onHover { mirroring in
+                            isHoveringTrigger = mirroring
+                            checkHoverState()
+                        }
+                }
+            }
+            // Trigger Zone always active to catch hovers for Re-Expand
+            
+            // Lightbox Overlay
+            if let image = previewImage {
+                LightboxView(image: image, onClose: { previewImage = nil })
+            }
+        }
+    }
+    
+    // MARK: - Hover Logic
+    
+    @State private var isHoveringTrigger = false
+    @State private var isHoveringBar = false
+    
+    private func checkHoverState() {
+        // Debounce slightly to handle gap jumps? (SwiftUI onHover is usually immediate)
+        // Main Logic:
+        if isHoveringTrigger || isHoveringBar {
+            // Enter / Maintain
+            hoverTimer?.invalidate()
+            
+            withAnimation(.easeOut(duration: 0.3)) {
+                isSearchVisible = true
+            }
+            
+            // Auto-Expand if we are directly interacting with the BAR components
+            // (e.g., hovering the badge to check it)
+            if isHoveringBar {
+                // Only auto-expand if we have text (logic: viewing results -> want to edit)
+                // OR if user clicks (handled by tap).
+                // User said: "Automatic display logic".
+                // If I hover the Badge (Filtered), it should expand?
+                if !historyManager.searchQuery.isEmpty {
+                     withAnimation(.spring(response: 0.4, dampingFraction: 0.7)) {
+                        isSearchExpanded = true
+                    }
+                }
+            }
+        } else {
+            // Exit Both -> Start Timer
+            hoverTimer?.invalidate()
+            hoverTimer = Timer.scheduledTimer(withTimeInterval: 0.6, repeats: false) { _ in
+                withAnimation(.easeOut(duration: 0.3)) {
+                    // Double check state inside timer
+                    if !self.isHoveringTrigger && !self.isHoveringBar {
+                        if historyManager.searchQuery.isEmpty {
+                            // Usage: Idle -> Fade out
+                            isSearchExpanded = false
+                            isSearchVisible = false
+                        } else {
+                            // Usage: Viewing Results -> Collapse to Badge
+                            isSearchExpanded = false
+                            // isSearchVisible remains true (Badge)
                         }
                     }
                 }
-            
-            // Sidebar
-            if isSidebarVisible {
-                HistorySidebar(
-                    isVisible: $isSidebarVisible,
-                    selectedGroup: $historyManager.selectedGroup,
-                    onClearAll: {
-                        showClearConfirmation = true
-                    }
-                )
-                .transition(.move(edge: .leading))
-                .zIndex(2)
-            }
-            
-            // Custom Confirmation Dialog
-            if showClearConfirmation {
-                Color.black.opacity(0.2)
-                    .edgesIgnoringSafeArea(.all)
-                    .onTapGesture {
-                        withAnimation(.spring()) {
-                            showClearConfirmation = false
-                        }
-                    }
-                    .zIndex(3)
-                
-                ClearHistoryConfirmationDialog(
-                    isPresented: $showClearConfirmation,
-                    onConfirm: {
-                        historyManager.clearAllHistory()
-                    }
-                )
-                .zIndex(4)
-            }
-            
-            // Lightbox Layer
-            if let image = previewImage {
-                Color.black.opacity(0.8)
-                    .edgesIgnoringSafeArea(.all)
-                    .overlay(
-                        Image(nsImage: image)
-                            .resizable()
-                            .aspectRatio(contentMode: .fit)
-                            .padding(40)
-                    )
-                    .overlay(alignment: .topTrailing) {
-                        Button(action: { withAnimation(.easeInOut(duration: 0.2)) { previewImage = nil } }) {
-                            Image(systemName: "xmark.circle.fill")
-                                .font(.system(size: 24))
-                                .foregroundColor(.white.opacity(0.8))
-                                .padding(20)
-                        }
-                        .buttonStyle(.plain)
-                    }
-                    .onTapGesture {
-                        withAnimation(.easeInOut(duration: 0.2)) { previewImage = nil }
-                    }
-                    .transition(.opacity)
-                    .zIndex(200)
             }
         }
     }
 }
+
+// Helper for Lightbox to clean up main view
+struct LightboxView: View {
+    let image: NSImage
+    let onClose: () -> Void
+    
+    var body: some View {
+        Color.black.opacity(0.8)
+            .edgesIgnoringSafeArea(.all)
+            .overlay(
+                Image(nsImage: image)
+                    .resizable()
+                    .aspectRatio(contentMode: .fit)
+                    .padding(40)
+            )
+            .overlay(alignment: .topTrailing) {
+                Button(action: { withAnimation(.easeInOut(duration: 0.2)) { onClose() } }) {
+                    Image(systemName: "xmark.circle.fill")
+                        .font(.system(size: 24))
+                        .foregroundColor(.white.opacity(0.8))
+                        .padding(20)
+                }
+                .buttonStyle(.plain)
+            }
+            .onTapGesture {
+                withAnimation(.easeInOut(duration: 0.2)) { onClose() }
+            }
+            .transition(.opacity)
+            .zIndex(200)
+    }
+}
+
+// MARK: - Restored Components
 
 struct HistoryRowView: View {
     let item: TranslationHistoryItem
@@ -146,11 +221,6 @@ struct HistoryRowView: View {
     @State private var isHovering = false
     @State private var isExpanded = false
     @State private var thumbnailImage: NSImage? = nil
-    
-    /// 是否為圖片記錄
-    private var isImageRecord: Bool {
-        item.imagePath != nil
-    }
     
     var body: some View {
         // 1. 核心容器：強制頂部對齊
@@ -163,7 +233,6 @@ struct HistoryRowView: View {
                 // 刪除按鈕 (僅 Hover 顯示)
                 if isHovering {
                     Button(action: {
-                        // 直接刪除，不用動畫包裹整體
                         HistoryManager.shared.deleteHistory(item: item)
                     }) {
                         Image(systemName: "xmark")
@@ -206,7 +275,7 @@ struct HistoryRowView: View {
                 .buttonStyle(.plain)
             }
         }
-        // 4. 外觀修飾 - 移除了 GeometryReader 高度追蹤，避免頻繁狀態更新
+        // 4. 外觀修飾
         .background(
             RoundedRectangle(cornerRadius: 12)
                 .fill(isHovering || isExpanded ? Color.primary.opacity(0.02) : Color.clear)
@@ -331,188 +400,6 @@ struct HistoryRowView: View {
                 DispatchQueue.main.async { self.thumbnailImage = thumb }
             }
         }
-    }
-}
-
-
-
-struct HistorySidebar: View {
-    @Binding var isVisible: Bool
-    @Binding var selectedGroup: HistoryDateGroup
-    var onClearAll: () -> Void
-    @Environment(\.colorScheme) var currentColorScheme
-    
-    var body: some View {
-        HStack(spacing: 0) {
-            VStack(alignment: .leading, spacing: 16) {
-                ScrollView(showsIndicators: false) {
-                    VStack(alignment: .leading, spacing: 4) {
-                        ForEach(HistoryDateGroup.allCases) { group in
-                            SidebarItem(
-                                title: group.localizedName,
-                                isSelected: selectedGroup == group,
-                                action: {
-                                    // 使用 transaction 禁用列表動畫，只保留側邊欄動畫
-                                    var transaction = Transaction()
-                                    transaction.disablesAnimations = true
-                                    withTransaction(transaction) {
-                                        selectedGroup = group
-                                        HistoryManager.shared.resetPagination() // 切換分組時重置分頁
-                                    }
-                                }
-                            )
-                        }
-                    }
-                    .padding(.horizontal, 8)
-                    .padding(.top, 24)
-                }
-                
-                Spacer()
-                
-                Button(action: onClearAll) {
-                    HStack(spacing: 8) {
-                        Image(systemName: "trash")
-                            .font(.system(size: 12))
-                        Text("Clear All".localized)
-                            .font(.system(size: 12, design: .serif))
-                    }
-                    .foregroundColor(.secondary.opacity(0.8))
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 12)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
-                .padding(.bottom, 16)
-            }
-            .frame(width: 120)
-            .background(
-                Group {
-                    if currentColorScheme == .dark {
-                        ZStack {
-                            Color(hex: "29292C")
-                            RoundedRectangle(cornerRadius: 16)
-                                .stroke(Color.white.opacity(0.1), lineWidth: 0.5)
-                        }
-                    } else {
-                        ZStack {
-                            VisualEffectView(material: .hudWindow, blendingMode: .behindWindow)
-                            Color.white.opacity(0.1)
-                        }
-                    }
-                }
-                .cornerRadius(16)
-                .shadow(color: Color.black.opacity(currentColorScheme == .dark ? 0.5 : 0.1), radius: 10, x: 0, y: 0)
-            )
-            .padding(.leading, 8)
-            .padding(.vertical, 8)
-            .contentShape(Rectangle())
-            
-            Rectangle()
-                .fill(Color.clear)
-                .frame(width: 40)
-                .contentShape(Rectangle())
-                .onHover { hovering in
-                    // Buffer zone logic
-                }
-        }
-        .onHover { hovering in
-            if !hovering {
-                withAnimation(.easeInOut(duration: 0.25)) {
-                    isVisible = false
-                }
-            }
-        }
-    }
-}
-
-struct SidebarItem: View {
-    let title: String
-    let isSelected: Bool
-    let action: () -> Void
-    
-    var body: some View {
-        Button(action: action) {
-            Text(title)
-                .font(.system(size: 13, weight: isSelected ? .medium : .regular, design: .serif))
-                .foregroundColor(isSelected ? AppColors.primary : AppColors.text.opacity(0.7))
-                .padding(.horizontal, 12)
-                .padding(.vertical, 8)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .background(
-                    RoundedRectangle(cornerRadius: 6)
-                        .fill(isSelected ? AppColors.primary.opacity(0.1) : Color.clear)
-                )
-        }
-        .buttonStyle(.plain)
-    }
-}
-
-struct ClearHistoryConfirmationDialog: View {
-    @Binding var isPresented: Bool
-    var onConfirm: () -> Void
-    
-    var body: some View {
-        VStack(spacing: 20) {
-            Text("Clear History".localized)
-                .font(.system(size: 16, weight: .medium, design: .serif))
-                .foregroundColor(AppColors.text)
-            
-            Text("Are you sure you want to delete all history items? This action cannot be undone.".localized)
-                .font(.system(size: 13, design: .serif))
-                .foregroundColor(AppColors.text.opacity(0.7))
-                .multilineTextAlignment(.center)
-                .fixedSize(horizontal: false, vertical: true)
-            
-            HStack(spacing: 16) {
-                Button(action: {
-                    withAnimation(.spring()) {
-                        isPresented = false
-                    }
-                }) {
-                    Text("Cancel".localized)
-                        .font(.system(size: 13, weight: .medium, design: .serif))
-                        .foregroundColor(AppColors.text.opacity(0.7))
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 8)
-                        .background(Color.primary.opacity(0.05))
-                        .cornerRadius(8)
-                }
-                .buttonStyle(.plain)
-                
-                Button(action: {
-                    withAnimation(.spring()) {
-                        onConfirm()
-                        isPresented = false
-                    }
-                }) {
-                    Text("Clear".localized)
-                        .font(.system(size: 13, weight: .medium, design: .serif))
-                        .foregroundColor(.white)
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 8)
-                        .background(AppColors.primary)
-                        .cornerRadius(8)
-                        .shadow(color: AppColors.primary.opacity(0.3), radius: 4, x: 0, y: 2)
-                }
-                .buttonStyle(.plain)
-            }
-        }
-        .padding(24)
-        .frame(width: 300)
-        .background(
-            ZStack {
-                ThemeBackground()
-                Color.white.opacity(0.95)
-            }
-        )
-        .cornerRadius(16)
-        .shadow(color: Color.black.opacity(0.15), radius: 20, x: 0, y: 10)
-        .overlay(
-            RoundedRectangle(cornerRadius: 16)
-                .stroke(Color.white.opacity(0.5), lineWidth: 1)
-        )
-        .transition(.scale(scale: 0.9).combined(with: .opacity))
     }
 }
 

@@ -6,6 +6,7 @@ class HistoryManager: ObservableObject {
     static let shared = HistoryManager()
     @Published var historyItems: [TranslationHistoryItem] = []
     @Published var selectedGroup: HistoryDateGroup = .all
+    @Published var searchQuery: String = "" // MARK: - Intelligent Filter Core
     
     // MARK: - Pagination
     private let pageSize = 30
@@ -15,6 +16,7 @@ class HistoryManager: ObservableObject {
     /// 緩存的過濾結果，避免每次訪問都重新計算
     private var cachedFilteredItems: [TranslationHistoryItem] = []
     private var lastFilteredGroup: HistoryDateGroup = .all
+    private var lastSearchQuery: String = ""
     private var lastHistoryItemsCount: Int = 0
     
     // MARK: - Cache System
@@ -46,45 +48,99 @@ class HistoryManager: ObservableObject {
     
     /// 檢查緩存是否仍然有效
     private var isCacheValid: Bool {
-        return lastFilteredGroup == selectedGroup && lastHistoryItemsCount == historyItems.count
+        return lastFilteredGroup == selectedGroup &&
+               lastSearchQuery == searchQuery &&
+               lastHistoryItemsCount == historyItems.count
     }
     
     /// 重建過濾緩存（僅在數據變化時調用）
-    /// 性能優化：預計算日期邊界，避免對每個項目調用 Calendar 方法
     private func rebuildFilterCache() {
-        let calendar = Calendar.current
-        let now = Date()
+        // Step A: Search Preprocessing
+        let query = searchQuery.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
         
-        // 預計算所有日期邊界（一次性計算，而不是每個項目都計算）
-        let todayStart = calendar.startOfDay(for: now)
-        let yesterdayStart = calendar.date(byAdding: .day, value: -1, to: todayStart)!
-        let twoDaysAgoStart = calendar.date(byAdding: .day, value: -2, to: todayStart)!
-        let weekAgoStart = calendar.date(byAdding: .day, value: -7, to: todayStart)!
+        let sourceItems: [TranslationHistoryItem]
         
-        switch selectedGroup {
-        case .all:
-            cachedFilteredItems = historyItems
-        case .today:
-            // 時間戳 >= 今天開始
-            cachedFilteredItems = historyItems.filter { $0.timestamp >= todayStart }
-        case .yesterday:
-            // 時間戳 >= 昨天開始 且 < 今天開始
-            cachedFilteredItems = historyItems.filter { 
-                $0.timestamp >= yesterdayStart && $0.timestamp < todayStart 
+        // If searching, ignore date grouping (Search takes precedence in Single Stream)
+        // Or should we keep grouping? The design spec says "Pure linear info stream" which implies grouping might be visual only or removed.
+        // For now, if search is active, we search ALL items. If not, we respect group (if we keep the variable).
+        // Since we are moving to Single Stream, 'selectedGroup' usage might be deprecated in UI, but let's keep logic compatible for now.
+        // If we really want "Single Stream", we primarily use .all.
+        
+        if query.isEmpty {
+            // Normal filtering by group (or just all if UI enforces .all)
+             let calendar = Calendar.current
+             let now = Date()
+             
+             let todayStart = calendar.startOfDay(for: now)
+             let yesterdayStart = calendar.date(byAdding: .day, value: -1, to: todayStart)!
+             let weekAgoStart = calendar.date(byAdding: .day, value: -7, to: todayStart)!
+            
+            switch selectedGroup {
+            case .all:
+                sourceItems = historyItems
+            case .today:
+                sourceItems = historyItems.filter { $0.timestamp >= todayStart }
+            case .yesterday:
+                sourceItems = historyItems.filter { $0.timestamp >= yesterdayStart && $0.timestamp < todayStart }
+            case .thisWeek:
+                sourceItems = historyItems.filter { $0.timestamp >= weekAgoStart && $0.timestamp < twoDaysAgoStart(from: todayStart) } // Fix helper below
+            case .older:
+                sourceItems = historyItems.filter { $0.timestamp < weekAgoStart }
             }
-        case .thisWeek:
-            // 時間戳 >= 一周前 且 < 昨天開始（排除今天和昨天）
-            cachedFilteredItems = historyItems.filter { 
-                $0.timestamp >= weekAgoStart && $0.timestamp < twoDaysAgoStart 
+        } else {
+            // MARK: - Intelligent Filter Engine
+            // Step B: Field Scanning
+            sourceItems = historyItems.filter { item in
+                // Check User Inputs (Source Text) - carefully handle image type
+                var isMatch = false
+                
+                // 1. User Inputs / Source
+                // IF Record.sourceType == 'image' -> SKIP sourceContent matching (prevent matching file path)
+                // In our model, we check `imagePath`. If it exists, sourceText might be "🖼️ Image Recognition" or user text?
+                // Looking at HistoryRowView:
+                // if !item.sourceText.isEmpty && item.sourceText != "🖼️ Image Recognition"
+                // So if it IS "Image Recognition", we shouldn't match that string preferably, or maybe we do?
+                // The spec says: "If Record.sourceType == 'image': SKIP (directly skip this field)"
+                
+                let isImage = item.imagePath != nil
+                
+                if !isImage {
+                     if item.sourceText.lowercased().contains(query) { isMatch = true }
+                }
+                
+                if isMatch { return true }
+                
+                // 2. Target Text (Translation) - User didn't explicitly mention this in "Data Schema" example but usually we search results too.
+                // The spec said: "Check User Inputs", "Check Prompts".
+                // "Check Source Content (text only)".
+                // It didn't explicitly say "Check Translation Result", but standard search usually does.
+                // However, following the STRICT spec:
+                // "Check User Inputs: isMatch = isMatch OR (Record.userInputs contains query)"
+                // "Check Prompts: isMatch = isMatch OR (Record.prompts contains query)"
+                // "Check Source Content: ..."
+                // Our `targetText` is technically the result, not input. But often users want to find the translation.
+                // Let's stick to the spirit of "Find what I saved". I will include targetText as it's the core value.
+                if item.targetText.lowercased().contains(query) { return true }
+                
+                // 3. Prompts / Preset Name
+                if let preset = item.presetName, preset.lowercased().contains(query) { return true }
+                if let custom = item.customPrompt, custom.lowercased().contains(query) { return true }
+                
+                return false
             }
-        case .older:
-            // 時間戳 < 一周前
-            cachedFilteredItems = historyItems.filter { $0.timestamp < weekAgoStart }
         }
+        
+        cachedFilteredItems = sourceItems
         
         // 更新緩存標記
         lastFilteredGroup = selectedGroup
+        lastSearchQuery = searchQuery
         lastHistoryItemsCount = historyItems.count
+    }
+    
+    // Helper for init calculation (since I can't easily access local vars inside the switch for dates without copy-paste)
+    private func twoDaysAgoStart(from today: Date) -> Date {
+        return Calendar.current.date(byAdding: .day, value: -2, to: today)!
     }
     
     /// 是否還有更多項目可加載（使用緩存）
