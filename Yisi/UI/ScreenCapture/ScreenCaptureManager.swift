@@ -1,34 +1,48 @@
 import Cocoa
 import SwiftUI
 
-/// 屏幕截图管理器
-/// 负责全屏 Overlay 窗口的生命周期管理
+/// Screen Capture Manager
+/// Implements Shottr-style "Non-Activating Silent Screenshot" architecture.
+/// Key design: App remains inactive during capture to avoid window occlusion.
 class ScreenCaptureManager {
     static let shared = ScreenCaptureManager()
     
     private var overlayWindow: NSPanel?
     private var overlayView: ScreenCaptureOverlayView?
     
-    /// 截图完成回调
+    /// Global ESC key monitor (required since app is not activated)
+    private var globalKeyMonitor: Any?
+    
+    /// Reference to the screen where overlay is displayed (for coordinate conversion)
+    private var captureScreen: NSScreen?
+    
+    /// Capture completion callback
     var onCaptureComplete: ((NSImage) -> Void)?
     
-    /// 用户选择打开上传窗口的回调（双击触发）
+    /// Double-click upload callback
     var onOpenUploadWindow: (() -> Void)?
     
     private init() {}
     
-    /// 显示截图 Overlay
+    // MARK: - Public API
+    
+    /// Start capture mode on the screen containing the mouse cursor
     func startCapture(completion: @escaping (NSImage) -> Void) {
-        // 保存回调
         onCaptureComplete = completion
         
-        // 关闭已有窗口
         dismissCapture()
         
-        guard let screen = NSScreen.main else { return }
-        let screenRect = screen.frame
+        // Detect which screen contains the mouse cursor
+        let mouseLocation = NSEvent.mouseLocation
+        guard let targetScreen = NSScreen.screens.first(where: { $0.frame.contains(mouseLocation) })
+                ?? NSScreen.main else {
+            return
+        }
+        captureScreen = targetScreen
         
-        // 创建全屏透明 Panel
+        let screenRect = targetScreen.frame
+        
+        // Create non-activating panel covering the target screen
         let panel = NSPanel(
             contentRect: screenRect,
             styleMask: [.borderless, .nonactivatingPanel],
@@ -44,8 +58,8 @@ class ScreenCaptureManager {
         panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
         panel.isReleasedWhenClosed = false
         
-        // 创建 Overlay View
-        let overlayView = ScreenCaptureOverlayView(frame: screenRect)
+        // Create overlay view (uses screen-local coordinates)
+        let overlayView = ScreenCaptureOverlayView(frame: CGRect(origin: .zero, size: screenRect.size))
         overlayView.onSelectionComplete = { [weak self] rect in
             self?.captureRegion(rect)
         }
@@ -53,58 +67,70 @@ class ScreenCaptureManager {
             self?.dismissCapture()
         }
         overlayView.onOpenUploadWindow = { [weak self] in
-            print("DEBUG: onOpenUploadWindow triggered in OverlayView")
             self?.dismissCapture()
-            print("DEBUG: About to call Manager.onOpenUploadWindow, is nil? \(self?.onOpenUploadWindow == nil)")
             self?.onOpenUploadWindow?()
         }
         
         panel.contentView = overlayView
-        panel.makeKeyAndOrderFront(nil)
         
-        // 激活应用以接收键盘事件
-        NSApp.activate(ignoringOtherApps: true)
+        // CRITICAL: orderFrontRegardless displays the window WITHOUT activating the app
+        // This keeps focus on the previously active application
+        panel.orderFrontRegardless()
+        
+        // Since app is NOT activated, we cannot receive keyboard events via responder chain
+        // Must use global event monitor for ESC key
+        registerGlobalKeyMonitor()
         
         self.overlayWindow = panel
         self.overlayView = overlayView
     }
     
-    /// 关闭截图 Overlay
+    /// Dismiss capture mode and clean up resources
     func dismissCapture() {
+        unregisterGlobalKeyMonitor()
         overlayWindow?.close()
         overlayWindow = nil
         overlayView = nil
+        captureScreen = nil
     }
     
-    /// 截取指定区域
-    private func captureRegion(_ rect: CGRect) {
-        // 先关闭 Overlay 避免截到 Overlay 本身
+    // MARK: - Capture Logic
+    
+    /// Capture the selected region
+    private func captureRegion(_ localRect: CGRect) {
+        guard let screen = captureScreen else {
+            dismissCapture()
+            return
+        }
+        
+        // Step 1: Hide overlay immediately
         overlayWindow?.orderOut(nil)
         
-        // 稍微延迟确保 Overlay 完全隐藏
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [weak self] in
+        // Step 2: Wait for WindowServer to refresh the screen
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) { [weak self] in
             guard let self = self else { return }
             
-            // 转换坐标系：SwiftUI/AppKit 从左下角开始，CGWindowList 从左上角开始
-            guard let screen = NSScreen.main else {
-                self.dismissCapture()
-                return
-            }
+            // Step 3: Convert coordinates
+            // localRect is in overlay's coordinate system (origin at bottom-left of screen)
+            // CGWindowListCreateImage uses screen coordinates with origin at top-left
             
             let screenHeight = screen.frame.height
-            let cgRect = CGRect(
-                x: rect.origin.x,
-                y: screenHeight - rect.origin.y - rect.height,
-                width: rect.width,
-                height: rect.height
+            let screenOrigin = screen.frame.origin
+            
+            // Convert to global screen coordinates (top-left origin)
+            let globalRect = CGRect(
+                x: screenOrigin.x + localRect.origin.x,
+                y: screenHeight - localRect.origin.y - localRect.height,
+                width: localRect.width,
+                height: localRect.height
             )
             
-            // 使用 CGWindowListCreateImage 截图
-            // Note: CGWindowListCreateImage is deprecated in macOS 14.0 but still functional.
-            // We keep it for broader compatibility with older macOS versions.
-            // ScreenCaptureKit alternative requires macOS 12.3+ and more complex setup.
-            if let cgImage = self.captureScreenRegion(cgRect) {
-                let nsImage = NSImage(cgImage: cgImage, size: rect.size)
+            // Step 4: Capture the screen region
+            if let cgImage = self.captureScreenRegion(globalRect) {
+                let nsImage = NSImage(cgImage: cgImage, size: localRect.size)
+                
+                // Step 5: NOW activate the app to show results
+                NSApp.activate(ignoringOtherApps: true)
                 self.onCaptureComplete?(nsImage)
             }
             
@@ -112,15 +138,34 @@ class ScreenCaptureManager {
         }
     }
     
-    /// Helper function to capture screen region
-    /// Using @available to acknowledge the deprecation while maintaining compatibility
+    /// Capture screen region using CGWindowListCreateImage
     @available(macOS, deprecated: 14.0, message: "Using deprecated API for broader macOS compatibility")
     private func captureScreenRegion(_ rect: CGRect) -> CGImage? {
         return CGWindowListCreateImage(
             rect,
-            .optionOnScreenBelowWindow,
+            .optionOnScreenOnly,
             kCGNullWindowID,
             [.bestResolution]
         )
+    }
+    
+    // MARK: - Global Key Monitor
+    
+    private func registerGlobalKeyMonitor() {
+        globalKeyMonitor = NSEvent.addGlobalMonitorForEvents(matching: .keyDown) { [weak self] event in
+            // ESC key = keyCode 53
+            if event.keyCode == 53 {
+                DispatchQueue.main.async {
+                    self?.dismissCapture()
+                }
+            }
+        }
+    }
+    
+    private func unregisterGlobalKeyMonitor() {
+        if let monitor = globalKeyMonitor {
+            NSEvent.removeMonitor(monitor)
+            globalKeyMonitor = nil
+        }
     }
 }
