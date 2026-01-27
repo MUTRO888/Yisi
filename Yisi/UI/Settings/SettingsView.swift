@@ -678,8 +678,7 @@ struct PromptsSection: View {
     @AppStorage("preset_mode_enabled") private var presetModeEnabled: Bool = true
     @AppStorage("selected_preset_id") private var selectedPresetId: String = DEFAULT_TRANSLATION_PRESET_ID
     @State private var presets: [PromptPreset] = []
-    @State private var showEditSheet: Bool = false
-    @State private var editingPreset: PromptPreset? // If nil, adding new
+    @State private var editingPreset: PromptPreset?
     
     var body: some View {
         VStack(alignment: .leading, spacing: 24) {
@@ -726,8 +725,7 @@ struct PromptsSection: View {
                             .foregroundColor(.secondary)
                         Spacer()
                         Button(action: {
-                            editingPreset = nil
-                            showEditSheet = true
+                            editingPreset = PromptPreset(id: UUID(), name: "", inputPerception: "", outputInstruction: "")
                         }) {
                             Image(systemName: "plus")
                                 .font(.system(size: 11, weight: .medium))
@@ -756,7 +754,6 @@ struct PromptsSection: View {
                                     onSelect: { selectedPresetId = preset.id.uuidString },
                                     onEdit: {
                                         editingPreset = preset
-                                        showEditSheet = true
                                     },
                                     onDelete: { deletePreset(preset) }
                                 )
@@ -767,22 +764,18 @@ struct PromptsSection: View {
             }
         }
         .onAppear { loadPresets() }
-        .sheet(isPresented: $showEditSheet) {
-            if let editing = editingPreset {
-                PresetEditor(preset: editing, onSave: { updated in
+        .sheet(item: $editingPreset) { preset in
+            let isNew = !presets.contains(where: { $0.id == preset.id })
+            PresetEditor(preset: preset, isNew: isNew, onSave: { updated in
+                if isNew {
+                    addPreset(updated)
+                } else {
                     updatePreset(updated)
-                    showEditSheet = false
-                }, onCancel: {
-                    showEditSheet = false
-                })
-            } else {
-                PresetEditor(preset: PromptPreset(id: UUID(), name: "", inputPerception: "", outputInstruction: ""), onSave: { new in
-                    addPreset(new)
-                    showEditSheet = false
-                }, onCancel: {
-                    showEditSheet = false
-                })
-            }
+                }
+                editingPreset = nil
+            }, onCancel: {
+                editingPreset = nil
+            })
         }
     }
     
@@ -941,84 +934,207 @@ struct PresetEditor: View {
     @State private var name: String = ""
     @State private var inputPerception: String = ""
     @State private var outputInstruction: String = ""
+    @FocusState private var focusedField: Field?
     
-    let preset: PromptPreset?
+    enum Field {
+        case name, input, output
+    }
+    
+    let preset: PromptPreset
+    let isNew: Bool
     let onSave: (PromptPreset) -> Void
     let onCancel: () -> Void
     
-    init(preset: PromptPreset?, onSave: @escaping (PromptPreset) -> Void, onCancel: @escaping () -> Void) {
+    init(preset: PromptPreset, isNew: Bool, onSave: @escaping (PromptPreset) -> Void, onCancel: @escaping () -> Void) {
         self.preset = preset
+        self.isNew = isNew
         self.onSave = onSave
         self.onCancel = onCancel
-        
-        _name = State(initialValue: preset?.name ?? "")
-        _inputPerception = State(initialValue: preset?.inputPerception ?? "")
-        _outputInstruction = State(initialValue: preset?.outputInstruction ?? "")
     }
     
     var body: some View {
-        VStack(spacing: 20) {
-            Text(preset == nil ? "New Preset".localized : "Edit Preset".localized)
-                .font(.system(size: 16, weight: .medium, design: .serif))
+        VStack(spacing: 24) {
+            Text(isNew ? "New Preset".localized : "Edit Preset".localized)
+                .font(.system(size: 18, weight: .medium, design: .serif))
+                .foregroundColor(.primary)
+                .padding(.top, 8)
             
-            VStack(alignment: .leading, spacing: 16) {
-                VStack(alignment: .leading, spacing: 6) {
-                    Text("Name".localized)
-                        .font(.system(size: 12, weight: .medium, design: .serif))
-                        .foregroundColor(.secondary)
+            VStack(spacing: 16) {
+                StyledInputGroup(label: "Name".localized) {
                     TextField("e.g. Code Audit".localized, text: $name)
-                        .textFieldStyle(PlainTextFieldStyle())
-                        .padding(8)
-                        .background(Color.primary.opacity(0.03))
-                        .cornerRadius(6)
+                        .textFieldStyle(.plain)
+                        .font(.system(size: 14))
+                        .focused($focusedField, equals: .name)
+                        .padding(10)
                 }
                 
-                VStack(alignment: .leading, spacing: 6) {
-                    Text("Input Perception".localized)
-                        .font(.system(size: 12, weight: .medium, design: .serif))
-                        .foregroundColor(.secondary)
-                    TextEditor(text: $inputPerception)
-                        .font(.system(size: 13))
-                        .frame(height: 60)
-                        .padding(4)
-                        .background(Color.primary.opacity(0.03))
-                        .cornerRadius(6)
+                StyledInputGroup(label: "Input Perception".localized) {
+                    ZStack(alignment: .topLeading) {
+                        if inputPerception.isEmpty {
+                            Text("How AI should understand the input...".localized)
+                                .font(.system(size: 13))
+                                .foregroundColor(.secondary.opacity(0.5))
+                                .padding(.leading, 5)
+                                .padding(.top, 8)
+                                .allowsHitTesting(false)
+                        }
+                        
+                        SmoothEditor(text: $inputPerception)
+                            .frame(height: 80)
+                    }
+                    .padding(5)
                 }
                 
-                VStack(alignment: .leading, spacing: 6) {
-                    Text("Output Instruction".localized)
-                        .font(.system(size: 12, weight: .medium, design: .serif))
-                        .foregroundColor(.secondary)
-                    TextEditor(text: $outputInstruction)
-                        .font(.system(size: 13))
-                        .frame(height: 60)
-                        .padding(4)
-                        .background(Color.primary.opacity(0.03))
-                        .cornerRadius(6)
+                StyledInputGroup(label: "Output Instruction".localized) {
+                    ZStack(alignment: .topLeading) {
+                        if outputInstruction.isEmpty {
+                            Text("How AI should format the output...".localized)
+                                .font(.system(size: 13))
+                                .foregroundColor(.secondary.opacity(0.5))
+                                .padding(.leading, 5)
+                                .padding(.top, 8)
+                                .allowsHitTesting(false)
+                        }
+                        
+                        SmoothEditor(text: $outputInstruction)
+                            .frame(height: 120)
+                    }
+                    .padding(5)
                 }
             }
             
             HStack(spacing: 12) {
-                Button("Cancel".localized) {
-                    onCancel()
+                Button(action: onCancel) {
+                    Text("Cancel".localized)
+                        .font(.system(size: 13, weight: .medium, design: .serif))
+                        .foregroundColor(.secondary)
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 8)
+                        .background(Color.primary.opacity(0.05))
+                        .cornerRadius(8)
                 }
+                .buttonStyle(.plain)
                 .keyboardShortcut(.escape, modifiers: [])
                 
-                Button("Save".localized) {
+                Button(action: {
                     let newPreset = PromptPreset(
-                        id: preset?.id ?? UUID(),
+                        id: preset.id,
                         name: name.isEmpty ? "Untitled" : name,
                         inputPerception: inputPerception,
                         outputInstruction: outputInstruction
                     )
                     onSave(newPreset)
+                }) {
+                    Text("Save".localized)
+                        .font(.system(size: 13, weight: .medium, design: .serif))
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 20)
+                        .padding(.vertical, 8)
+                        .background(
+                            RoundedRectangle(cornerRadius: 8)
+                                .fill(name.isEmpty ? Color.gray.opacity(0.3) : AppColors.primary)
+                        )
+                        .shadow(color: AppColors.primary.opacity(0.3), radius: 4, x: 0, y: 2)
                 }
-                .keyboardShortcut(.return, modifiers: [])
+                .buttonStyle(.plain)
                 .disabled(name.isEmpty)
+                .keyboardShortcut(.return, modifiers: .command)
             }
+            .padding(.top, 8)
         }
         .padding(24)
-        .frame(width: 400)
+        .frame(width: 420)
+        .background(ThemeBackground())
+        .onAppear {
+            name = preset.name
+            inputPerception = preset.inputPerception
+            outputInstruction = preset.outputInstruction
+            if isNew {
+                focusedField = .name
+            }
+        }
+    }
+}
+
+struct StyledInputGroup<Content: View>: View {
+    let label: String
+    let content: Content
+    
+    init(label: String, @ViewBuilder content: () -> Content) {
+        self.label = label
+        self.content = content()
+    }
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(label)
+                .font(.system(size: 12, weight: .medium, design: .serif))
+                .foregroundColor(.secondary)
+                .padding(.leading, 2)
+            
+            ZStack {
+                RoundedRectangle(cornerRadius: 8)
+                    .fill(Color.primary.opacity(0.03))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 8)
+                            .stroke(Color.primary.opacity(0.08), lineWidth: 0.5)
+                    )
+                
+                content
+            }
+        }
+    }
+}
+
+struct SmoothEditor: NSViewRepresentable {
+    @Binding var text: String
+    var placeholder: String?
+    
+    func makeNSView(context: Context) -> NSScrollView {
+        let scrollView = YisiScrollView()
+        scrollView.drawsBackground = false
+        
+        let textView = NSTextView()
+        textView.drawsBackground = false
+        textView.backgroundColor = .clear
+        textView.isRichText = false
+        textView.isVerticallyResizable = true
+        textView.isHorizontallyResizable = false
+        textView.autoresizingMask = [.width]
+        
+        textView.font = NSFont.systemFont(ofSize: 13)
+        textView.textContainerInset = NSSize(width: 5, height: 8)
+        textView.textContainer?.lineFragmentPadding = 0
+        
+        textView.delegate = context.coordinator
+        
+        scrollView.documentView = textView
+        return scrollView
+    }
+    
+    func updateNSView(_ scrollView: NSScrollView, context: Context) {
+        guard let textView = scrollView.documentView as? NSTextView else { return }
+        
+        if textView.string != text {
+            textView.string = text
+        }
+    }
+    
+    func makeCoordinator() -> Coordinator {
+        Coordinator(self)
+    }
+    
+    class Coordinator: NSObject, NSTextViewDelegate {
+        var parent: SmoothEditor
+        
+        init(_ parent: SmoothEditor) {
+            self.parent = parent
+        }
+        
+        func textDidChange(_ notification: Notification) {
+            guard let textView = notification.object as? NSTextView else { return }
+            self.parent.text = textView.string
+        }
     }
 }
 
