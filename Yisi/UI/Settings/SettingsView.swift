@@ -503,7 +503,7 @@ struct GeneralSection: View {
                     
                     ElegantToggle(isOn: $enableImproveFeature)
                     
-                    Text("Enable translation improvement".localized)
+                    Text("Text mode only. Images excluded to save space.".localized)
                         .font(.system(size: 12, design: .serif))
                         .foregroundColor(.secondary.opacity(0.7))
                     
@@ -1172,10 +1172,25 @@ struct ShortcutsSection: View {
 struct LearnedRulesSection: View {
     @State private var rules: [UserLearnedRule] = []
     @State private var isLoading = true
+    @State private var showAddSheet = false
+    @State private var editingRule: UserLearnedRule?
     
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            SectionHeader(title: "Learned Rules".localized)
+            // Header with + button
+            HStack {
+                SectionHeader(title: "Learned Rules".localized)
+                
+                Spacer()
+                
+                Button(action: { showAddSheet = true }) {
+                    Image(systemName: "plus.circle.fill")
+                        .font(.system(size: 16))
+                        .foregroundColor(AppColors.primary.opacity(0.7))
+                }
+                .buttonStyle(.plain)
+                .help("Add rule manually".localized)
+            }
             
             Text("Translation rules learned from your corrections.".localized)
                 .font(.system(size: 13, design: .serif))
@@ -1206,9 +1221,11 @@ struct LearnedRulesSection: View {
             } else {
                 VStack(alignment: .leading, spacing: 12) {
                     ForEach(rules) { rule in
-                        RuleCard(rule: rule, onDelete: {
-                            deleteRule(rule)
-                        })
+                        RuleCard(
+                            rule: rule,
+                            onDelete: { deleteRule(rule) },
+                            onEdit: { editingRule = rule }
+                        )
                     }
                 }
             }
@@ -1218,6 +1235,21 @@ struct LearnedRulesSection: View {
         }
         .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("LearnedRuleAdded"))) { _ in
             loadRules()
+        }
+        .sheet(isPresented: $showAddSheet) {
+            AddRuleSheet(onSave: { reasoning, origin, ai, better in
+                addManualRule(reasoning: reasoning, origin: origin, ai: ai, better: better)
+            }, onCancel: {
+                showAddSheet = false
+            })
+        }
+        .sheet(item: $editingRule) { rule in
+            EditRuleSheet(rule: rule, onSave: { updatedRule in
+                updateRule(updatedRule)
+                editingRule = nil
+            }, onCancel: {
+                editingRule = nil
+            })
         }
     }
     
@@ -1241,105 +1273,397 @@ struct LearnedRulesSection: View {
             print("ERROR: Failed to delete rule: \(error)")
         }
     }
+    
+    private func updateRule(_ rule: UserLearnedRule) {
+        do {
+            try LearningManager.shared.updateRule(rule)
+            print("DEBUG: Successfully updated rule: \(rule.id)")
+            loadRules()
+        } catch {
+            print("ERROR: Failed to update rule: \(error)")
+        }
+    }
+    
+    private func addManualRule(reasoning: String, origin: String, ai: String, better: String) {
+        do {
+            try LearningManager.shared.addManualRule(
+                reasoning: reasoning,
+                originalText: origin,
+                aiTranslation: ai,
+                userCorrection: better
+            )
+            showAddSheet = false
+            loadRules()
+        } catch {
+            print("ERROR: Failed to add manual rule: \(error)")
+        }
+    }
 }
+
+
+// MARK: - Edit Rule Sheet
+
+struct EditRuleSheet: View {
+    let rule: UserLearnedRule
+    let onSave: (UserLearnedRule) -> Void
+    let onCancel: () -> Void
+    
+    @State private var editedReasoning: String
+    @State private var editedCorrection: String
+    
+    init(rule: UserLearnedRule, onSave: @escaping (UserLearnedRule) -> Void, onCancel: @escaping () -> Void) {
+        self.rule = rule
+        self.onSave = onSave
+        self.onCancel = onCancel
+        _editedReasoning = State(initialValue: rule.reasoning)
+        _editedCorrection = State(initialValue: rule.userCorrection)
+    }
+    
+    var body: some View {
+        VStack(spacing: 0) {
+            // Header
+            Text("Edit Rule".localized)
+                .font(.system(size: 16, weight: .medium, design: .serif))
+                .foregroundColor(.primary)
+                .padding(.top, 24)
+                .padding(.bottom, 20)
+            
+            // Scrollable Content
+            ScrollView {
+                VStack(alignment: .leading, spacing: 20) {
+                    
+                    // Rule Content
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Rule".localized)
+                            .font(.system(size: 12, weight: .medium, design: .serif))
+                            .foregroundColor(.secondary)
+                        
+                        TextEditor(text: $editedReasoning)
+                            .font(.system(size: 13, design: .serif))
+                            .frame(height: 80)
+                            .scrollContentBackground(.hidden)
+                            .padding(10)
+                            .background(Color.primary.opacity(0.03))
+                            .cornerRadius(8)
+                    }
+                    
+                    Divider().opacity(0.3)
+                    
+                    // Evidence Section
+                    VStack(spacing: 12) {
+                        // Origin (Read Only)
+                        ReadOnlyField(label: "Origin", text: rule.originalText)
+                        
+                        // AI (Read Only)
+                        ReadOnlyField(label: "AI", text: rule.aiTranslation)
+                        
+                        // Better (Editable)
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text("Better".localized)
+                                .font(.system(size: 11, weight: .medium, design: .serif))
+                                .foregroundColor(AppColors.primary.opacity(0.8))
+                            
+                            TextField("Your correction...", text: $editedCorrection)
+                                .textFieldStyle(.plain)
+                                .font(.system(size: 13, weight: .medium, design: .serif))
+                                .padding(10)
+                                .background(Color.primary.opacity(0.03))
+                                .cornerRadius(6)
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 6)
+                                        .stroke(AppColors.primary.opacity(0.1), lineWidth: 1)
+                                )
+                        }
+                    }
+                }
+                .padding(.horizontal, 24)
+            }
+            
+            Spacer(minLength: 16)
+            
+            // Footer Actions
+            HStack(spacing: 12) {
+                Button(action: onCancel) {
+                    Text("Cancel".localized)
+                        .font(.system(size: 13, weight: .medium, design: .serif))
+                        .foregroundColor(.secondary)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 10)
+                        .background(Color.primary.opacity(0.05))
+                        .cornerRadius(8)
+                }
+                .buttonStyle(.plain)
+                .keyboardShortcut(.escape, modifiers: [])
+                
+                Button(action: {
+                    let updated = UserLearnedRule(
+                        id: rule.id,
+                        originalText: rule.originalText,
+                        aiTranslation: rule.aiTranslation,
+                        userCorrection: editedCorrection.trimmingCharacters(in: .whitespaces),
+                        reasoning: editedReasoning.trimmingCharacters(in: .whitespaces),
+                        rulePattern: rule.rulePattern,
+                        category: rule.category,
+                        createdAt: rule.createdAt,
+                        usageCount: rule.usageCount
+                    )
+                    onSave(updated)
+                }) {
+                    Text("Save".localized)
+                        .font(.system(size: 13, weight: .medium, design: .serif))
+                        .foregroundColor(.white)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 10)
+                        .background(AppColors.primary)
+                        .cornerRadius(8)
+                }
+                .buttonStyle(.plain)
+                .disabled(editedReasoning.isEmpty || editedCorrection.isEmpty)
+                .keyboardShortcut(.return, modifiers: .command)
+            }
+            .padding(24)
+        }
+        .frame(width: 400, height: 500) // Fixed size, larger comfortable window
+        .background(ThemeBackground())
+    }
+}
+
+struct ReadOnlyField: View {
+    let label: String
+    let text: String
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(label.localized)
+                .font(.system(size: 11, weight: .medium, design: .serif))
+                .foregroundColor(.secondary.opacity(0.6))
+            
+            Text(text.isEmpty ? "-" : text)
+                .font(.system(size: 13, design: .serif))
+                .foregroundColor(.secondary.opacity(0.8))
+                .fixedSize(horizontal: false, vertical: true)
+                .padding(10)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(Color.primary.opacity(0.02))
+                .cornerRadius(6)
+        }
+    }
+}
+
+// MARK: - Add Rule Sheet (Refactored)
+
+struct AddRuleSheet: View {
+    let onSave: (String, String, String, String) -> Void
+    let onCancel: () -> Void
+    
+    @State private var ruleContent: String = ""
+    @State private var attachExample: Bool = false
+    @State private var origin: String = ""
+    @State private var aiTranslation: String = ""
+    @State private var betterTranslation: String = ""
+    
+    private var canSave: Bool {
+        let ruleValid = !ruleContent.trimmingCharacters(in: .whitespaces).isEmpty
+        if attachExample {
+            return ruleValid &&
+                !origin.trimmingCharacters(in: .whitespaces).isEmpty &&
+                !aiTranslation.trimmingCharacters(in: .whitespaces).isEmpty &&
+                !betterTranslation.trimmingCharacters(in: .whitespaces).isEmpty
+        }
+        return ruleValid
+    }
+    
+    var body: some View {
+        VStack(spacing: 0) {
+            // Header
+            Text("Add Rule".localized)
+                .font(.system(size: 16, weight: .medium, design: .serif))
+                .foregroundColor(.primary)
+                .padding(.top, 24)
+                .padding(.bottom, 20)
+            
+            ScrollView {
+                VStack(spacing: 20) {
+                    // Rule Content (Required)
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Rule Content".localized)
+                            .font(.system(size: 12, weight: .medium, design: .serif))
+                            .foregroundColor(.secondary)
+                        
+                        TextEditor(text: $ruleContent)
+                            .font(.system(size: 13, design: .serif))
+                            .frame(height: 80)
+                            .scrollContentBackground(.hidden)
+                            .padding(10)
+                            .background(Color.primary.opacity(0.03))
+                            .cornerRadius(8)
+                    }
+                    
+                    Divider().opacity(0.3)
+                    
+                    // Attach Example Toggle
+                    HStack {
+                        Text("Attach Example".localized)
+                            .font(.system(size: 13, design: .serif))
+                            .foregroundColor(.secondary)
+                        
+                        Spacer()
+                        
+                        ElegantToggle(isOn: $attachExample)
+                    }
+                    
+                    // Example Fields (Conditional)
+                    if attachExample {
+                        VStack(spacing: 12) {
+                            AddRuleField(label: "Origin".localized, text: $origin, placeholder: "Original text...")
+                            AddRuleField(label: "AI".localized, text: $aiTranslation, placeholder: "AI translation...")
+                            AddRuleField(label: "Better".localized, text: $betterTranslation, placeholder: "Your correction...", highlight: true)
+                        }
+                        .transition(.opacity.combined(with: .move(edge: .top)))
+                    }
+                }
+                .padding(.horizontal, 24)
+            }
+            
+            Spacer(minLength: 16)
+            
+            // Actions
+            HStack(spacing: 12) {
+                Button(action: onCancel) {
+                    Text("Cancel".localized)
+                        .font(.system(size: 13, weight: .medium, design: .serif))
+                        .foregroundColor(.secondary)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 10)
+                        .background(Color.primary.opacity(0.05))
+                        .cornerRadius(8)
+                }
+                .buttonStyle(.plain)
+                .keyboardShortcut(.escape, modifiers: [])
+                
+                Button(action: {
+                    onSave(
+                        ruleContent.trimmingCharacters(in: .whitespaces),
+                        attachExample ? origin.trimmingCharacters(in: .whitespaces) : "",
+                        attachExample ? aiTranslation.trimmingCharacters(in: .whitespaces) : "",
+                        attachExample ? betterTranslation.trimmingCharacters(in: .whitespaces) : ""
+                    )
+                }) {
+                    Text("Save".localized)
+                        .font(.system(size: 13, weight: .medium, design: .serif))
+                        .foregroundColor(.white)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 10)
+                        .background(canSave ? AppColors.primary : Color.gray.opacity(0.3))
+                        .cornerRadius(8)
+                }
+                .buttonStyle(.plain)
+                .disabled(!canSave)
+                .keyboardShortcut(.return, modifiers: .command)
+            }
+            .padding(24)
+        }
+        .frame(width: 400, height: 500) // Fixed size to prevent window resize glitches
+        .background(ThemeBackground())
+    }
+}
+
+struct AddRuleField: View {
+    let label: String
+    @Binding var text: String
+    var placeholder: String = ""
+    var highlight: Bool = false
+    
+    var body: some View {
+        HStack(alignment: .top, spacing: 8) {
+            Text(label)
+                .font(.system(size: 11, weight: .medium, design: .serif))
+                .foregroundColor(highlight ? AppColors.primary.opacity(0.8) : .secondary.opacity(0.6))
+                .frame(width: 40, alignment: .leading)
+            
+            TextField(placeholder, text: $text)
+                .textFieldStyle(.plain)
+                .font(.system(size: 12, design: .serif))
+                .padding(8)
+                .background(Color.primary.opacity(0.03))
+                .cornerRadius(4)
+        }
+    }
+}
+
 
 struct RuleCard: View {
     let rule: UserLearnedRule
     let onDelete: () -> Void
-    @State private var isExpanded = false
+    let onEdit: () -> Void
     
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack(alignment: .top) {
-                VStack(alignment: .leading, spacing: 4) {
-                    HStack(spacing: 8) {
-                        Text(rule.category.displayName)
-                            .font(.system(size: 11, weight: .medium, design: .serif))
-                            .foregroundColor(.secondary)
-                            .padding(.horizontal, 6)
-                            .padding(.vertical, 2)
-                            .background(Color.primary.opacity(0.06))
-                            .cornerRadius(3)
-                        
-                        Text(formatDate(rule.createdAt))
-                            .font(.system(size: 11, design: .serif))
-                            .foregroundColor(.secondary.opacity(0.6))
-                    }
-                    
-                    Text(rule.reasoning)
-                        .font(.system(size: 12, design: .serif))
-                        .foregroundColor(.primary)
-                        .lineLimit(isExpanded ? nil : 2)
-                }
+        HStack(alignment: .top, spacing: 12) {
+            // Rule Text (Brief)
+            Text(rule.reasoning)
+                .font(.system(size: 13, weight: .regular, design: .serif))
+                .foregroundColor(.primary)
+                .lineLimit(2)
+                .frame(maxWidth: .infinity, alignment: .leading)
+            
+            // Actions
+            HStack(spacing: 8) {
+                // Edit Trigger (Visual only, whole card is clickable)
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundColor(.secondary.opacity(0.3))
                 
-                Spacer()
-                
+                // Delete Button (Separate action)
                 Button(action: onDelete) {
-                    Image(systemName: "trash")
-                        .font(.system(size: 12))
-                        .foregroundColor(.secondary.opacity(0.5))
+                    Image(systemName: "xmark")
+                        .font(.system(size: 10, weight: .medium))
+                        .foregroundColor(.secondary.opacity(0.3))
+                        .padding(4)
+                        .background(Color.secondary.opacity(0.05))
+                        .clipShape(Circle())
                 }
                 .buttonStyle(.plain)
             }
-            
-            if isExpanded {
-                Divider().opacity(0.3)
-                
-                VStack(alignment: .leading, spacing: 8) {
-                    HStack {
-                        Text("Original:".localized)
-                            .font(.system(size: 11, weight: .medium, design: .serif))
-                            .foregroundColor(.secondary)
-                        Text(rule.originalText)
-                            .font(.system(size: 11, design: .serif))
-                            .foregroundColor(.secondary.opacity(0.8))
-                    }
-                    
-                    HStack {
-                        Text("AI:".localized)
-                            .font(.system(size: 11, weight: .medium, design: .serif))
-                            .foregroundColor(.secondary)
-                        Text(rule.aiTranslation)
-                            .font(.system(size: 11, design: .serif))
-                            .foregroundColor(.secondary.opacity(0.8))
-                    }
-                    
-                    HStack {
-                        Text("Your correction:".localized)
-                            .font(.system(size: 11, weight: .medium, design: .serif))
-                            .foregroundColor(.secondary)
-                        Text(rule.userCorrection)
-                            .font(.system(size: 11, design: .serif))
-                            .foregroundColor(.secondary.opacity(0.8))
-                    }
-                }
-            }
-            
-            Button(action: { isExpanded.toggle() }) {
-                HStack {
-                    Text(isExpanded ? "Show less".localized : "Show more".localized)
-                        .font(.system(size: 11, design: .serif))
-                        .foregroundColor(.secondary.opacity(0.7))
-                    Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
-                        .font(.system(size: 9))
-                        .foregroundColor(.secondary.opacity(0.5))
-                }
-            }
-            .buttonStyle(.plain)
         }
         .padding(12)
         .background(Color.primary.opacity(0.02))
-        .cornerRadius(6)
-        .overlay(RoundedRectangle(cornerRadius: 6).stroke(Color.primary.opacity(0.08), lineWidth: 0.5))
-    }
-    
-    private func formatDate(_ date: Date) -> String {
-        let formatter = DateFormatter()
-        formatter.dateStyle = .short
-        formatter.timeStyle = .short
-        return formatter.string(from: date)
+        .cornerRadius(8)
+        .overlay(
+            RoundedRectangle(cornerRadius: 8)
+                .stroke(Color.primary.opacity(0.04), lineWidth: 0.5)
+        )
+        .contentShape(Rectangle())
+        .onTapGesture {
+            onEdit()
+        }
     }
 }
+
+// Helper view for consistent field rows (kept for compatibility)
+struct RuleFieldRow: View {
+    let label: String
+    let value: String
+    var labelColor: Color = .secondary.opacity(0.6)
+    var valueColor: Color = .secondary.opacity(0.8)
+    var isEditable: Bool = false
+    var isBold: Bool = false
+    
+    var body: some View {
+        HStack(alignment: .top, spacing: 8) {
+            Text(label)
+                .font(.system(size: 11, weight: .medium, design: .serif))
+                .foregroundColor(labelColor)
+                .frame(width: 40, alignment: .leading)
+            
+            Text(value)
+                .font(.system(size: 12, weight: isBold ? .medium : .regular, design: .serif))
+                .foregroundColor(valueColor)
+                .lineLimit(2)
+        }
+    }
+}
+
+
 
 extension RuleCategory {
     var displayName: String {

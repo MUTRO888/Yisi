@@ -11,8 +11,6 @@ struct TranslationView: View {
     @FocusState private var isInputFocused: Bool
     @AppStorage("close_mode") private var closeMode: String = "clickOutside"
     @ObservedObject private var localizationManager = LocalizationManager.shared
-    @State private var isEditingTranslation: Bool = false
-    @State private var editedTranslation: String = ""
     @State private var isImproving: Bool = false
     @State private var originalAiTranslation: String = ""
     @State private var savedOriginalText: String = ""
@@ -290,33 +288,28 @@ struct TranslationView: View {
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
                     Rectangle().fill(Color.primary.opacity(0.05)).frame(width: 1)
                     
-                    // Output area
+                    // Output area - Always editable
                     ZStack(alignment: .topLeading) {
-                        if isEditingTranslation {
-                            CustomTextEditor(text: $editedTranslation, placeholder: outputPlaceholder)
-                                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                        } else {
-                            MacEditorView(text: .constant(translatedText))
-                                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                                .opacity(isTranslating ? 0 : 1)
-                                .overlay(alignment: .topLeading) {
-                                    Group {
-                                        if isTranslating {
-                                            HarmonicFlowView(text: originalText)
-                                                .padding(.horizontal, 25)
-                                                .padding(.vertical, 20)
-                                        } else if translatedText.isEmpty {
-                                            Text(outputPlaceholder)
-                                                .font(.system(size: 16, weight: .light, design: .serif))
-                                                .foregroundColor(.secondary.opacity(0.5))
-                                                .padding(.horizontal, 25)
-                                                .padding(.vertical, 20)
-                                                .allowsHitTesting(false)
-                                        }
+                        MacEditorView(text: $translatedText)
+                            .frame(maxWidth: .infinity, maxHeight: .infinity)
+                            .opacity(isTranslating ? 0 : 1)
+                            .overlay(alignment: .topLeading) {
+                                Group {
+                                    if isTranslating {
+                                        HarmonicFlowView(text: originalText)
+                                            .padding(.horizontal, 25)
+                                            .padding(.vertical, 20)
+                                    } else if translatedText.isEmpty {
+                                        Text(outputPlaceholder)
+                                            .font(.system(size: 16, weight: .light, design: .serif))
+                                            .foregroundColor(.secondary.opacity(0.5))
+                                            .padding(.horizontal, 25)
+                                            .padding(.vertical, 20)
+                                            .allowsHitTesting(false)
                                     }
-                                    .clipped()
                                 }
-                        }
+                                .clipped()
+                            }
                     }
                     .background(Color.clear)
                 }
@@ -329,6 +322,20 @@ struct TranslationView: View {
                 
                 // Right Side: Actions
                 HStack(spacing: 12) {
+                    // Smart Improvement Button (Text Mode Only)
+                    if !isImageMode {
+                        SmartImprovementButton(
+                            hasChanges: !translatedText.isEmpty && !originalAiTranslation.isEmpty && translatedText != originalAiTranslation,
+                            isLoading: isImproving,
+                            showSuccess: showImproveSuccess,
+                            action: {
+                                Task {
+                                    await improveWithAI()
+                                }
+                            }
+                        )
+                    }
+                    
                     // Yisi Button (The Living Verb)
                     YisiButton(isLoading: isTranslating || isImproving) {
                         Task {
@@ -523,6 +530,7 @@ struct TranslationView: View {
                 userPerception: mode == .temporaryCustom ? customInputPerception : nil,
                 userInstruction: mode == .temporaryCustom ? customOutputInstruction : nil
             )
+            originalAiTranslation = translatedText  // Anchor baseline for detecting user edits
             savedOriginalText = originalText  // Save for improve feature
         } catch {
             print("❌ TRANSLATION ERROR:")
@@ -560,6 +568,8 @@ struct TranslationView: View {
             )
             
             translatedText = try await AIService.shared.processImage(image, instruction: instruction, mode: mode)
+            originalAiTranslation = translatedText  // Anchor baseline for detecting user edits
+            savedOriginalText = originalText  // Save for improve feature (image mode)
         } catch {
             print("❌ IMAGE RECOGNITION ERROR:")
             print("   Error: \(error)")
@@ -572,26 +582,33 @@ struct TranslationView: View {
     
     private func improveWithAI() async {
         print("DEBUG: improveWithAI called")
-        guard !savedOriginalText.isEmpty && !originalAiTranslation.isEmpty && !editedTranslation.isEmpty else {
-            print("DEBUG: Missing data for improve: original=\(savedOriginalText.isEmpty), ai=\(originalAiTranslation.isEmpty), edited=\(editedTranslation.isEmpty)")
+        guard !savedOriginalText.isEmpty && !originalAiTranslation.isEmpty && !translatedText.isEmpty else {
+            print("DEBUG: Missing data for improve: original=\(savedOriginalText.isEmpty), ai=\(originalAiTranslation.isEmpty), translated=\(translatedText.isEmpty)")
             return
         }
+        
+        // Ensure user actually made changes
+        guard translatedText != originalAiTranslation else {
+            print("DEBUG: No changes detected, skipping improve")
+            return
+        }
+        
         isImproving = true
         print("DEBUG: Starting analysis...")
         do {
             let rule = try await LearningManager.shared.analyzeCorrection(
                 originalText: savedOriginalText,
                 aiTranslation: originalAiTranslation,
-                userCorrection: editedTranslation
+                userCorrection: translatedText
             )
             print("DEBUG: Analysis complete. Rule received: \(rule.id)")
             
             // Successfully saved rule, update UI
             await MainActor.run {
                 print("DEBUG: Updating UI on MainActor")
-                translatedText = editedTranslation
-                isEditingTranslation = false
-                editedTranslation = ""
+                
+                // Update baseline to current text (prevents button re-activation)
+                originalAiTranslation = translatedText
                 
                 // Show success indicator
                 showImproveSuccess = true
@@ -616,6 +633,7 @@ struct TranslationView: View {
         }
         isImproving = false
     }
+
     
     private func swapLanguages() {
         if sourceLanguage == .auto {
@@ -955,5 +973,55 @@ struct WindowAccessor: NSViewRepresentable {
             super.viewDidMoveToWindow()
             onWindowChange?()
         }
+    }
+}
+
+// MARK: - Smart Improvement Button
+
+struct SmartImprovementButton: View {
+    let hasChanges: Bool
+    let isLoading: Bool
+    let showSuccess: Bool
+    let action: () -> Void
+    
+    var body: some View {
+        Button(action: {
+            if hasChanges && !isLoading && !showSuccess {
+                action()
+            }
+        }) {
+            ZStack {
+                if isLoading {
+                    // Loading state
+                    ProgressView()
+                        .scaleEffect(0.6)
+                        .frame(width: 16, height: 16)
+                } else if showSuccess {
+                    // Success state (brand color checkmark)
+                    Image(systemName: "checkmark.circle.fill")
+                        .font(.system(size: 16, weight: .medium))
+                        .foregroundColor(AppColors.primary)
+                } else {
+                    // Default or Active state
+                    Image(systemName: "sparkles")
+                        .font(.system(size: 14, weight: .medium))
+                        .foregroundColor(hasChanges ? AppColors.primary : .secondary.opacity(0.4))
+                }
+            }
+            .frame(width: 32, height: 32)
+            .background(
+                Circle()
+                    .fill(hasChanges && !showSuccess ? AppColors.primary.opacity(0.1) : Color.primary.opacity(0.05))
+            )
+            .overlay(
+                Circle()
+                    .stroke(hasChanges && !showSuccess ? AppColors.primary.opacity(0.2) : Color.clear, lineWidth: 1)
+            )
+        }
+        .buttonStyle(.plain)
+        .disabled(!hasChanges || isLoading)
+        .help(hasChanges ? "Analyze your edits and learn".localized : "Edit the translation to enable".localized)
+        .animation(.easeInOut(duration: 0.2), value: hasChanges)
+        .animation(.easeInOut(duration: 0.2), value: showSuccess)
     }
 }

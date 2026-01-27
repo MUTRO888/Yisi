@@ -142,25 +142,27 @@ class LearningManager {
     
     private func generateAnalysisPrompt(originalText: String, aiTranslation: String, userCorrection: String) -> String {
         return """
-        You are a translation quality analyzer. Analyze why the user corrected the AI translation.
+        You are analyzing why a user corrected an AI translation. Your task is to identify the user's intent.
 
         Original Text: "\(originalText)"
         AI Translation: "\(aiTranslation)"
         User Correction: "\(userCorrection)"
 
-        Output ONLY valid JSON with these EXACT keys (use camelCase):
+        Analyze the difference between AI Translation and User Correction. Output ONLY valid JSON:
         {
-          "reasoning": "Brief analysis in 2-3 sentences",
-          "rulePattern": "**Bad Case**: ... **Expected Case**: ... **Instruction**: ...",
-          "category": "attributeToVerb"
+          "reasoning": "A single, concise sentence explaining why the user made this change.",
+          "rulePattern": "",
+          "category": "style"
         }
         
-        IMPORTANT:
-        - Use "rulePattern" NOT "rule_pattern"
-        - Category must be one of: attributeToVerb, metaphor, terminology, style, other
-        - No markdown code blocks, just pure JSON
+        RULES:
+        - "reasoning" MUST be exactly ONE sentence, clear and actionable (e.g., "User prefers active voice over passive constructions.")
+        - "rulePattern" can be empty (deprecated field)
+        - "category" must be one of: attributeToVerb, metaphor, terminology, style, other
+        - No markdown, no code blocks, just pure JSON
         """
     }
+
     
     private func callAnalysisAPI(prompt: String, provider: APIProvider) async throws -> String {
         // Reuse TranslationService's API calling logic
@@ -313,6 +315,32 @@ class LearningManager {
         }
         sqlite3_finalize(statement)
     }
+    
+    func updateRule(_ rule: UserLearnedRule) throws {
+        // Use saveRule which does INSERT OR REPLACE
+        try saveRule(rule)
+        print("DEBUG: Rule updated successfully: \(rule.id)")
+    }
+    
+    func addManualRule(
+        reasoning: String,
+        originalText: String = "",
+        aiTranslation: String = "",
+        userCorrection: String = "",
+        category: RuleCategory = .other
+    ) throws {
+        let rule = UserLearnedRule(
+            originalText: originalText,
+            aiTranslation: aiTranslation,
+            userCorrection: userCorrection,
+            reasoning: reasoning,
+            rulePattern: "",
+            category: category
+        )
+        try saveRule(rule)
+        print("DEBUG: Manual rule added: \(rule.id)")
+    }
+
     
     private func parseRule(from statement: OpaquePointer?) -> UserLearnedRule? {
         guard let statement = statement else { return nil }
