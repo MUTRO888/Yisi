@@ -16,6 +16,31 @@ enum ClosingMode: String, CaseIterable, Identifiable {
     }
 }
 
+// MARK: - Translation Engine
+
+enum TranslationEngine: String, CaseIterable {
+    case system = "system"
+    case ai = "ai"
+    
+    var displayName: String {
+        switch self {
+        case .system: return "macOS System"
+        case .ai: return "AI Service"
+        }
+    }
+}
+
+// MARK: - Settings Navigation
+
+enum SettingsPage: String, CaseIterable, Identifiable {
+    case general
+    case aiService
+    case modes
+    case translation
+    
+    var id: String { rawValue }
+}
+
 struct SettingsView: View {
     @State private var selectedTopTab: Int = 0 // 0: History, 1: Settings
     @AppStorage("app_theme") private var appTheme: String = "light"
@@ -209,17 +234,17 @@ struct SettingsContent: View {
     
     var body: some View {
         HStack(spacing: 0) {
-            // Sidebar
+            // Sidebar (Original Design)
             VStack(alignment: .leading, spacing: 4) {
                 SidebarButton(title: "General".localized, isSelected: selectedSection == "General") { selectedSection = "General" }
-                SidebarButton(title: "Prompts".localized, isSelected: selectedSection == "Prompts") { selectedSection = "Prompts" }
-                SidebarButton(title: "Shortcuts".localized, isSelected: selectedSection == "Shortcuts") { selectedSection = "Shortcuts" }
-                SidebarButton(title: "Learned Rules".localized, isSelected: selectedSection == "Learned Rules") { selectedSection = "Learned Rules" }
+                SidebarButton(title: "AI Service".localized, isSelected: selectedSection == "AI Service") { selectedSection = "AI Service" }
+                SidebarButton(title: "Modes".localized, isSelected: selectedSection == "Modes") { selectedSection = "Modes" }
+                SidebarButton(title: "Translation".localized, isSelected: selectedSection == "Translation") { selectedSection = "Translation" }
                 Spacer()
             }
-            .padding(.vertical, 14) // 内部内边距调整为 14
+            .padding(.vertical, 14)
             .padding(.horizontal, 8)
-            .frame(width: 120) // width synced with HistorySidebar
+            .frame(width: 120)
             .background(
                 Group {
                     if currentColorScheme == .dark {
@@ -235,24 +260,24 @@ struct SettingsContent: View {
                         }
                     }
                 }
-                .cornerRadius(16) // cornerRadius synced with HistorySidebar
-                .shadow(color: Color.black.opacity(currentColorScheme == .dark ? 0.5 : 0.1), radius: 10, x: 0, y: 0) // shadow synced
+                .cornerRadius(16)
+                .shadow(color: Color.black.opacity(currentColorScheme == .dark ? 0.5 : 0.1), radius: 10, x: 0, y: 0)
             )
-            .padding(.leading, 8) // leading padding synced
-            .padding(.top, 8) // Sync top padding with HistorySidebar (was 0)
-            .padding(.bottom, 8) // Sync bottom padding with HistorySidebar (was 12)
+            .padding(.leading, 8)
+            .padding(.top, 8)
+            .padding(.bottom, 8)
             
             // Section Content
             TransparentScrollView {
                 VStack(alignment: .leading, spacing: 24) {
                     if selectedSection == "General" {
-                        GeneralSection()
-                    } else if selectedSection == "Prompts" {
-                        PromptsSection()
-                    } else if selectedSection == "Shortcuts" {
-                        ShortcutsSection()
-                    } else if selectedSection == "Learned Rules" {
-                        LearnedRulesSection()
+                        GeneralSettingsView()
+                    } else if selectedSection == "AI Service" {
+                        AIServiceSettingsView()
+                    } else if selectedSection == "Modes" {
+                        ModesSettingsView()
+                    } else if selectedSection == "Translation" {
+                        TranslationSettingsView()
                     }
                 }
                 .padding(24)
@@ -279,6 +304,33 @@ struct SidebarButton: View {
                 .background(
                     RoundedRectangle(cornerRadius: 6)
                         .fill(isSelected ? AppColors.primary.opacity(0.1) : Color.clear)
+                )
+        }
+        .buttonStyle(.plain)
+    }
+}
+
+// MARK: - Engine Button (Custom Segmented Control)
+
+struct EngineButton: View {
+    let title: String
+    let isSelected: Bool
+    let action: () -> Void
+    
+    var body: some View {
+        Button(action: action) {
+            Text(title)
+                .font(.system(size: 13, weight: isSelected ? .medium : .regular, design: .serif))
+                .foregroundColor(isSelected ? AppColors.primary : .secondary)
+                .padding(.horizontal, 16)
+                .padding(.vertical, 8)
+                .background(
+                    RoundedRectangle(cornerRadius: 6)
+                        .fill(isSelected ? AppColors.primary.opacity(0.12) : Color.clear)
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 6)
+                        .stroke(isSelected ? AppColors.primary.opacity(0.3) : Color.clear, lineWidth: 1)
                 )
         }
         .buttonStyle(.plain)
@@ -321,167 +373,53 @@ private struct APIConfigForm: View {
     }
 }
 
-struct GeneralSection: View {
-    // Text Mode API Settings (Default)
-    @AppStorage("default_source_language") private var defaultSourceLanguage: String = "Auto Detect"
-    @AppStorage("default_target_language") private var defaultTargetLanguage: String = "Simplified Chinese"
-    @AppStorage("gemini_api_key") private var geminiKey: String = ""
-    @AppStorage("openai_api_key") private var openaiKey: String = ""
-    @AppStorage("zhipu_api_key") private var zhipuKey: String = ""
-    @AppStorage("gemini_model") private var geminiModel: String = "gemini-2.0-flash-exp"
-    @AppStorage("openai_model") private var openaiModel: String = "gpt-4o-mini"
-    @AppStorage("zhipu_model") private var zhipuModel: String = "GLM-4.5-Air"
-    @AppStorage("api_provider") private var apiProvider: String = "Gemini"
-    
-    // Image Mode API Settings
-    @AppStorage("apply_api_to_image_mode") private var applyApiToImageMode: Bool = true
-    @AppStorage("image_api_provider") private var imageApiProvider: String = "Gemini"
-    @AppStorage("image_gemini_api_key") private var imageGeminiKey: String = ""
-    @AppStorage("image_gemini_model") private var imageGeminiModel: String = "gemini-2.5-flash"
-    @AppStorage("image_openai_api_key") private var imageOpenaiKey: String = ""
-    @AppStorage("image_openai_model") private var imageOpenaiModel: String = "gpt-4o-mini"
-    @AppStorage("image_zhipu_api_key") private var imageZhipuKey: String = ""
-    @AppStorage("image_zhipu_model") private var imageZhipuModel: String = "GLM-4.5V"
-    
-    // General Settings
+// MARK: - General Settings View
+
+struct GeneralSettingsView: View {
     @AppStorage("close_mode") private var closeMode: String = "clickOutside"
     @AppStorage("app_theme") private var appTheme: String = "light"
-    @AppStorage("enable_improve_feature") private var enableImproveFeature: Bool = false
-    @AppStorage("enable_deep_thinking") private var enableDeepThinking: Bool = false
     @ObservedObject private var localizationManager = LocalizationManager.shared
     
     var body: some View {
-        VStack(alignment: .leading, spacing: 24) {
+        VStack(alignment: .leading, spacing: 16) {
             // Language & Appearance
-            VStack(alignment: .leading, spacing: 12) {
-                SectionHeader(title: "General".localized)
-                
-                VStack(alignment: .leading, spacing: 10) {
-                    HStack {
-                        Text("Language".localized)
-                            .font(.system(size: 13, design: .serif))
-                            .foregroundColor(.secondary)
-                            .frame(width: 80, alignment: .leading)
-                        
-                        CustomDropdown(
-                            selection: $localizationManager.language,
-                            options: ["en", "zh"],
-                            displayNames: ["English".localized, "Simplified Chinese".localized]
-                        )
-                    }
-                    
-                    HStack {
-                        Text("Appearance".localized)
-                            .font(.system(size: 13, design: .serif))
-                            .foregroundColor(.secondary)
-                            .frame(width: 80, alignment: .leading)
-                        
-                        CustomDropdown(
-                            selection: $appTheme,
-                            options: ["light", "dark"],
-                            displayNames: ["Light".localized, "Dark".localized]
-                        )
-                    }
-                    .onAppear {
-                        if appTheme == "system" {
-                            appTheme = "light"
-                        }
-                    }
-
-                }
-            }
-            
-            Divider().opacity(0.3)
-            
-            // Default Translation Path
-            VStack(alignment: .leading, spacing: 12) {
-                SectionHeader(title: "Default Path".localized)
-                
-                VStack(alignment: .leading, spacing: 10) {
-                    HStack {
-                        Text("Source".localized)
-                            .font(.system(size: 13, design: .serif))
-                            .foregroundColor(.secondary)
-                            .frame(width: 80, alignment: .leading)
-                        
-                        CustomDropdown(
-                            selection: $defaultSourceLanguage,
-                            options: Language.sourceLanguages.map { $0.rawValue },
-                            displayNames: Language.sourceLanguages.map { $0.displayName }
-                        )
-                    }
-                    
-                    HStack {
-                        Text("Target".localized)
-                            .font(.system(size: 13, design: .serif))
-                            .foregroundColor(.secondary)
-                            .frame(width: 80, alignment: .leading)
-                        
-                        CustomDropdown(
-                            selection: $defaultTargetLanguage,
-                            options: Language.targetLanguages.map { $0.rawValue },
-                            displayNames: Language.targetLanguages.map { $0.displayName }
-                        )
-                    }
-                }
-            }
-            
-            Divider().opacity(0.3)
-            
-            // API Configuration (Text Mode - Default)
-            VStack(alignment: .leading, spacing: 12) {
-                SectionHeader(title: "API Service".localized)
-                
-                APIConfigForm(
-                    provider: $apiProvider,
-                    geminiKey: $geminiKey,
-                    geminiModel: $geminiModel,
-                    openaiKey: $openaiKey,
-                    openaiModel: $openaiModel,
-                    zhipuKey: $zhipuKey,
-                    zhipuModel: $zhipuModel
-                )
-                
-                Divider().opacity(0.2)
-                
-                // Toggle: Apply to Image Mode
+            VStack(alignment: .leading, spacing: 8) {
                 HStack {
-                    Text("Image".localized)
+                    Text("Language".localized)
                         .font(.system(size: 13, design: .serif))
                         .foregroundColor(.secondary)
                         .frame(width: 80, alignment: .leading)
                     
-                    ElegantToggle(isOn: $applyApiToImageMode)
-                    
-                    Text("Apply to Image Mode".localized)
-                        .font(.system(size: 12, design: .serif))
-                        .foregroundColor(.secondary.opacity(0.7))
-                    
-                    Spacer()
-                }
-            }
-            
-            // Separate Image API Configuration (shown when toggle is OFF)
-            if !applyApiToImageMode {
-                VStack(alignment: .leading, spacing: 12) {
-                    SectionHeader(title: "API Service (Image)".localized)
-                    
-                    APIConfigForm(
-                        provider: $imageApiProvider,
-                        geminiKey: $imageGeminiKey,
-                        geminiModel: $imageGeminiModel,
-                        openaiKey: $imageOpenaiKey,
-                        openaiModel: $imageOpenaiModel,
-                        zhipuKey: $imageZhipuKey,
-                        zhipuModel: $imageZhipuModel
+                    CustomDropdown(
+                        selection: $localizationManager.language,
+                        options: ["en", "zh"],
+                        displayNames: ["English".localized, "Simplified Chinese".localized]
                     )
+                }
+                
+                HStack {
+                    Text("Appearance".localized)
+                        .font(.system(size: 13, design: .serif))
+                        .foregroundColor(.secondary)
+                        .frame(width: 80, alignment: .leading)
+                    
+                    CustomDropdown(
+                        selection: $appTheme,
+                        options: ["light", "dark"],
+                        displayNames: ["Light".localized, "Dark".localized]
+                    )
+                }
+                .onAppear {
+                    if appTheme == "system" {
+                        appTheme = "light"
+                    }
                 }
             }
             
             Divider().opacity(0.3)
             
             // Window Behavior
-            VStack(alignment: .leading, spacing: 12) {
+            VStack(alignment: .leading, spacing: 8) {
                 SectionHeader(title: "Behavior".localized)
                 
                 HStack {
@@ -491,40 +429,6 @@ struct GeneralSection: View {
                         .frame(width: 80, alignment: .leading)
                     
                     CustomDropdown(selection: $closeMode, options: ClosingMode.allCases.map { $0.rawValue }, displayNames: ClosingMode.allCases.map { $0.displayName.localized })
-                }
-                
-                Divider().opacity(0.2)
-                
-                HStack {
-                    Text("Improve".localized)
-                        .font(.system(size: 13, design: .serif))
-                        .foregroundColor(.secondary)
-                        .frame(width: 80, alignment: .leading)
-                    
-                    ElegantToggle(isOn: $enableImproveFeature)
-                    
-                    Text("Text mode only. Images excluded to save space.".localized)
-                        .font(.system(size: 12, design: .serif))
-                        .foregroundColor(.secondary.opacity(0.7))
-                    
-                    Spacer()
-                }
-                
-                Divider().opacity(0.2)
-                
-                HStack {
-                    Text("Thinking".localized)
-                        .font(.system(size: 13, design: .serif))
-                        .foregroundColor(.secondary)
-                        .frame(width: 80, alignment: .leading)
-                    
-                    ElegantToggle(isOn: $enableDeepThinking)
-                    
-                    Text("Enable deep reasoning for AI".localized)
-                        .font(.system(size: 12, design: .serif))
-                        .foregroundColor(.secondary.opacity(0.7))
-                    
-                    Spacer()
                 }
                 
                 Divider().opacity(0.2)
@@ -550,7 +454,394 @@ struct GeneralSection: View {
                     .buttonStyle(.plain)
                 }
             }
+            
+            Divider().opacity(0.3)
+            
+            // Shortcuts
+            VStack(alignment: .leading, spacing: 8) {
+                SectionHeader(title: "Shortcuts".localized)
+                
+                HStack {
+                    Text("Activate".localized)
+                        .font(.system(size: 13, design: .serif))
+                        .foregroundColor(.secondary)
+                        .frame(width: 80, alignment: .leading)
+                    
+                    ShortcutRecorder()
+                }
+                
+                HStack {
+                    Text("Screenshot".localized)
+                        .font(.system(size: 13, design: .serif))
+                        .foregroundColor(.secondary)
+                        .frame(width: 80, alignment: .leading)
+                    
+                    ScreenshotShortcutRecorder()
+                }
+                
+                Text("Press the key combination you want to use.".localized)
+                    .font(.system(size: 12, design: .serif))
+                    .foregroundColor(.secondary.opacity(0.6))
+                    .padding(.top, 4)
+            }
         }
+    }
+}
+
+// MARK: - AI Service Settings View
+
+struct AIServiceSettingsView: View {
+    // Text Mode API Settings (Default)
+    @AppStorage("gemini_api_key") private var geminiKey: String = ""
+    @AppStorage("openai_api_key") private var openaiKey: String = ""
+    @AppStorage("zhipu_api_key") private var zhipuKey: String = ""
+    @AppStorage("gemini_model") private var geminiModel: String = "gemini-2.0-flash-exp"
+    @AppStorage("openai_model") private var openaiModel: String = "gpt-4o-mini"
+    @AppStorage("zhipu_model") private var zhipuModel: String = "GLM-4.5-Air"
+    @AppStorage("api_provider") private var apiProvider: String = "Gemini"
+    
+    // Image Mode API Settings
+    @AppStorage("apply_api_to_image_mode") private var applyApiToImageMode: Bool = true
+    @AppStorage("image_api_provider") private var imageApiProvider: String = "Gemini"
+    @AppStorage("image_gemini_api_key") private var imageGeminiKey: String = ""
+    @AppStorage("image_gemini_model") private var imageGeminiModel: String = "gemini-2.5-flash"
+    @AppStorage("image_openai_api_key") private var imageOpenaiKey: String = ""
+    @AppStorage("image_openai_model") private var imageOpenaiModel: String = "gpt-4o-mini"
+    @AppStorage("image_zhipu_api_key") private var imageZhipuKey: String = ""
+    @AppStorage("image_zhipu_model") private var imageZhipuModel: String = "GLM-4.5V"
+    
+    // Feature Toggles
+    @AppStorage("enable_deep_thinking") private var enableDeepThinking: Bool = false
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 24) {
+            // API Configuration (Text Mode - Default)
+            VStack(alignment: .leading, spacing: 12) {
+                SectionHeader(title: "API Service".localized)
+                
+                APIConfigForm(
+                    provider: $apiProvider,
+                    geminiKey: $geminiKey,
+                    geminiModel: $geminiModel,
+                    openaiKey: $openaiKey,
+                    openaiModel: $openaiModel,
+                    zhipuKey: $zhipuKey,
+                    zhipuModel: $zhipuModel
+                )
+            }
+            
+            Divider().opacity(0.3)
+            
+            // Image Mode Toggle
+            VStack(alignment: .leading, spacing: 12) {
+                SectionHeader(title: "Image Mode".localized)
+                
+                HStack {
+                    Text("Same API".localized)
+                        .font(.system(size: 13, design: .serif))
+                        .foregroundColor(.secondary)
+                        .frame(width: 80, alignment: .leading)
+                    
+                    ElegantToggle(isOn: $applyApiToImageMode)
+                    
+                    Text("Apply text settings to image mode".localized)
+                        .font(.system(size: 12, design: .serif))
+                        .foregroundColor(.secondary.opacity(0.7))
+                    
+                    Spacer()
+                }
+                
+                // Separate Image API Configuration (shown when toggle is OFF)
+                if !applyApiToImageMode {
+                    Divider().opacity(0.2)
+                    
+                    APIConfigForm(
+                        provider: $imageApiProvider,
+                        geminiKey: $imageGeminiKey,
+                        geminiModel: $imageGeminiModel,
+                        openaiKey: $imageOpenaiKey,
+                        openaiModel: $imageOpenaiModel,
+                        zhipuKey: $imageZhipuKey,
+                        zhipuModel: $imageZhipuModel
+                    )
+                }
+            }
+            
+            Divider().opacity(0.3)
+            
+            // Deep Thinking
+            VStack(alignment: .leading, spacing: 12) {
+                SectionHeader(title: "Advanced".localized)
+                
+                HStack {
+                    Text("Thinking".localized)
+                        .font(.system(size: 13, design: .serif))
+                        .foregroundColor(.secondary)
+                        .frame(width: 80, alignment: .leading)
+                    
+                    ElegantToggle(isOn: $enableDeepThinking)
+                    
+                    Text("Enable deep reasoning for AI".localized)
+                        .font(.system(size: 12, design: .serif))
+                        .foregroundColor(.secondary.opacity(0.7))
+                    
+                    Spacer()
+                }
+            }
+        }
+    }
+}
+
+// MARK: - Modes Settings View (Renamed from PromptsSection)
+
+struct ModesSettingsView: View {
+    @AppStorage("preset_mode_enabled") private var presetModeEnabled: Bool = true
+    @AppStorage("selected_preset_id") private var selectedPresetId: String = DEFAULT_TRANSLATION_PRESET_ID
+    @State private var presets: [PromptPreset] = []
+    @State private var editingPreset: PromptPreset?
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            // Preset Mode Toggle
+            HStack {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Enable Preset Mode".localized)
+                        .font(.system(size: 13, weight: .medium, design: .serif))
+                        .foregroundColor(.primary)
+                    Text("Use saved presets instead of custom mode".localized)
+                        .font(.system(size: 11, design: .serif))
+                        .foregroundColor(.secondary.opacity(0.7))
+                }
+                Spacer()
+                ElegantToggle(isOn: $presetModeEnabled)
+            }
+            
+            Divider().opacity(0.3)
+            
+            // Preset Selection (Only visible when preset mode is enabled)
+            if presetModeEnabled {
+                VStack(alignment: .leading, spacing: 12) {
+                    Text("Select Preset".localized)
+                        .font(.system(size: 13, weight: .medium, design: .serif))
+                        .foregroundColor(.primary)
+                    
+                    // Default Translation Preset (Built-in)
+                    PresetRadioRow(
+                        id: DEFAULT_TRANSLATION_PRESET_ID,
+                        name: "Default Translation".localized,
+                        description: "Standard translation mode, supports Learned Rules".localized,
+                        isSelected: selectedPresetId == DEFAULT_TRANSLATION_PRESET_ID,
+                        onSelect: { selectedPresetId = DEFAULT_TRANSLATION_PRESET_ID }
+                    )
+                    
+                    Divider().opacity(0.3)
+                    
+                    // User Presets Header
+                    HStack {
+                        Text("Custom Presets".localized)
+                            .font(.system(size: 12, weight: .medium, design: .serif))
+                            .foregroundColor(.secondary)
+                        Spacer()
+                        Button(action: {
+                            editingPreset = PromptPreset(id: UUID(), name: "", inputPerception: "", outputInstruction: "")
+                        }) {
+                            Image(systemName: "plus")
+                                .font(.system(size: 11, weight: .medium))
+                                .foregroundColor(.primary)
+                                .padding(5)
+                                .background(Color.primary.opacity(0.05))
+                                .clipShape(Circle())
+                        }
+                        .buttonStyle(.plain)
+                    }
+                    
+                    // User Presets List
+                    if presets.isEmpty {
+                        Text("No custom presets yet".localized)
+                            .font(.system(size: 12, design: .serif))
+                            .foregroundColor(.secondary.opacity(0.6))
+                            .padding(.vertical, 8)
+                    } else {
+                        VStack(spacing: 8) {
+                            ForEach(presets) { preset in
+                                PresetRadioRow(
+                                    id: preset.id.uuidString,
+                                    name: preset.name,
+                                    description: "\(preset.inputPerception.prefix(30))...",
+                                    isSelected: selectedPresetId == preset.id.uuidString,
+                                    onSelect: { selectedPresetId = preset.id.uuidString },
+                                    onEdit: {
+                                        editingPreset = preset
+                                    },
+                                    onDelete: { deletePreset(preset) }
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        .onAppear { loadPresets() }
+        .sheet(item: $editingPreset) { preset in
+            let isNew = !presets.contains(where: { $0.id == preset.id })
+            PresetEditor(preset: preset, isNew: isNew, onSave: { updated in
+                if isNew {
+                    addPreset(updated)
+                } else {
+                    updatePreset(updated)
+                }
+                editingPreset = nil
+            }, onCancel: {
+                editingPreset = nil
+            })
+        }
+    }
+    
+    private func loadPresets() {
+        if let data = UserDefaults.standard.data(forKey: "saved_presets"),
+           let decoded = try? JSONDecoder().decode([PromptPreset].self, from: data) {
+            presets = decoded
+        }
+    }
+    
+    private func addPreset(_ preset: PromptPreset) {
+        presets.append(preset)
+        persistPresets()
+    }
+    
+    private func updatePreset(_ preset: PromptPreset) {
+        if let index = presets.firstIndex(where: { $0.id == preset.id }) {
+            presets[index] = preset
+            persistPresets()
+        }
+    }
+    
+    private func deletePreset(_ preset: PromptPreset) {
+        presets.removeAll { $0.id == preset.id }
+        // Reset to default translation if deleting currently selected preset
+        if selectedPresetId == preset.id.uuidString {
+            selectedPresetId = DEFAULT_TRANSLATION_PRESET_ID
+        }
+        persistPresets()
+    }
+    
+    private func persistPresets() {
+        if let encoded = try? JSONEncoder().encode(presets) {
+            UserDefaults.standard.set(encoded, forKey: "saved_presets")
+        }
+    }
+}
+
+// MARK: - Translation Settings View
+
+struct TranslationSettingsView: View {
+    @AppStorage("translation_engine") private var translationEngine: String = "ai"
+    @AppStorage("default_source_language") private var defaultSourceLanguage: String = "Auto Detect"
+    @AppStorage("default_target_language") private var defaultTargetLanguage: String = "Simplified Chinese"
+    @AppStorage("enable_improve_feature") private var enableImproveFeature: Bool = false
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            // Default Translation Path (moved first)
+            VStack(alignment: .leading, spacing: 8) {
+                SectionHeader(title: "Default Path".localized)
+                
+                HStack {
+                    Text("Source".localized)
+                        .font(.system(size: 13, design: .serif))
+                        .foregroundColor(.secondary)
+                        .frame(width: 80, alignment: .leading)
+                    
+                    CustomDropdown(
+                        selection: $defaultSourceLanguage,
+                        options: Language.sourceLanguages.map { $0.rawValue },
+                        displayNames: Language.sourceLanguages.map { $0.displayName }
+                    )
+                }
+                
+                HStack {
+                    Text("Target".localized)
+                        .font(.system(size: 13, design: .serif))
+                        .foregroundColor(.secondary)
+                        .frame(width: 80, alignment: .leading)
+                    
+                    CustomDropdown(
+                        selection: $defaultTargetLanguage,
+                        options: Language.targetLanguages.map { $0.rawValue },
+                        displayNames: Language.targetLanguages.map { $0.displayName }
+                    )
+                }
+            }
+            
+            Divider().opacity(0.3)
+            
+            // Engine Selector (moved second, custom style)
+            VStack(alignment: .leading, spacing: 8) {
+                SectionHeader(title: "Engine".localized)
+                
+                HStack(spacing: 0) {
+                    EngineButton(title: "macOS System".localized, isSelected: translationEngine == "system") {
+                        translationEngine = "system"
+                    }
+                    EngineButton(title: "AI Service".localized, isSelected: translationEngine == "ai") {
+                        translationEngine = "ai"
+                    }
+                }
+            }
+            
+            // AI-specific settings
+            if translationEngine == "ai" {
+                Divider().opacity(0.3)
+                
+                // Smart Improve Toggle
+                VStack(alignment: .leading, spacing: 8) {
+                    SectionHeader(title: "Smart Improve".localized)
+                    
+                    HStack {
+                        ElegantToggle(isOn: $enableImproveFeature)
+                        
+                        Text("Learn from your corrections".localized)
+                            .font(.system(size: 13, design: .serif))
+                            .foregroundColor(.secondary)
+                        
+                        Spacer()
+                    }
+                    
+                    Text("Text mode only. Images excluded to save space.".localized)
+                        .font(.system(size: 12, design: .serif))
+                        .foregroundColor(.secondary.opacity(0.6))
+                }
+                
+                Divider().opacity(0.3)
+                
+                // Learned Rules Section
+                LearnedRulesSection()
+            } else {
+                Divider().opacity(0.3)
+                
+                // System Translation Info
+                VStack(alignment: .leading, spacing: 8) {
+                    SectionHeader(title: "System Translation".localized)
+                    
+                    Text("Using macOS built-in translation. No API key required.".localized)
+                        .font(.system(size: 13, design: .serif))
+                        .foregroundColor(.secondary)
+                    
+                    Text("Fast, private, and works offline.".localized)
+                        .font(.system(size: 12, design: .serif))
+                        .foregroundColor(.secondary.opacity(0.7))
+                }
+                .padding(.vertical, 8)
+            }
+        }
+    }
+}
+
+// MARK: - Legacy Section (kept for compatibility, will be removed)
+
+struct GeneralSection: View {
+    var body: some View {
+        GeneralSettingsView()
     }
 }
 
