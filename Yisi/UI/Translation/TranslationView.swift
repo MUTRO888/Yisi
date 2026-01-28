@@ -15,6 +15,7 @@ struct TranslationView: View {
     @State private var originalAiTranslation: String = ""
     @State private var savedOriginalText: String = ""
     @AppStorage("enable_improve_feature") private var enableImproveFeature: Bool = false
+    @AppStorage("translation_engine") private var translationEngine: String = "ai"
     @State private var showAnalysisResult: Bool = false
     @State private var analysisReasoning: String = ""
     @State private var showImproveSuccess: Bool = false
@@ -81,6 +82,10 @@ struct TranslationView: View {
     
     var body: some View {
         VStack(spacing: 0) {
+            // System Translation Host (invisible, enables translation task)
+            if #available(macOS 15.0, *) {
+                SystemTranslationHost()
+            }
             
             // Custom Mode Input Fields (Only visible in Temporary Custom Mode)
             if determineMode() == .temporaryCustom {
@@ -522,28 +527,58 @@ struct TranslationView: View {
         do {
             let mode = determineMode()
             
-            translatedText = try await AIService.shared.processText(
-                originalText,
-                mode: mode,
-                sourceLanguage: sourceLanguage.rawValue, 
-                targetLanguage: targetLanguage.rawValue,
-                userPerception: mode == .temporaryCustom ? customInputPerception : nil,
-                userInstruction: mode == .temporaryCustom ? customOutputInstruction : nil
-            )
-            originalAiTranslation = translatedText  // Anchor baseline for detecting user edits
-            savedOriginalText = originalText  // Save for improve feature
-        } catch {
-            print("❌ TRANSLATION ERROR:")
-            print("   Error: \(error)")
-            print("   Localized: \(error.localizedDescription)")
-            if let nsError = error as NSError? {
-                print("   Domain: \(nsError.domain)")
-                print("   Code: \(nsError.code)")
-                print("   UserInfo: \(nsError.userInfo)")
+            // Use System Translation only for Default Translation mode with system engine
+            if translationEngine == "system" && mode == .defaultTranslation {
+                translatedText = try await performSystemTranslation()
+            } else {
+                translatedText = try await AIService.shared.processText(
+                    originalText,
+                    mode: mode,
+                    sourceLanguage: sourceLanguage.rawValue, 
+                    targetLanguage: targetLanguage.rawValue,
+                    userPerception: mode == .temporaryCustom ? customInputPerception : nil,
+                    userInstruction: mode == .temporaryCustom ? customOutputInstruction : nil
+                )
             }
+            originalAiTranslation = translatedText
+            savedOriginalText = originalText
+        } catch {
+            print("Translation Error: \(error.localizedDescription)")
             translatedText = "Error: \(error.localizedDescription)"
         }
         isTranslating = false
+    }
+    
+    /// System Translation using macOS native Translation API
+    private func performSystemTranslation() async throws -> String {
+        let targetLang = mapLanguageToSystemCode(targetLanguage)
+        // Pass nil for auto-detect to let system handle language detection
+        let sourceLang = sourceLanguage == .auto ? nil : mapLanguageToSystemCode(sourceLanguage)
+        
+        return try await SystemTranslation.translate(
+            originalText,
+            to: targetLang,
+            from: sourceLang
+        )
+    }
+    
+    /// Map Language enum to system translation language codes
+    private func mapLanguageToSystemCode(_ language: Language) -> String {
+        switch language {
+        case .auto: return "en"
+        case .english: return "en"
+        case .simplifiedChinese: return "zh-Hans"
+        case .traditionalChinese: return "zh-Hant"
+        case .japanese: return "ja"
+        case .korean: return "ko"
+        case .french: return "fr"
+        case .german: return "de"
+        case .spanish: return "es"
+        case .russian: return "ru"
+        case .arabic: return "ar"
+        case .thai: return "th"
+        case .vietnamese: return "vi"
+        }
     }
     
     /// 图片识别 - 使用 PromptCoordinator 构建指令
@@ -554,25 +589,46 @@ struct TranslationView: View {
         do {
             let mode = determineMode()
             
-            // 判断是否需要在 Prompt 中启用 CoT（针对翻译模式 + 非推理模型）
-            let enableCoT = AIService.shared.shouldEnableCoT(for: mode, usage: .image)
+            // Use LocalVision + System Translation when system engine is selected
+            if translationEngine == "system" && mode == .defaultTranslation {
+                // Step 1: Extract text from image using LocalVisionService
+                print("[SystemEngine] Starting OCR...")
+                let extractedText = try await LocalVisionService.shared.recognizeText(from: image)
+                print("[SystemEngine] OCR Result: \(extractedText.prefix(100))...")
+                
+                // Step 2: Translate the extracted text using System Translation
+                let targetLang = mapLanguageToSystemCode(targetLanguage)
+                // Pass nil for auto-detect to let system handle language detection
+                let sourceLang = sourceLanguage == .auto ? nil : mapLanguageToSystemCode(sourceLanguage)
+                
+                print("[SystemEngine] Translating from \(sourceLang ?? "auto") to \(targetLang)...")
+                
+                translatedText = try await SystemTranslation.translate(
+                    extractedText,
+                    to: targetLang,
+                    from: sourceLang
+                )
+                print("[SystemEngine] Translation success!")
+            } else {
+                // Use AI for image recognition + translation
+                let enableCoT = AIService.shared.shouldEnableCoT(for: mode, usage: .image)
+                
+                let instruction = PromptCoordinator.shared.generateImageSystemPrompt(
+                    mode: mode,
+                    sourceLanguage: sourceLanguage.rawValue,
+                    targetLanguage: targetLanguage.rawValue,
+                    enableCoT: enableCoT,
+                    customPerception: mode == .temporaryCustom ? customInputPerception : nil,
+                    customInstruction: mode == .temporaryCustom ? customOutputInstruction : nil
+                )
+                
+                translatedText = try await AIService.shared.processImage(image, instruction: instruction, mode: mode)
+            }
             
-            // 使用 PromptCoordinator 生成图片处理的系统提示词
-            let instruction = PromptCoordinator.shared.generateImageSystemPrompt(
-                mode: mode,
-                sourceLanguage: sourceLanguage.rawValue,
-                targetLanguage: targetLanguage.rawValue,
-                enableCoT: enableCoT,
-                customPerception: mode == .temporaryCustom ? customInputPerception : nil,
-                customInstruction: mode == .temporaryCustom ? customOutputInstruction : nil
-            )
-            
-            translatedText = try await AIService.shared.processImage(image, instruction: instruction, mode: mode)
-            originalAiTranslation = translatedText  // Anchor baseline for detecting user edits
-            savedOriginalText = originalText  // Save for improve feature (image mode)
+            originalAiTranslation = translatedText
+            savedOriginalText = originalText
         } catch {
-            print("❌ IMAGE RECOGNITION ERROR:")
-            print("   Error: \(error)")
+            print("Image Recognition Error: \(error.localizedDescription)")
             translatedText = "Error: \(error.localizedDescription)"
         }
         
