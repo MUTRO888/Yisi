@@ -34,9 +34,45 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             } else {
                 button.image = NSImage(systemSymbolName: "brain", accessibilityDescription: "Yisi")
             }
-            button.action = #selector(toggleSettings)
+            button.sendAction(on: [.leftMouseUp, .rightMouseUp])
+            button.action = #selector(handleMenuBarClick)
             button.target = self
         }
+    }
+    
+    @objc private func handleMenuBarClick() {
+        guard let event = NSApp.currentEvent else {
+            toggleSettings()
+            return
+        }
+        
+        if event.type == .rightMouseUp {
+            let menu = NSMenu()
+            menu.addItem(NSMenuItem(title: "History".localized, action: #selector(openHistory), keyEquivalent: ""))
+            menu.addItem(NSMenuItem(title: "Settings".localized, action: #selector(openSettingsConfig), keyEquivalent: ""))
+            menu.addItem(NSMenuItem.separator())
+            menu.addItem(NSMenuItem(title: "Quit".localized, action: #selector(quitApp), keyEquivalent: ""))
+            
+            statusItem?.menu = menu
+            statusItem?.button?.performClick(nil)
+            statusItem?.menu = nil
+        } else {
+            toggleSettings()
+        }
+    }
+    
+    @objc private func openHistory() {
+        toggleSettings()
+        NotificationCenter.default.post(name: Notification.Name("SwitchToHistory"), object: nil)
+    }
+    
+    @objc private func openSettingsConfig() {
+        toggleSettings()
+        NotificationCenter.default.post(name: Notification.Name("SwitchToSettings"), object: nil)
+    }
+    
+    @objc private func quitApp() {
+        NSApp.terminate(nil)
     }
     
     private func createFlowIcon() -> NSImage? {
@@ -63,7 +99,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         
         let lineHeight: CGFloat = 2.0
         
-        // Line 1 (Top) - Width 14
         // Note: Cocoa coords (0,0) is bottom-left.
         // To match CSS "Top", we draw from top down or just calculate Y.
         // Let's draw from top (higher Y) to bottom (lower Y).

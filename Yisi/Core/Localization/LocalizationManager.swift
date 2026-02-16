@@ -214,7 +214,10 @@ class LocalizationManager: ObservableObject {
         
         // Prompts (Extra)
         "How AI should understand the input...": "How AI should understand the input...",
-        "How AI should format the output...": "How AI should format the output..."
+        "How AI should format the output...": "How AI should format the output...",
+        
+        // Launch at Login
+        "Auto Start": "Auto Start"
     ]
     
     private let zhStrings: [String: String] = [
@@ -414,7 +417,10 @@ class LocalizationManager: ObservableObject {
         
         // Prompts (Extra)
         "How AI should understand the input...": "AI 应如何理解输入...",
-        "How AI should format the output...": "AI 应如何格式化输出..."
+        "How AI should format the output...": "AI 应如何格式化输出...",
+        
+        // Launch at Login
+        "Auto Start": "开机自启"
     ]
 }
 

@@ -1,5 +1,6 @@
 import SwiftUI
 import Translation
+import ServiceManagement
 
 enum ClosingMode: String, CaseIterable, Identifiable {
     case clickOutside = "clickOutside"
@@ -77,6 +78,12 @@ struct SettingsView: View {
         .frame(minWidth: 500, minHeight: 350)
         .background(ThemeBackground().edgesIgnoringSafeArea(.all))
         .preferredColorScheme(ColorScheme(from: appTheme))
+        .onReceive(NotificationCenter.default.publisher(for: Notification.Name("SwitchToHistory"))) { _ in
+            selectedTopTab = 0
+        }
+        .onReceive(NotificationCenter.default.publisher(for: Notification.Name("SwitchToSettings"))) { _ in
+            selectedTopTab = 1
+        }
     }
 }
 
@@ -386,6 +393,7 @@ struct GeneralSettingsView: View {
     @AppStorage("close_mode") private var closeMode: String = "clickOutside"
     @AppStorage("app_theme") private var appTheme: String = "light"
     @ObservedObject private var localizationManager = LocalizationManager.shared
+    @State private var launchAtLogin: Bool = SMAppService.mainApp.status == .enabled
     
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -428,6 +436,22 @@ struct GeneralSettingsView: View {
             // Window Behavior
             VStack(alignment: .leading, spacing: 8) {
                 SectionHeader(title: "Behavior".localized)
+                
+                HStack {
+                    Text("Auto Start".localized)
+                        .font(.system(size: 13, design: .serif))
+                        .foregroundColor(.secondary)
+                        .frame(width: 80, alignment: .leading)
+                    
+                    ElegantToggle(isOn: $launchAtLogin)
+                }
+                .onChange(of: launchAtLogin) { _, newValue in
+                    if newValue {
+                        try? SMAppService.mainApp.register()
+                    } else {
+                        try? SMAppService.mainApp.unregister()
+                    }
+                }
                 
                 HStack {
                     Text("Close Mode".localized)
