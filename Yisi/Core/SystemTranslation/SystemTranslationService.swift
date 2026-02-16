@@ -9,6 +9,7 @@ enum SystemTranslationError: LocalizedError {
     case serviceUnavailable
     case translationFailed(String)
     case timeout
+    case languagePackNotInstalled(source: String, target: String)
     
     var errorDescription: String? {
         switch self {
@@ -20,6 +21,8 @@ enum SystemTranslationError: LocalizedError {
             return "Translation failed: \(reason)"
         case .timeout:
             return "Translation request timed out"
+        case .languagePackNotInstalled(let source, let target):
+            return "Language pack not installed for \(source) → \(target)"
         }
     }
 }
@@ -38,10 +41,56 @@ public final class SystemTranslationManager: ObservableObject {
     private var textToTranslate: String = ""
     private var translationResult: String?
     private var translationError: Error?
+    private var availabilityCache: [String: Bool] = [:]
     
     private init() {}
     
     // MARK: - Public API
+    
+    // MARK: - Language Pack Availability
+    
+    /// Check if a language pair's pack is installed (cached)
+    public func isLanguagePairInstalled(source: String, target: String) async -> Bool {
+        let key = "\(source)->\(target)"
+        if let cached = availabilityCache[key] { return cached }
+        
+        let availability = LanguageAvailability()
+        let status = await availability.status(
+            from: Locale.Language(identifier: source),
+            to: Locale.Language(identifier: target)
+        )
+        let installed = (status == .installed)
+        availabilityCache[key] = installed
+        return installed
+    }
+    
+    /// Get status for a language pair: .installed, .supported, or .unsupported
+    public func languagePairStatus(source: String, target: String) async -> LanguageAvailability.Status {
+        let availability = LanguageAvailability()
+        return await availability.status(
+            from: Locale.Language(identifier: source),
+            to: Locale.Language(identifier: target)
+        )
+    }
+    
+    /// Clear the availability cache (after downloading a language pack)
+    public func invalidateAvailabilityCache() {
+        availabilityCache.removeAll()
+    }
+    
+    /// Set a configuration to trigger language pack download via .translationTask modifier
+    @Published var downloadConfiguration: TranslationSession.Configuration?
+    
+    /// Request download for a language pair (sets configuration for view pickup)
+    public func requestDownload(source: String, target: String) {
+        downloadConfiguration = TranslationSession.Configuration(
+            source: Locale.Language(identifier: source),
+            target: Locale.Language(identifier: target)
+        )
+        invalidateAvailabilityCache()
+    }
+    
+    // MARK: - Translation
     
     /// Translate text using macOS system translation
     public func translate(
@@ -58,6 +107,15 @@ public final class SystemTranslationManager: ObservableObject {
             print("[SystemTranslation] Detected source: \(resolvedSource) (confidence: \(String(format: "%.2f", detection.confidence)), method: \(detection.method))")
         }
         
+        // Pre-check: block translation if language pack not installed
+        let installed = await isLanguagePairInstalled(source: resolvedSource, target: targetLanguage)
+        if !installed {
+            throw SystemTranslationError.languagePackNotInstalled(
+                source: resolvedSource,
+                target: targetLanguage
+            )
+        }
+        
         do {
             let raw = try await executeTranslation(text, to: targetLanguage, from: resolvedSource)
             return normalizeNewlines(original: text, translated: raw)
@@ -67,6 +125,13 @@ public final class SystemTranslationManager: ObservableObject {
                 let detection = LanguageDetectionService.shared.detect(text, target: targetLanguage)
                 let fallback = detection.sourceLanguage
                 if fallback != resolvedSource {
+                    let fallbackInstalled = await isLanguagePairInstalled(source: fallback, target: targetLanguage)
+                    if !fallbackInstalled {
+                        throw SystemTranslationError.languagePackNotInstalled(
+                            source: fallback,
+                            target: targetLanguage
+                        )
+                    }
                     print("[SystemTranslation] Explicit source '\(resolvedSource)' failed, retrying with detected: \(fallback) (\(detection.method))")
                     let raw = try await executeTranslation(text, to: targetLanguage, from: fallback)
                     return normalizeNewlines(original: text, translated: raw)
@@ -193,6 +258,11 @@ public struct SystemTranslationHost: View {
             .frame(width: 0, height: 0)
             .translationTask(manager.configuration) { session in
                 await manager.handleSession(session)
+            }
+            .translationTask(manager.downloadConfiguration) { session in
+                try? await session.prepareTranslation()
+                // Refresh availability cache after download attempt
+                manager.invalidateAvailabilityCache()
             }
     }
 }

@@ -1,4 +1,5 @@
 import SwiftUI
+import Translation
 
 enum ClosingMode: String, CaseIterable, Identifiable {
     case clickOutside = "clickOutside"
@@ -819,21 +820,177 @@ struct TranslationSettingsView: View {
             } else {
                 Divider().opacity(0.3)
                 
-                // System Translation Info
-                VStack(alignment: .leading, spacing: 8) {
-                    SectionHeader(title: "System Translation".localized)
-                    
-                    Text("Using macOS built-in translation. No API key required.".localized)
-                        .font(.system(size: 13, design: .serif))
-                        .foregroundColor(.secondary)
-                    
-                    Text("Fast, private, and works offline.".localized)
-                        .font(.system(size: 12, design: .serif))
-                        .foregroundColor(.secondary.opacity(0.7))
+                if #available(macOS 15.0, *) {
+                    LanguagePackStatusView(
+                        defaultSource: defaultSourceLanguage,
+                        defaultTarget: defaultTargetLanguage
+                    )
+                } else {
+                    VStack(alignment: .leading, spacing: 8) {
+                        SectionHeader(title: "System Translation".localized)
+                        Text("Requires macOS 15.0 or later.".localized)
+                            .font(.system(size: 13, design: .serif))
+                            .foregroundColor(.secondary)
+                    }
                 }
-                .padding(.vertical, 8)
             }
         }
+    }
+}
+
+// MARK: - Language Pack Status View
+
+@available(macOS 15.0, *)
+private struct LanguagePackStatusView: View {
+    let defaultSource: String
+    let defaultTarget: String
+    
+    @ObservedObject private var translationManager = SystemTranslationManager.shared
+    @State private var languageStatuses: [(code: String, name: String, installed: Bool)] = []
+    @State private var isLoading = true
+    
+    private static let displayOrder: [(code: String, name: String)] = [
+        ("en", "English"),
+        ("zh-Hans", "简体中文"),
+        ("zh-Hant", "繁體中文"),
+        ("ja", "日本語"),
+        ("ko", "한국어"),
+        ("fr", "Français"),
+        ("de", "Deutsch"),
+        ("es", "Español"),
+        ("ru", "Русский"),
+        ("ar", "العربية"),
+        ("th", "ไทย"),
+        ("vi", "Tiếng Việt")
+    ]
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            SectionHeader(title: "System Translation".localized)
+            
+            Text("macOS built-in translation. Fast, private, offline.".localized)
+                .font(.system(size: 12, design: .serif))
+                .foregroundColor(.secondary.opacity(0.7))
+            
+            Divider().opacity(0.2)
+            
+            SectionHeader(title: "Language Packs".localized)
+            
+            if isLoading {
+                HStack(spacing: 6) {
+                    ProgressView()
+                        .scaleEffect(0.5)
+                        .frame(width: 14, height: 14)
+                    Text("Checking...".localized)
+                        .font(.system(size: 12, design: .serif))
+                        .foregroundColor(.secondary.opacity(0.6))
+                }
+                .padding(.vertical, 4)
+            } else {
+                VStack(spacing: 0) {
+                    ForEach(Array(languageStatuses.enumerated()), id: \.offset) { index, lang in
+                        LanguagePackRow(
+                            name: lang.name,
+                            installed: lang.installed,
+                            onDownload: {
+                                let refLang = lang.code.hasPrefix("en") ? "zh-Hans" : "en"
+                                translationManager.requestDownload(
+                                    source: lang.code,
+                                    target: refLang
+                                )
+                            }
+                        )
+                        
+                        if index < languageStatuses.count - 1 {
+                            Divider().opacity(0.08).padding(.leading, 8)
+                        }
+                    }
+                }
+                .padding(.vertical, 4)
+                .padding(.horizontal, 10)
+                .background(AppColors.primary.opacity(0.03))
+                .cornerRadius(6)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 6)
+                        .stroke(AppColors.primary.opacity(0.08), lineWidth: 0.5)
+                )
+            }
+            
+            Text("Download for offline translation.".localized)
+                .font(.system(size: 11, design: .serif))
+                .foregroundColor(.secondary.opacity(0.5))
+        }
+        .onAppear { Task { await refreshStatuses() } }
+        .translationTask(translationManager.downloadConfiguration) { session in
+            try? await session.prepareTranslation()
+            await refreshStatuses()
+        }
+    }
+    
+    private func refreshStatuses() async {
+        isLoading = true
+        let availability = LanguageAvailability()
+        var results: [(code: String, name: String, installed: Bool)] = []
+        
+        for lang in Self.displayOrder {
+            let refLang = lang.code.hasPrefix("en") ? "zh-Hans" : "en"
+            let status = await availability.status(
+                from: Locale.Language(identifier: lang.code),
+                to: Locale.Language(identifier: refLang)
+            )
+            if status != LanguageAvailability.Status.unsupported {
+                results.append((code: lang.code, name: lang.name, installed: status == LanguageAvailability.Status.installed))
+            }
+        }
+        
+        // installed first, then not-installed
+        results.sort { lhs, rhs in
+            if lhs.installed && !rhs.installed { return true }
+            if !lhs.installed && rhs.installed { return false }
+            return false
+        }
+        
+        languageStatuses = results
+        isLoading = false
+    }
+}
+
+@available(macOS 15.0, *)
+private struct LanguagePackRow: View {
+    let name: String
+    let installed: Bool
+    let onDownload: () -> Void
+    
+    var body: some View {
+        HStack {
+            Text(name)
+                .font(.system(size: 13, design: .serif))
+                .foregroundColor(.primary)
+            
+            Spacer()
+            
+            if installed {
+                Image(systemName: "checkmark")
+                    .font(.system(size: 10, weight: .medium))
+                    .foregroundColor(AppColors.primary.opacity(0.5))
+            } else {
+                Button(action: onDownload) {
+                    Text("Download".localized)
+                        .font(.system(size: 11, weight: .medium, design: .serif))
+                        .foregroundColor(AppColors.primary)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 3)
+                        .background(AppColors.primary.opacity(0.08))
+                        .cornerRadius(4)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 4)
+                                .stroke(AppColors.primary.opacity(0.15), lineWidth: 0.5)
+                        )
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(.vertical, 5)
     }
 }
 

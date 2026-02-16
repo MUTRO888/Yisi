@@ -19,6 +19,9 @@ struct TranslationView: View {
     @State private var showAnalysisResult: Bool = false
     @State private var analysisReasoning: String = ""
     @State private var showImproveSuccess: Bool = false
+    @State private var showLanguagePackPrompt: Bool = false
+    @State private var missingPackSource: String = ""
+    @State private var missingPackTarget: String = ""
     
     @AppStorage("enable_custom_mode_popup") private var enableCustomModePopup: Bool = false  // Legacy, now="preset_mode_enabled"
     @AppStorage("preset_mode_enabled") private var presetModeEnabled: Bool = true
@@ -36,6 +39,9 @@ struct TranslationView: View {
     // Computed property for dynamic output placeholder
     var outputPlaceholder: String {
         let mode = determineMode()
+        if translationEngine == "system" {
+            return "Translation result will appear here...".localized
+        }
         switch mode {
         case .defaultTranslation:
             return "翻译结果将显示在这里...".localized
@@ -151,6 +157,8 @@ struct TranslationView: View {
                     }.buttonStyle(.borderedProminent).controlSize(.small)
                 }.padding().background(Color.orange.opacity(0.1))
             }
+            
+
             
             // Analysis Result Banner - REMOVED
             
@@ -273,7 +281,7 @@ struct TranslationView: View {
                                             .padding(.horizontal, 25)
                                             .padding(.vertical, 20)
                                     } else if translatedText.isEmpty {
-                                        Text("AI recognition result will appear here...".localized)
+                                        Text(translationEngine == "system" ? "Translation result will appear here...".localized : "AI recognition result will appear here...".localized)
                                             .font(.system(size: 16, weight: .light, design: .serif))
                                             .foregroundColor(.secondary.opacity(0.5))
                                             .padding(.horizontal, 25)
@@ -318,6 +326,44 @@ struct TranslationView: View {
                     }
                     .background(Color.clear)
                 }
+            }
+            
+            if showLanguagePackPrompt {
+                Divider().opacity(0.3)
+                
+                HStack(spacing: 8) {
+                    Image(systemName: "arrow.down.circle")
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundColor(AppColors.primary)
+                    
+                    Text("Language pack required for offline translation.".localized)
+                        .font(.system(size: 12, design: .serif))
+                        .foregroundColor(.primary.opacity(0.8))
+                    
+                    Spacer()
+                    
+                    if #available(macOS 15.0, *) {
+                        Button(action: {
+                            SystemTranslationManager.shared.requestDownload(
+                                source: missingPackSource,
+                                target: missingPackTarget
+                            )
+                        }) {
+                            Text("Download".localized)
+                                .font(.system(size: 11, weight: .medium, design: .serif))
+                                .foregroundColor(AppColors.primary)
+                                .padding(.horizontal, 10)
+                                .padding(.vertical, 4)
+                                .background(AppColors.primary.opacity(0.1))
+                                .cornerRadius(4)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+                .padding(.horizontal, 20)
+                .padding(.vertical, 8)
+                .background(AppColors.primary.opacity(0.04))
+                .transition(.opacity.combined(with: .move(edge: .bottom)))
             }
             
             // Bottom Bar
@@ -542,6 +588,19 @@ struct TranslationView: View {
             }
             originalAiTranslation = translatedText
             savedOriginalText = originalText
+            withAnimation { showLanguagePackPrompt = false }
+        } catch let error as SystemTranslationError {
+            if case .languagePackNotInstalled(let src, let tgt) = error {
+                missingPackSource = src
+                missingPackTarget = tgt
+                withAnimation(.easeOut(duration: 0.2)) {
+                    showLanguagePackPrompt = true
+                }
+                translatedText = ""
+            } else {
+                print("Translation Error: \(error.localizedDescription)")
+                translatedText = "Error: \(error.localizedDescription)"
+            }
         } catch {
             print("Translation Error: \(error.localizedDescription)")
             translatedText = "Error: \(error.localizedDescription)"
@@ -552,7 +611,6 @@ struct TranslationView: View {
     /// System Translation using macOS native Translation API
     private func performSystemTranslation() async throws -> String {
         let targetLang = mapLanguageToSystemCode(targetLanguage)
-        // Pass nil for auto-detect to let system handle language detection
         let sourceLang = sourceLanguage == .auto ? nil : mapLanguageToSystemCode(sourceLanguage)
         
         return try await SystemTranslation.translate(
@@ -627,6 +685,19 @@ struct TranslationView: View {
             
             originalAiTranslation = translatedText
             savedOriginalText = originalText
+            withAnimation { showLanguagePackPrompt = false }
+        } catch let error as SystemTranslationError {
+            if case .languagePackNotInstalled(let src, let tgt) = error {
+                missingPackSource = src
+                missingPackTarget = tgt
+                withAnimation(.easeOut(duration: 0.2)) {
+                    showLanguagePackPrompt = true
+                }
+                translatedText = ""
+            } else {
+                print("Image Recognition Error: \(error.localizedDescription)")
+                translatedText = "Error: \(error.localizedDescription)"
+            }
         } catch {
             print("Image Recognition Error: \(error.localizedDescription)")
             translatedText = "Error: \(error.localizedDescription)"
