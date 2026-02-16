@@ -1,4 +1,5 @@
 import SwiftUI
+import ServiceManagement
 
 @main
 struct YisiApp: App {
@@ -18,12 +19,16 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     var settingsWindow: NSWindow?
     
     func applicationDidFinishLaunching(_ notification: Notification) {
-        // Hide the dock icon to make it a true background app
         NSApp.setActivationPolicy(.accessory)
         
         setupMenuBar()
         setupShortcutHandler()
         checkAccessibilityPermissions()
+        
+        if !UserDefaults.standard.bool(forKey: "has_launched_before") {
+            try? SMAppService.mainApp.register()
+            UserDefaults.standard.set(true, forKey: "has_launched_before")
+        }
     }
     
     private func setupMenuBar() {

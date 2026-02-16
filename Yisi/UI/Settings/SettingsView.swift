@@ -529,11 +529,11 @@ struct AIServiceSettingsView: View {
     @AppStorage("gemini_model") private var geminiModel: String = "gemini-2.0-flash-exp"
     @AppStorage("openai_model") private var openaiModel: String = "gpt-4o-mini"
     @AppStorage("zhipu_model") private var zhipuModel: String = "GLM-4.5-Air"
-    @AppStorage("api_provider") private var apiProvider: String = "Gemini"
+    @AppStorage("api_provider") private var apiProvider: String = "Zhipu AI"
     
     // Image Mode API Settings
-    @AppStorage("apply_api_to_image_mode") private var applyApiToImageMode: Bool = true
-    @AppStorage("image_api_provider") private var imageApiProvider: String = "Gemini"
+    @AppStorage("apply_api_to_image_mode") private var applyApiToImageMode: Bool = false
+    @AppStorage("image_api_provider") private var imageApiProvider: String = "Zhipu AI"
     @AppStorage("image_gemini_api_key") private var imageGeminiKey: String = ""
     @AppStorage("image_gemini_model") private var imageGeminiModel: String = "gemini-2.5-flash"
     @AppStorage("image_openai_api_key") private var imageOpenaiKey: String = ""
@@ -766,7 +766,7 @@ struct ModesSettingsView: View {
 // MARK: - Translation Settings View
 
 struct TranslationSettingsView: View {
-    @AppStorage("translation_engine") private var translationEngine: String = "ai"
+    @AppStorage("translation_engine") private var translationEngine: String = "system"
     @AppStorage("default_source_language") private var defaultSourceLanguage: String = "Auto Detect"
     @AppStorage("default_target_language") private var defaultTargetLanguage: String = "Simplified Chinese"
     @AppStorage("enable_improve_feature") private var enableImproveFeature: Bool = false
