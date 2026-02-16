@@ -79,10 +79,17 @@ cat > "${APP_BUNDLE}/Contents/Info.plist" <<PLIST
 </plist>
 PLIST
 
-# Package .app into DMG
+# Stage DMG contents (app + Applications symlink)
+DMG_STAGE="${BUILD_DIR}/dmg_stage"
+rm -rf "${DMG_STAGE}"
+mkdir -p "${DMG_STAGE}"
+cp -R "${APP_BUNDLE}" "${DMG_STAGE}/"
+ln -s /Applications "${DMG_STAGE}/Applications"
+
+# Package staged folder into DMG
 hdiutil create \
   -volname "${APP_NAME}" \
-  -srcfolder "${APP_BUNDLE}" \
+  -srcfolder "${DMG_STAGE}" \
   -ov \
   -format UDZO \
   "${APP_NAME}.dmg"
