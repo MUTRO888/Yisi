@@ -88,7 +88,7 @@ cat > "${SWIFT_GEN_SCRIPT}" <<SWIFT
 import Cocoa
 
 let width: CGFloat = 480
-let height: CGFloat = 320
+let height: CGFloat = 300
 
 let rep = NSBitmapImageRep(
     bitmapDataPlanes: nil,
@@ -132,7 +132,7 @@ barColor.setFill()
 let barHeight: CGFloat = 3.0
 let barGap: CGFloat = 6.0
 let barX: CGFloat = 195.0
-let centerY: CGFloat = 165.0
+let centerY: CGFloat = 185.0
 
 // 3 bars with decreasing widths (matching menu bar icon proportions: 14, 9, 5 -> scaled)
 let barWidths: [CGFloat] = [90, 58, 36]
@@ -185,15 +185,15 @@ tell application "Finder"
         set current view of container window to icon view
         set toolbar visible of container window to false
         set statusbar visible of container window to false
-        set bounds of container window to {300, 200, 780, 520}
+        set bounds of container window to {300, 200, 780, 460}
         set theViewOptions to the icon view options of container window
         set arrangement of theViewOptions to not arranged
         set icon size of theViewOptions to 80
         try
             set background picture of theViewOptions to file ".background:background.png"
         end try
-        set position of item "${APP_NAME}.app" of container window to {120, 155}
-        set position of item "Applications" of container window to {360, 155}
+        set position of item "${APP_NAME}.app" of container window to {120, 115}
+        set position of item "Applications" of container window to {360, 115}
         close
         open
         update without registering applications
