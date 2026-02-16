@@ -241,7 +241,11 @@ struct SettingsContent: View {
                 SidebarButton(title: "AI Service".localized, isSelected: selectedSection == "AI Service") { selectedSection = "AI Service" }
                 SidebarButton(title: "Modes".localized, isSelected: selectedSection == "Modes") { selectedSection = "Modes" }
                 SidebarButton(title: "Translation".localized, isSelected: selectedSection == "Translation") { selectedSection = "Translation" }
+                
                 Spacer()
+                
+                // About Section (Bottom)
+                SidebarButton(title: "About".localized, isSelected: selectedSection == "About") { selectedSection = "About" }
             }
             .padding(.vertical, 14)
             .padding(.horizontal, 8)
@@ -279,6 +283,8 @@ struct SettingsContent: View {
                         ModesSettingsView()
                     } else if selectedSection == "Translation" {
                         TranslationSettingsView()
+                    } else if selectedSection == "About" {
+                        AboutView()
                     }
                 }
                 .padding(24)

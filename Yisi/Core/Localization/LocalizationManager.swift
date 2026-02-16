@@ -26,6 +26,9 @@ class LocalizationManager: ObservableObject {
         "Shortcuts": "Shortcuts",
         "About": "About",
         "Quit": "Quit",
+        "Home": "Home",
+        "GitHub": "GitHub",
+        "还可以做得更好": "Always room for improvement.",
         
         // API
         "AI Service": "AI Service",
@@ -223,6 +226,9 @@ class LocalizationManager: ObservableObject {
         "Shortcuts": "快捷键",
         "About": "关于",
         "Quit": "退出",
+        "Home": "主页",
+        "GitHub": "GitHub",
+        "还可以做得更好": "还可以做得更好",
         
         // API
         "AI Service": "AI 服务",
