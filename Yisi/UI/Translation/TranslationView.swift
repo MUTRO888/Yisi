@@ -373,8 +373,8 @@ struct TranslationView: View {
                 
                 // Right Side: Actions
                 HStack(spacing: 12) {
-                    // Smart Improvement Button (Text Mode Only)
-                    if !isImageMode {
+                    // Smart Improvement Button (Text Mode Only, AI Engine Only, Feature Enabled)
+                    if !isImageMode && translationEngine == "ai" && enableImproveFeature {
                         SmartImprovementButton(
                             hasChanges: !translatedText.isEmpty && !originalAiTranslation.isEmpty && translatedText != originalAiTranslation,
                             isLoading: isImproving,
