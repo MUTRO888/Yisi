@@ -28,7 +28,7 @@ class LocalizationManager: ObservableObject {
         "Quit": "Quit",
         
         // API
-        "API Service": "API Service",
+        "AI Service": "AI Service",
         "API Service (Image)": "API Service (Image)",
         "Provider": "Provider",
         "API Key": "API Key",
@@ -62,7 +62,10 @@ class LocalizationManager: ObservableObject {
         
         // Image Mode
         "Image": "Image",
+        "Image Mode": "Image Mode",
+        "Same API": "Same API",
         "Apply to Image Mode": "Apply to image mode",
+        "Apply text settings to image mode": "Apply text settings to image mode",
         "Screenshot": "Screenshot",
         "Click to upload image": "Click to upload image",
         "or drag & drop": "or drag & drop",
@@ -77,14 +80,21 @@ class LocalizationManager: ObservableObject {
         // Prompts
         "Customize the system prompts used for translation.": "Customize the system prompts used for translation.",
         "Coming soon": "Coming soon",
+        "Modes": "Modes",
         
         // Preset Mode
         "启用预设模式": "Enable Preset Mode",
+        "Enable Preset Mode": "Enable Preset Mode",
         "关闭时为临时自定义模式；开启后选择预设": "Off: Temporary custom mode; On: Select preset",
+        "Use saved presets instead of custom mode": "Use saved presets instead of custom mode",
         "选择预设": "Select Preset",
+        "Select Preset": "Select Preset",
         "默认翻译": "Default Translation",
+        "Default Translation": "Default Translation",
         "自定义预设": "Custom Presets",
+        "Custom Presets": "Custom Presets",
         "暂无自定义预设": "No custom presets yet",
+        "No custom presets yet": "No custom presets yet",
         "New Preset": "New Preset",
         "Edit Preset": "Edit Preset",
         "Name": "Name",
@@ -100,7 +110,8 @@ class LocalizationManager: ObservableObject {
         
         // Deep Thinking
         "Thinking": "Thinking",
-        "Enable deep reasoning for AI": "Enable deep reasoning for AI",
+        "Enable deep reasoning for AI": "May increase wait time and token usage",
+        "Advanced": "Advanced",
         
         // Learned Rules
         "Learned Rules": "Learned Rules",
@@ -125,6 +136,7 @@ class LocalizationManager: ObservableObject {
         "Type or paste text..": "Type or paste text..",
         "Type or paste text...": "Type or paste text...",
         "Translation will appear here...": "Translation will appear here...",
+        "Translation result will appear here...": "Translation result will appear here...",
         "翻译结果将显示在这里...": "Translation will appear here...",
         "处理结果将显示在这里...": "Processing result will appear here...",
         "输出结果将显示在这里...": "Output will appear here...",
@@ -132,6 +144,8 @@ class LocalizationManager: ObservableObject {
         "Swap languages": "Swap languages",
         "Open Settings": "Open Settings",
         "Accessibility permission required to capture text.": "Accessibility permission required to capture text.",
+        "Language pack required for offline translation.": "Language pack required for offline translation.",
+        "Download": "Download",
         "Auto Detect": "Auto Detect",
         "Traditional Chinese": "Traditional Chinese",
         "Japanese": "Japanese",
@@ -145,8 +159,12 @@ class LocalizationManager: ObservableObject {
         "Vietnamese": "Vietnamese",
         
         // Settings - Translation
+        "Engine": "Engine",
         "Improve": "Improve",
+        "Smart Improve": "Smart Improve",
         "Enable translation improvement": "Edit translations and generate personalized learning rules",
+        "Analyze your edits and learn": "Analyze your edits and learn",
+        "Edit the translation to enable": "Edit the translation to enable",
         
         // History additional
         "Load More": "Load More",
@@ -156,6 +174,11 @@ class LocalizationManager: ObservableObject {
         "Clear History": "Clear History",
         "Clear": "Clear",
         "Are you sure you want to delete all history items? This action cannot be undone.": "Are you sure you want to delete all history items? This action cannot be undone.",
+        "No matches found": "No matches found",
+        "Vision": "Vision",
+        "Translation": "Translation",
+        "Preset": "Preset",
+        "Custom": "Custom",
         
         // Preset description
         "Standard translation mode, supports Learned Rules": "Standard translation mode, supports Learned Rules",
@@ -163,7 +186,32 @@ class LocalizationManager: ObservableObject {
         // Learned Rules content
         "Translation rules learned from your corrections.": "Translation rules learned from your corrections.",
         "No rules learned yet": "No rules learned yet",
-        "Edit translations and click Improve to start learning.": "Edit translations and click Improve to start learning."
+        "Edit translations and click Improve to start learning.": "Edit translations and click Improve to start learning.",
+        
+        // Missing keys
+        "macOS System": "macOS System",
+        "Copied to clipboard": "Copied to clipboard",
+        
+        // System Translation
+        "System Translation": "System Translation",
+        "Requires macOS 15.0 or later.": "Requires macOS 15.0 or later.",
+        "macOS built-in translation. Fast, private, requires language pack.": "macOS built-in translation. Fast, private, requires language pack.",
+        "Language Packs": "Language Packs",
+        "Checking...": "Checking...",
+        "Download for offline translation.": "Download for offline translation.",
+        
+        // Engine
+        "AI Translation": "AI Translation",
+        
+
+        // Settings - Translation (Extra)
+        "Learn from your corrections": "Learn from your corrections",
+        "Text mode only. Images excluded to save space.": "Text mode only",
+        "Standard translation mode": "Standard translation mode",
+        
+        // Prompts (Extra)
+        "How AI should understand the input...": "How AI should understand the input...",
+        "How AI should format the output...": "How AI should format the output..."
     ]
     
     private let zhStrings: [String: String] = [
@@ -177,7 +225,7 @@ class LocalizationManager: ObservableObject {
         "Quit": "退出",
         
         // API
-        "API Service": "API 服务",
+        "AI Service": "AI 服务",
         "API Service (Image)": "API 服务（图片）",
         "Provider": "提供商",
         "API Key": "API 密钥",
@@ -201,7 +249,7 @@ class LocalizationManager: ObservableObject {
         "System": "跟随系统",
         "Light": "浅色",
         "Dark": "深色",
-        "English": "English",
+        "English": "英语",
         "Simplified Chinese": "简体中文",
         
         // Default Path
@@ -211,7 +259,10 @@ class LocalizationManager: ObservableObject {
         
         // Image Mode
         "Image": "图片",
+        "Image Mode": "图片模式",
+        "Same API": "保持一致",
         "Apply to Image Mode": "应用于图片模式",
+        "Apply text settings to image mode": "应用文本模式的配置",
         "Screenshot": "截图",
         "Click to upload image": "点击上传图片",
         "or drag & drop": "或拖放图片",
@@ -226,14 +277,21 @@ class LocalizationManager: ObservableObject {
         // Prompts
         "Customize the system prompts used for translation.": "自定义用于翻译的系统提示词。",
         "Coming soon": "即将推出",
+        "Modes": "模式",
         
         // Preset Mode
         "启用预设模式": "启用预设模式",
+        "Enable Preset Mode": "启用预设模式",
         "关闭时为临时自定义模式；开启后选择预设": "关闭时为临时自定义模式；开启后选择预设",
-        "选择预设": "选择预设",
+        "Use saved presets instead of custom mode": "使用保存的预设而非自定义模式",
+        "选择预设": "选择预设", 
+        "Select Preset": "选择预设",
         "默认翻译": "默认翻译",
+        "Default Translation": "默认翻译",
         "自定义预设": "自定义预设",
+        "Custom Presets": "自定义预设",
         "暂无自定义预设": "暂无自定义预设",
+        "No custom presets yet": "暂无自定义预设",
         "New Preset": "新建预设",
         "Edit Preset": "编辑预设",
         "Name": "名称",
@@ -249,7 +307,8 @@ class LocalizationManager: ObservableObject {
         
         // Deep Thinking
         "Thinking": "深度思考",
-        "Enable deep reasoning for AI": "启用 AI 深度推理",
+        "Enable deep reasoning for AI": "可能会增加等待时间和 Token 消耗",
+        "Advanced": "高级",
         
         // Learned Rules (keep as English term)
         "Learned Rules": "Learned Rules",
@@ -274,6 +333,7 @@ class LocalizationManager: ObservableObject {
         "Type or paste text..": "输入或粘贴文本..",
         "Type or paste text...": "输入或粘贴文本...",
         "Translation will appear here...": "翻译结果将显示在这里...",
+        "Translation result will appear here...": "翻译结果将显示在这里...",
         "翻译结果将显示在这里...": "翻译结果将显示在这里...",
         "处理结果将显示在这里...": "处理结果将显示在这里...",
         "输出结果将显示在这里...": "输出结果将显示在这里...",
@@ -281,6 +341,8 @@ class LocalizationManager: ObservableObject {
         "Swap languages": "交换语言",
         "Open Settings": "打开设置",
         "Accessibility permission required to capture text.": "需要辅助功能权限以捕获文本。",
+        "Language pack required for offline translation.": "离线翻译需要语言包支持。",
+        "Download": "下载",
         "Auto Detect": "自动检测",
         "Traditional Chinese": "繁体中文",
         "Japanese": "日语",
@@ -294,8 +356,12 @@ class LocalizationManager: ObservableObject {
         "Vietnamese": "越南语",
         
         // Settings - Translation  
+        "Engine": "引擎",
         "Improve": "智能优化",
+        "Smart Improve": "智能优化",
         "Enable translation improvement": "支持编辑译文并生成个性化学习规则",
+        "Analyze your edits and learn": "分析您的修改并学习",
+        "Edit the translation to enable": "编辑译文以启用",
         
         // History additional
         "Load More": "加载更多",
@@ -305,6 +371,11 @@ class LocalizationManager: ObservableObject {
         "Clear History": "清空历史",
         "Clear": "清空",
         "Are you sure you want to delete all history items? This action cannot be undone.": "确定要删除所有历史记录吗？此操作无法撤销。",
+        "No matches found": "未找到匹配项",
+        "Vision": "视觉",
+        "Translation": "翻译",
+        "Preset": "预设",
+        "Custom": "自定义",
         
         // Preset description
         "Standard translation mode, supports Learned Rules": "标准翻译模式，支持 Learned Rules",
@@ -312,7 +383,32 @@ class LocalizationManager: ObservableObject {
         // Learned Rules content
         "Translation rules learned from your corrections.": "从您的修正中学习到的翻译规则。",
         "No rules learned yet": "尚未学习到规则",
-        "Edit translations and click Improve to start learning.": "编辑译文并点击智能优化开始学习。"
+        "Edit translations and click Improve to start learning.": "编辑译文并点击智能优化开始学习。",
+        
+        // Missing keys
+        "macOS System": "macOS 系统",
+        "Copied to clipboard": "已复制到剪贴板",
+        
+        // System Translation
+        "System Translation": "系统翻译",
+        "Requires macOS 15.0 or later.": "需要 macOS 15.0 或更高版本。",
+        "macOS built-in translation. Fast, private, requires language pack.": "macOS 内置翻译，快速隐私，需下载语言包",
+        "Language Packs": "语言包",
+        "Checking...": "正在检查...",
+        "Download for offline translation.": "下载以通过系统进行离线翻译。",
+        
+        // Engine
+        "AI Translation": "AI 翻译",
+        
+
+        // Settings - Translation (Extra)
+        "Learn from your corrections": "从您的修正中学习",
+        "Text mode only. Images excluded to save space.": "仅限文本模式",
+        "Standard translation mode": "标准翻译模式",
+        
+        // Prompts (Extra)
+        "How AI should understand the input...": "AI 应如何理解输入...",
+        "How AI should format the output...": "AI 应如何格式化输出..."
     ]
 }
 

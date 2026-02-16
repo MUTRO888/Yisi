@@ -518,7 +518,7 @@ struct AIServiceSettingsView: View {
         VStack(alignment: .leading, spacing: 24) {
             // API Configuration (Text Mode - Default)
             VStack(alignment: .leading, spacing: 12) {
-                SectionHeader(title: "API Service".localized)
+                // SectionHeader removed as per request
                 
                 APIConfigForm(
                     provider: $apiProvider,
@@ -630,7 +630,7 @@ struct ModesSettingsView: View {
                     PresetRadioRow(
                         id: DEFAULT_TRANSLATION_PRESET_ID,
                         name: "Default Translation".localized,
-                        description: "Standard translation mode, supports Learned Rules".localized,
+                        description: "",
                         isSelected: selectedPresetId == DEFAULT_TRANSLATION_PRESET_ID,
                         onSelect: { selectedPresetId = DEFAULT_TRANSLATION_PRESET_ID }
                     )
@@ -781,10 +781,10 @@ struct TranslationSettingsView: View {
                 SectionHeader(title: "Engine".localized)
                 
                 HStack(spacing: 0) {
-                    EngineButton(title: "macOS System".localized, isSelected: translationEngine == "system") {
+                    EngineButton(title: "System Translation".localized, isSelected: translationEngine == "system") {
                         translationEngine = "system"
                     }
-                    EngineButton(title: "AI Service".localized, isSelected: translationEngine == "ai") {
+                    EngineButton(title: "AI Translation".localized, isSelected: translationEngine == "ai") {
                         translationEngine = "ai"
                     }
                 }
@@ -868,7 +868,7 @@ private struct LanguagePackStatusView: View {
         VStack(alignment: .leading, spacing: 12) {
             SectionHeader(title: "System Translation".localized)
             
-            Text("macOS built-in translation. Fast, private, offline.".localized)
+            Text("macOS built-in translation. Fast, private, requires language pack.".localized)
                 .font(.system(size: 12, design: .serif))
                 .foregroundColor(.secondary.opacity(0.7))
             
@@ -879,6 +879,7 @@ private struct LanguagePackStatusView: View {
             if isLoading {
                 HStack(spacing: 6) {
                     ProgressView()
+                    // ... (rest of view)
                         .scaleEffect(0.5)
                         .frame(width: 14, height: 14)
                     Text("Checking...".localized)
@@ -915,10 +916,6 @@ private struct LanguagePackStatusView: View {
                         .stroke(AppColors.primary.opacity(0.08), lineWidth: 0.5)
                 )
             }
-            
-            Text("Download for offline translation.".localized)
-                .font(.system(size: 11, design: .serif))
-                .foregroundColor(.secondary.opacity(0.5))
         }
         .onAppear { Task { await refreshStatuses() } }
         .translationTask(translationManager.downloadConfiguration) { session in
@@ -1159,7 +1156,7 @@ struct PromptsSection: View {
                     PresetRadioRow(
                         id: DEFAULT_TRANSLATION_PRESET_ID,
                         name: "默认翻译".localized,
-                        description: "Standard translation mode, supports Learned Rules".localized,
+                        description: "Standard translation mode".localized,
                         isSelected: selectedPresetId == DEFAULT_TRANSLATION_PRESET_ID,
                         onSelect: { selectedPresetId = DEFAULT_TRANSLATION_PRESET_ID }
                     )
@@ -1341,10 +1338,12 @@ struct PresetRadioRow: View {
                 Text(name)
                     .font(.system(size: 13, weight: isSelected ? .semibold : .regular, design: .serif))
                     .foregroundColor(.primary)
-                Text(description)
-                    .font(.system(size: 11, design: .serif))
-                    .foregroundColor(.secondary.opacity(0.7))
-                    .lineLimit(1)
+                if !description.isEmpty {
+                    Text(description)
+                        .font(.system(size: 11, design: .serif))
+                        .foregroundColor(.secondary.opacity(0.7))
+                        .lineLimit(1)
+                }
             }
             
             Spacer()

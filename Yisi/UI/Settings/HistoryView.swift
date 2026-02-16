@@ -444,15 +444,15 @@ struct HistoryTypeTag: View {
     
     var label: String {
         if item.imagePath != nil {
-            return "Vision"
+            return "Vision".localized
         }
         switch item.type {
         case .translation:
-            return "Translation"
+            return "Translation".localized
         case .preset:
-            return item.presetName ?? "Preset"
+            return item.presetName ?? "Preset".localized
         case .custom:
-            return "Custom"
+            return "Custom".localized
         }
     }
     
