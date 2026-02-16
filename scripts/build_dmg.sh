@@ -39,12 +39,17 @@ cp AppIcon.icns "${APP_BUNDLE}/Contents/Resources/AppIcon.icns"
 rm -rf AppIcon.iconset icon_1024x1024.png AppIcon.icns
 echo "App icon generated successfully."
 
-# Build release binary via SPM
-swift build -c release
+# Build Universal Binary (arm64 + x86_64)
+echo "Building arm64..."
+swift build -c release --arch arm64
+ARM64_BIN="$(swift build -c release --arch arm64 --show-bin-path)/${APP_NAME}"
 
-# Locate binary and copy into .app bundle
-BIN_PATH=$(swift build -c release --show-bin-path)
-cp "${BIN_PATH}/${APP_NAME}" "${APP_BUNDLE}/Contents/MacOS/${APP_NAME}"
+echo "Building x86_64..."
+swift build -c release --arch x86_64
+X86_BIN="$(swift build -c release --arch x86_64 --show-bin-path)/${APP_NAME}"
+
+echo "Creating Universal Binary..."
+lipo -create -output "${APP_BUNDLE}/Contents/MacOS/${APP_NAME}" "${ARM64_BIN}" "${X86_BIN}"
 chmod +x "${APP_BUNDLE}/Contents/MacOS/${APP_NAME}"
 
 # Generate Info.plist
