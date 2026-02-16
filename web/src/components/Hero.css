@@ -1,0 +1,91 @@
+.hero {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: calc(100vh - var(--header-height));
+    text-align: center;
+}
+
+.hero-inner {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--space-md);
+}
+
+.hero-title {
+    font-family: var(--font-sans);
+    font-weight: 100;
+    font-size: clamp(5rem, 12vw, 10rem);
+    letter-spacing: -0.04em;
+    line-height: 1;
+    color: var(--color-text-primary);
+}
+
+.hero-slogan {
+    font-family: var(--font-serif);
+    font-weight: 500;
+    font-size: clamp(0.875rem, 1.5vw, 1.125rem);
+    color: var(--color-text-secondary);
+    margin-top: calc(-1 * var(--space-sm));
+}
+
+.hero-description {
+    font-family: var(--font-serif);
+    font-size: 1rem;
+    line-height: 1.8;
+    color: var(--color-text-tertiary);
+    max-width: 480px;
+    margin-top: var(--space-md);
+}
+
+.hero-actions {
+    display: flex;
+    gap: var(--space-md);
+    margin-top: var(--space-lg);
+}
+
+/* Shared Button Styles */
+.btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-family: var(--font-serif);
+    font-size: 0.875rem;
+    font-weight: 500;
+    padding: 12px 28px;
+    border-radius: var(--radius-sm);
+    transition:
+        background-color var(--duration-fast) var(--ease-out),
+        color var(--duration-fast) var(--ease-out),
+        transform var(--duration-fast) var(--ease-out),
+        box-shadow var(--duration-fast) var(--ease-out);
+}
+
+.btn:hover {
+    transform: translateY(-1px);
+}
+
+.btn:active {
+    transform: translateY(0);
+}
+
+.btn-primary {
+    background-color: var(--color-text-primary);
+    color: var(--color-bg);
+}
+
+.btn-primary:hover {
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+}
+
+.btn-ghost {
+    color: var(--color-text-secondary);
+    border: 1px solid var(--color-border);
+}
+
+.btn-ghost:hover {
+    border-color: var(--color-border-hover);
+    background-color: var(--color-accent-soft);
+    color: var(--color-text-primary);
+}
