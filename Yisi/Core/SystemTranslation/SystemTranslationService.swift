@@ -49,46 +49,56 @@ public final class SystemTranslationManager: ObservableObject {
         to targetLanguage: String,
         from sourceLanguage: String? = nil
     ) async throws -> String {
+        let resolvedSource: String
+        if let explicit = sourceLanguage {
+            resolvedSource = explicit
+        } else {
+            let detection = LanguageDetectionService.shared.detect(text, target: targetLanguage)
+            resolvedSource = detection.sourceLanguage
+            print("[SystemTranslation] Detected source: \(resolvedSource) (confidence: \(String(format: "%.2f", detection.confidence)), method: \(detection.method))")
+        }
+        
         do {
-            // First attempt with provided arguments
-            return try await executeTranslation(text, to: targetLanguage, from: sourceLanguage)
+            let raw = try await executeTranslation(text, to: targetLanguage, from: resolvedSource)
+            return normalizeNewlines(original: text, translated: raw)
         } catch {
-            // Check if we should retry
-            // Only retry if:
-            // 1. We used auto-detection (source == nil)
-            // 2. The error suggests failure (Unable to Translate or cancelled)
-            // 3. We haven't retried yet
-            if sourceLanguage == nil {
-                let errorMessage = error.localizedDescription
-                if errorMessage.contains("Unable to Translate") || errorMessage.contains("cancelled") {
-                    
-                    // Determine fallback source based on target
-                    // Heuristic: If detecting failed, try the "opposite" major language
-                    let fallbackSource: String?
-                    if targetLanguage.starts(with: "zh") {
-                        fallbackSource = "en"
-                    } else if targetLanguage.starts(with: "en") {
-                        fallbackSource = "zh-Hans"
-                    } else {
-                        // Default fallback for other targets is English (common for mixed code)
-                        fallbackSource = "en"
-                    }
-                    
-                    if let fallback = fallbackSource {
-                        print("[SystemTranslation] Auto-detect failed, retrying with fallback source: \(fallback)")
-                        return try await executeTranslation(text, to: targetLanguage, from: fallback)
-                    }
+            // Fallback: if user-selected source was wrong, retry with algorithm detection
+            if sourceLanguage != nil {
+                let detection = LanguageDetectionService.shared.detect(text, target: targetLanguage)
+                let fallback = detection.sourceLanguage
+                if fallback != resolvedSource {
+                    print("[SystemTranslation] Explicit source '\(resolvedSource)' failed, retrying with detected: \(fallback) (\(detection.method))")
+                    let raw = try await executeTranslation(text, to: targetLanguage, from: fallback)
+                    return normalizeNewlines(original: text, translated: raw)
                 }
             }
             throw error
         }
     }
     
+    // MARK: - Post-Processing
+    
+    /// Preserve the original text's newline pattern in the translated output.
+    /// Apple's Translation API sometimes inserts extra blank lines that
+    /// were not present in the source text.
+    private func normalizeNewlines(original: String, translated: String) -> String {
+        let hasConsecutiveNewlines = original.contains("\n\n")
+        if hasConsecutiveNewlines {
+            return translated
+        }
+        
+        var result = translated
+        while result.contains("\n\n") {
+            result = result.replacingOccurrences(of: "\n\n", with: "\n")
+        }
+        return result
+    }
+    
     /// Internal execution method
     private func executeTranslation(
         _ text: String,
         to targetLanguage: String,
-        from sourceLanguage: String?
+        from sourceLanguage: String
     ) async throws -> String {
         guard !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
             return text
@@ -105,9 +115,9 @@ public final class SystemTranslationManager: ObservableObject {
         isTranslating = true
         
         let targetLocale = Locale.Language(identifier: targetLanguage)
-        let sourceLocale = sourceLanguage.map { Locale.Language(identifier: $0) }
+        let sourceLocale = Locale.Language(identifier: sourceLanguage)
         
-        print("[SystemTranslation] Starting translation request (source: \(sourceLanguage ?? "auto"), target: \(targetLanguage))")
+        print("[SystemTranslation] Starting translation request (source: \(sourceLanguage), target: \(targetLanguage))")
         
         // Trigger configuration change to start translationTask
         // We set to nil first to ensure a change is detected if the locales are the same as before
@@ -118,6 +128,7 @@ public final class SystemTranslationManager: ObservableObject {
             source: sourceLocale,
             target: targetLocale
         )
+        print("[SystemTranslation] Configuration set (source: \(sourceLanguage), target: \(targetLanguage))")
         
         // Wait for result with timeout
         let timeoutSeconds = 30
