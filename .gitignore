@@ -44,6 +44,10 @@ DerivedData
 #
 .DS_Store
 
+# Build artifacts
+.build_app/
+*.dmg
+
 # User Specific
 #
 .idea/

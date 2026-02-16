@@ -79,19 +79,136 @@ cat > "${APP_BUNDLE}/Contents/Info.plist" <<PLIST
 </plist>
 PLIST
 
+# === DMG Background Generation ===
+echo "Generating DMG background..."
+SWIFT_GEN_SCRIPT="${BUILD_DIR}/generate_dmg_background.swift"
+mkdir -p "${BUILD_DIR}"
+
+cat > "${SWIFT_GEN_SCRIPT}" <<SWIFT
+import Cocoa
+
+let width: CGFloat = 480
+let height: CGFloat = 320
+
+let rep = NSBitmapImageRep(
+    bitmapDataPlanes: nil,
+    pixelsWide: Int(width),
+    pixelsHigh: Int(height),
+    bitsPerSample: 8,
+    samplesPerPixel: 4,
+    hasAlpha: true,
+    isPlanar: false,
+    colorSpaceName: .calibratedRGB,
+    bytesPerRow: 0,
+    bitsPerPixel: 0
+)!
+
+NSGraphicsContext.saveGraphicsState()
+let ctx = NSGraphicsContext(bitmapImageRep: rep)!
+NSGraphicsContext.current = ctx
+let cg = ctx.cgContext
+
+// Background: warm off-white gradient
+let topColor = CGColor(red: 0.965, green: 0.957, blue: 0.949, alpha: 1.0)
+let bottomColor = CGColor(red: 0.933, green: 0.925, blue: 0.918, alpha: 1.0)
+let gradient = CGGradient(
+    colorsSpace: CGColorSpaceCreateDeviceRGB(),
+    colors: [topColor, bottomColor] as CFArray,
+    locations: [0.0, 1.0]
+)!
+cg.drawLinearGradient(
+    gradient,
+    start: CGPoint(x: 0, y: height),
+    end: CGPoint(x: 0, y: 0),
+    options: []
+)
+
+// HarmonicFlow bars: 3 horizontal lines between icon positions
+// Icons will be at roughly x=120 and x=360, centered at y=160
+// Bars sit between them (x: 195 to 285), stacked vertically near center
+let barColor = NSColor(calibratedRed: 0.72, green: 0.74, blue: 0.76, alpha: 0.35)
+barColor.setFill()
+
+let barHeight: CGFloat = 3.0
+let barGap: CGFloat = 6.0
+let barX: CGFloat = 195.0
+let centerY: CGFloat = 165.0
+
+// 3 bars with decreasing widths (matching menu bar icon proportions: 14, 9, 5 -> scaled)
+let barWidths: [CGFloat] = [90, 58, 36]
+let totalHeight = CGFloat(barWidths.count) * barHeight + CGFloat(barWidths.count - 1) * barGap
+let startY = centerY + totalHeight / 2.0
+
+for (i, w) in barWidths.enumerated() {
+    let y = startY - CGFloat(i) * (barHeight + barGap)
+    let rect = NSRect(x: barX, y: y, width: w, height: barHeight)
+    let path = NSBezierPath(roundedRect: rect, xRadius: 1.5, yRadius: 1.5)
+    path.fill()
+}
+
+NSGraphicsContext.restoreGraphicsState()
+
+let data = rep.representation(using: .png, properties: [:])!
+let url = URL(fileURLWithPath: "dmg_background.png")
+try! data.write(to: url)
+SWIFT
+
+swift "${SWIFT_GEN_SCRIPT}"
+rm -f "${SWIFT_GEN_SCRIPT}"
+
 # Stage DMG contents (app + Applications symlink)
 DMG_STAGE="${BUILD_DIR}/dmg_stage"
 rm -rf "${DMG_STAGE}"
-mkdir -p "${DMG_STAGE}"
+mkdir -p "${DMG_STAGE}/.background"
 cp -R "${APP_BUNDLE}" "${DMG_STAGE}/"
 ln -s /Applications "${DMG_STAGE}/Applications"
+mv dmg_background.png "${DMG_STAGE}/.background/background.png"
 
-# Package staged folder into DMG
-hdiutil create \
-  -volname "${APP_NAME}" \
-  -srcfolder "${DMG_STAGE}" \
-  -ov \
-  -format UDZO \
-  "${APP_NAME}.dmg"
+# Create temporary read-write DMG
+DMG_TEMP="${BUILD_DIR}/${APP_NAME}_temp.dmg"
+rm -f "${DMG_TEMP}" "${APP_NAME}.dmg"
+hdiutil create -volname "${APP_NAME}" -srcfolder "${DMG_STAGE}" -ov -format UDRW -fs HFS+ "${DMG_TEMP}"
+
+# Mount read-write DMG
+DEVICE=$(hdiutil attach -readwrite -noverify -noautoopen "${DMG_TEMP}" | head -1 | awk '{print $1}')
+MOUNT_DIR="/Volumes/${APP_NAME}"
+echo "Mounted device ${DEVICE} at ${MOUNT_DIR}"
+
+sleep 2
+
+# Style the DMG window via AppleScript
+osascript <<APPLESCRIPT || echo "Warning: AppleScript styling partially failed, continuing..."
+tell application "Finder"
+    tell disk "${APP_NAME}"
+        open
+        delay 1
+        set current view of container window to icon view
+        set toolbar visible of container window to false
+        set statusbar visible of container window to false
+        set bounds of container window to {300, 200, 780, 520}
+        set theViewOptions to the icon view options of container window
+        set arrangement of theViewOptions to not arranged
+        set icon size of theViewOptions to 80
+        try
+            set background picture of theViewOptions to file ".background:background.png"
+        end try
+        set position of item "${APP_NAME}.app" of container window to {120, 155}
+        set position of item "Applications" of container window to {360, 155}
+        close
+        open
+        update without registering applications
+        delay 1
+        close
+    end tell
+end tell
+APPLESCRIPT
+
+sync
+sleep 2
+hdiutil detach "${DEVICE}" -quiet || hdiutil detach "${DEVICE}" -force
+
+# Convert to compressed read-only DMG
+hdiutil convert "${DMG_TEMP}" -format UDZO -o "${APP_NAME}.dmg"
+rm -f "${DMG_TEMP}"
 
 echo "Build complete: ${APP_NAME}.dmg"

@@ -28,6 +28,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         if !UserDefaults.standard.bool(forKey: "has_launched_before") {
             try? SMAppService.mainApp.register()
             UserDefaults.standard.set(true, forKey: "has_launched_before")
+            DispatchQueue.main.async { [weak self] in
+                self?.toggleSettings()
+            }
         }
     }
     
