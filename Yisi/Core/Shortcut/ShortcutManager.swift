@@ -48,8 +48,6 @@ class GlobalShortcutManager: ObservableObject {
             defaultKey: AppDefaults.screenshotShortcutKeyCode,
             defaultMods: AppDefaults.screenshotShortcutMods
         )
-
-        startMonitoring()
     }
 
     private static func loadShortcut(keyKey: String, modKey: String, defaultKey: UInt16, defaultMods: NSEvent.ModifierFlags) -> Shortcut {
@@ -87,8 +85,6 @@ class GlobalShortcutManager: ObservableObject {
         stopMonitoring()
 
         guard AXIsProcessTrusted() else {
-            let options: NSDictionary = [kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String : true]
-            AXIsProcessTrustedWithOptions(options)
             waitForAccessibilityPermission()
             return
         }

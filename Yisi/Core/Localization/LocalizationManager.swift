@@ -217,7 +217,27 @@ class LocalizationManager: ObservableObject {
         "How AI should format the output...": "How AI should format the output...",
         
         // Launch at Login
-        "Auto Start": "Auto Start"
+        "Auto Start": "Auto Start",
+
+        // Welcome / Permissions
+        "Permissions Required": "Permissions Required",
+        "Accessibility": "Accessibility",
+        "Global hotkeys & text capture": "Global hotkeys & text capture",
+        "Screen Recording": "Screen Recording",
+        "Screenshot translation": "Screenshot translation",
+        "Enable": "Enable",
+        "Get Started": "Get Started",
+        "Skip": "Skip",
+        "Next": "Next",
+        "Granted": "Granted",
+        "Open System Settings": "Open System Settings",
+        "Optional. You can set this up later in Settings.": "Optional. You can set this up later in Settings.",
+        "Grant access to enable core features": "Grant access to enable core features",
+        "Required": "Required",
+        "Requires restart after enabling": "Requires restart after enabling",
+        "Enable Accessibility to continue": "Enable Accessibility to continue",
+        "有Yisi，才有意思。": "With Yisi, everything gets interesting.",
+        "Begin": "Begin"
     ]
     
     private let zhStrings: [String: String] = [
@@ -420,7 +440,27 @@ class LocalizationManager: ObservableObject {
         "How AI should format the output...": "AI 应如何格式化输出...",
         
         // Launch at Login
-        "Auto Start": "开机自启"
+        "Auto Start": "开机自启",
+
+        // Welcome / Permissions
+        "Permissions Required": "需要权限",
+        "Accessibility": "辅助功能",
+        "Global hotkeys & text capture": "全局快捷键和文本捕获",
+        "Screen Recording": "屏幕录制",
+        "Screenshot translation": "截图翻译",
+        "Enable": "开启",
+        "Get Started": "开始使用",
+        "Skip": "跳过",
+        "Next": "下一步",
+        "Granted": "已授权",
+        "Open System Settings": "打开系统设置",
+        "Optional. You can set this up later in Settings.": "可选项，稍后可在设置中配置。",
+        "Grant access to enable core features": "授权以启用核心功能",
+        "Required": "必需",
+        "Requires restart after enabling": "启用后需重启应用",
+        "Enable Accessibility to continue": "请先开启辅助功能",
+        "有Yisi，才有意思。": "有Yisi，才有意思。",
+        "Begin": "开始"
     ]
 }
 

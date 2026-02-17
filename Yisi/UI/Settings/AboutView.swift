@@ -51,11 +51,15 @@ struct AboutView: View {
             HStack(spacing: 16) {
                 LinkButton(title: "Home".localized) {
                     // Replace with actual home URL if available, currently placeholder or github
-                    openURL(URL(string: "https://github.com/MUTRO888/Yisi")!) 
+                    openURL(URL(string: "https://github.com/MUTRO888/Yisi")!)
                 }
-                
+
                 LinkButton(title: "GitHub".localized) {
                     openURL(URL(string: "https://github.com/MUTRO888/Yisi")!)
+                }
+
+                LinkButton(title: "Begin".localized) {
+                    NotificationCenter.default.post(name: Notification.Name("ShowWelcome"), object: nil)
                 }
             }
         }

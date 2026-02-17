@@ -1,5 +1,6 @@
 import SwiftUI
 import ServiceManagement
+import ScreenCaptureKit
 
 @main
 struct YisiApp: App {
@@ -17,20 +18,29 @@ struct YisiApp: App {
 class AppDelegate: NSObject, NSApplicationDelegate {
     var statusItem: NSStatusItem?
     var settingsWindow: NSWindow?
-    
+    var welcomeWindow: NSWindow?
+
     func applicationDidFinishLaunching(_ notification: Notification) {
         AppDefaults.registerDefaults()
         NSApp.setActivationPolicy(.accessory)
-        
+
         setupMenuBar()
         setupShortcutHandler()
-        
+
         if !UserDefaults.standard.bool(forKey: AppDefaults.Keys.hasLaunchedBefore) {
-            try? SMAppService.mainApp.register()
             UserDefaults.standard.set(true, forKey: AppDefaults.Keys.hasLaunchedBefore)
-            DispatchQueue.main.async { [weak self] in
-                self?.toggleSettings()
-            }
+            try? SMAppService.mainApp.register()
+        }
+
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(showWelcomeFromAbout),
+            name: Notification.Name("ShowWelcome"),
+            object: nil
+        )
+
+        if !UserDefaults.standard.bool(forKey: AppDefaults.Keys.welcomeCompleted) {
+            showWelcome()
         }
     }
     
@@ -150,12 +160,12 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         GlobalShortcutManager.shared.onShortcutTriggered = { [weak self] in
             self?.handleShortcut()
         }
-        
+
         // 截图快捷键
         GlobalShortcutManager.shared.onScreenshotTriggered = { [weak self] in
             self?.handleScreenshotShortcut()
         }
-        
+
         // 截图界面双击 -> 打开图片上传窗口
         ScreenCaptureManager.shared.onOpenUploadWindow = {
             print("DEBUG: AppDelegate received onOpenUploadWindow callback")
@@ -164,6 +174,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 WindowManager.shared.showImageUploadWindow()
             }
         }
+
+        GlobalShortcutManager.shared.startMonitoring()
     }
     
     private func handleScreenshotShortcut() {
@@ -210,6 +222,43 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
     
+    @objc private func showWelcomeFromAbout() {
+        if welcomeWindow != nil { return }
+        showWelcome(isReentry: true)
+    }
+
+    private func showWelcome(isReentry: Bool = false) {
+        let window = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 420, height: 520),
+            styleMask: [.titled, .closable, .fullSizeContentView],
+            backing: .buffered,
+            defer: false
+        )
+        window.center()
+        window.titlebarAppearsTransparent = true
+        window.titleVisibility = .hidden
+        window.isMovableByWindowBackground = true
+        window.isOpaque = false
+        window.backgroundColor = .clear
+        window.isReleasedWhenClosed = false
+
+        let welcomeView = WelcomeView(forceStartFromHero: isReentry) { [weak self] in
+            NSAnimationContext.runAnimationGroup { context in
+                context.duration = 0.6
+                context.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+                window.animator().alphaValue = 0
+            } completionHandler: { [weak self] in
+                window.close()
+                self?.welcomeWindow = nil
+                self?.toggleSettings()
+            }
+        }
+        window.contentView = NSHostingView(rootView: welcomeView)
+        window.makeKeyAndOrderFront(nil)
+        NSApp.activate(ignoringOtherApps: true)
+        welcomeWindow = window
+    }
+
     private func handleShortcut() {
         print("Shortcut detected in App")
         

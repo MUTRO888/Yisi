@@ -11,6 +11,7 @@ enum AppDefaults {
         static let appLanguage = "app_language"
         static let closeMode = "close_mode"
         static let hasLaunchedBefore = "has_launched_before"
+        static let welcomeCompleted = "welcome_completed"
         static let launchAtLogin = "launch_at_login"
 
         // Translation
