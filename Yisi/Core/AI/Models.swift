@@ -1,8 +1,5 @@
 import Foundation
 
-// Default Translation Preset ID (built-in)
-let DEFAULT_TRANSLATION_PRESET_ID = "default_translation"
-
 struct TranslationResponse: Codable {
     let detected_type: String
     let thinking_process: String?  // 可选：仅在 promptCoT=true 时输出

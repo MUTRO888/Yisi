@@ -46,7 +46,7 @@ class WindowManager: ObservableObject {
         // Close existing window if any to ensure fresh window with correct size
         close()
         
-        let appTheme = UserDefaults.standard.string(forKey: "app_theme") ?? "light"
+        let appTheme = UserDefaults.standard.string(forKey: AppDefaults.Keys.appTheme) ?? AppDefaults.appTheme
         let contentView = TranslationView(originalText: text, errorMessage: error)
             .preferredColorScheme(ColorScheme(from: appTheme))
         
@@ -54,11 +54,11 @@ class WindowManager: ObservableObject {
         
         var contentRect: NSRect
         
-        if let savedData = UserDefaults.standard.data(forKey: "popup_frame_rect"),
+        if let savedData = UserDefaults.standard.data(forKey: AppDefaults.Keys.popupFrameRect),
            let savedRect = try? JSONDecoder().decode(CGRect.self, from: savedData) {
             contentRect = savedRect
         } else {
-            let windowSize = NSSize(width: 600, height: 330)
+            let windowSize = NSSize(width: AppDefaults.popupWindowWidth, height: AppDefaults.popupWindowHeight)
             let screenRect = NSScreen.main?.visibleFrame ?? NSRect.zero
             let centerPoint = NSPoint(x: screenRect.midX - windowSize.width / 2,
                                       y: screenRect.midY - windowSize.height / 2)
@@ -78,7 +78,7 @@ class WindowManager: ObservableObject {
         print("Window created with frame: \(contentRect)")
         
         // Close on click outside if enabled
-        let closeMode = UserDefaults.standard.string(forKey: "close_mode") ?? "clickOutside"
+        let closeMode = UserDefaults.standard.string(forKey: AppDefaults.Keys.closeMode) ?? AppDefaults.closeMode
         print("DEBUG: Window created. Close mode: \(closeMode)")
         
         // IMPORTANT: Control whether the window hides (effectively closes) when the app loses focus (e.g. clicking desktop)
@@ -112,7 +112,7 @@ class WindowManager: ObservableObject {
     func showWithImage(image: NSImage) {
         close()
         
-        let appTheme = UserDefaults.standard.string(forKey: "app_theme") ?? "light"
+        let appTheme = UserDefaults.standard.string(forKey: AppDefaults.Keys.appTheme) ?? AppDefaults.appTheme
         let contentView = TranslationView(originalText: "", errorMessage: nil, imageContext: image)
             .preferredColorScheme(ColorScheme(from: appTheme))
         
@@ -120,11 +120,11 @@ class WindowManager: ObservableObject {
         
         var contentRect: NSRect
         
-        if let savedData = UserDefaults.standard.data(forKey: "popup_frame_rect"),
+        if let savedData = UserDefaults.standard.data(forKey: AppDefaults.Keys.popupFrameRect),
            let savedRect = try? JSONDecoder().decode(CGRect.self, from: savedData) {
             contentRect = savedRect
         } else {
-            let windowSize = NSSize(width: 600, height: 330) // 稍大以容纳缩略图
+            let windowSize = NSSize(width: AppDefaults.popupWindowWidth, height: AppDefaults.popupWindowHeight) // 稍大以容纳缩略图
             let screenRect = NSScreen.main?.visibleFrame ?? NSRect.zero
             let centerPoint = NSPoint(x: screenRect.midX - windowSize.width / 2,
                                       y: screenRect.midY - windowSize.height / 2)
@@ -139,7 +139,7 @@ class WindowManager: ObservableObject {
         window?.contentViewController = hostingController
         window?.setFrame(contentRect, display: true)
         
-        let closeMode = UserDefaults.standard.string(forKey: "close_mode") ?? "clickOutside"
+        let closeMode = UserDefaults.standard.string(forKey: AppDefaults.Keys.closeMode) ?? AppDefaults.closeMode
         window?.hidesOnDeactivate = (closeMode == "clickOutside")
         
         if let monitor = localMonitor {
@@ -165,7 +165,7 @@ class WindowManager: ObservableObject {
     func showImageUploadWindow() {
         close()
         
-        let appTheme = UserDefaults.standard.string(forKey: "app_theme") ?? "light"
+        let appTheme = UserDefaults.standard.string(forKey: AppDefaults.Keys.appTheme) ?? AppDefaults.appTheme
         let contentView = TranslationView(originalText: "", startInImageMode: true)
             .preferredColorScheme(ColorScheme(from: appTheme))
         
@@ -173,11 +173,11 @@ class WindowManager: ObservableObject {
         
         var contentRect: NSRect
         
-        if let savedData = UserDefaults.standard.data(forKey: "popup_frame_rect"),
+        if let savedData = UserDefaults.standard.data(forKey: AppDefaults.Keys.popupFrameRect),
            let savedRect = try? JSONDecoder().decode(CGRect.self, from: savedData) {
             contentRect = savedRect
         } else {
-            let windowSize = NSSize(width: 600, height: 330) // 与 showWithImage 一致
+            let windowSize = NSSize(width: AppDefaults.popupWindowWidth, height: AppDefaults.popupWindowHeight) // 与 showWithImage 一致
             let screenRect = NSScreen.main?.visibleFrame ?? NSRect.zero
             let centerPoint = NSPoint(x: screenRect.midX - windowSize.width / 2,
                                       y: screenRect.midY - windowSize.height / 2)
@@ -192,7 +192,7 @@ class WindowManager: ObservableObject {
         window?.contentViewController = hostingController
         window?.setFrame(contentRect, display: true)
         
-        let closeMode = UserDefaults.standard.string(forKey: "close_mode") ?? "clickOutside"
+        let closeMode = UserDefaults.standard.string(forKey: AppDefaults.Keys.closeMode) ?? AppDefaults.closeMode
         window?.hidesOnDeactivate = (closeMode == "clickOutside")
         
         if let monitor = localMonitor {
@@ -236,7 +236,7 @@ class WindowManager: ObservableObject {
     
     /// 恢复关闭检测
     func resumeCloseDetection() {
-        let closeMode = UserDefaults.standard.string(forKey: "close_mode") ?? "clickOutside"
+        let closeMode = UserDefaults.standard.string(forKey: AppDefaults.Keys.closeMode) ?? AppDefaults.closeMode
         
         window?.hidesOnDeactivate = (closeMode == "clickOutside")
         

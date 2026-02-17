@@ -52,6 +52,10 @@ echo "Creating Universal Binary..."
 lipo -create -output "${APP_BUNDLE}/Contents/MacOS/${APP_NAME}" "${ARM64_BIN}" "${X86_BIN}"
 chmod +x "${APP_BUNDLE}/Contents/MacOS/${APP_NAME}"
 
+# Ad-hoc code sign the universal binary
+# Required for macOS to persist accessibility/keyboard permissions across launches
+codesign --force -s - "${APP_BUNDLE}/Contents/MacOS/${APP_NAME}"
+
 # Generate Info.plist
 cat > "${APP_BUNDLE}/Contents/Info.plist" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
@@ -70,6 +74,8 @@ cat > "${APP_BUNDLE}/Contents/Info.plist" <<PLIST
     <key>CFBundlePackageType</key>
     <string>APPL</string>
     <key>CFBundleShortVersionString</key>
+    <string>${VERSION}</string>
+    <key>CFBundleVersion</key>
     <string>${VERSION}</string>
     <key>LSUIElement</key>
     <true/>
@@ -160,6 +166,11 @@ rm -f "${SWIFT_GEN_SCRIPT}"
 DMG_STAGE="${BUILD_DIR}/dmg_stage"
 rm -rf "${DMG_STAGE}"
 mkdir -p "${DMG_STAGE}/.background"
+
+# Sign the complete app bundle (after all resources are in place)
+codesign --force --deep -s - "${APP_BUNDLE}"
+echo "App bundle signed (ad-hoc)."
+
 cp -R "${APP_BUNDLE}" "${DMG_STAGE}/"
 ln -s /Applications "${DMG_STAGE}/Applications"
 mv dmg_background.png "${DMG_STAGE}/.background/background.png"

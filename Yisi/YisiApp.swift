@@ -5,7 +5,7 @@ import ServiceManagement
 struct YisiApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
     
-    @AppStorage("app_theme") private var appTheme: String = "light"
+    @AppStorage(AppDefaults.Keys.appTheme) private var appTheme: String = AppDefaults.appTheme
     
     var body: some Scene {
         Settings {
@@ -19,15 +19,15 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     var settingsWindow: NSWindow?
     
     func applicationDidFinishLaunching(_ notification: Notification) {
+        AppDefaults.registerDefaults()
         NSApp.setActivationPolicy(.accessory)
         
         setupMenuBar()
         setupShortcutHandler()
-        checkAccessibilityPermissions()
         
-        if !UserDefaults.standard.bool(forKey: "has_launched_before") {
+        if !UserDefaults.standard.bool(forKey: AppDefaults.Keys.hasLaunchedBefore) {
             try? SMAppService.mainApp.register()
-            UserDefaults.standard.set(true, forKey: "has_launched_before")
+            UserDefaults.standard.set(true, forKey: AppDefaults.Keys.hasLaunchedBefore)
             DispatchQueue.main.async { [weak self] in
                 self?.toggleSettings()
             }
@@ -179,7 +179,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     @objc func toggleSettings() {
         if settingsWindow == nil {
             let window = NSWindow(
-                contentRect: NSRect(x: 0, y: 0, width: 550, height: 420),
+                contentRect: NSRect(x: 0, y: 0, width: AppDefaults.settingsWindowWidth, height: AppDefaults.settingsWindowHeight),
                 styleMask: [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView],
                 backing: .buffered,
                 defer: false
@@ -237,15 +237,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             await MainActor.run {
                 WindowManager.shared.show(text: finalText, error: finalError)
             }
-        }
-    }
-    
-    private func checkAccessibilityPermissions() {
-        let options: NSDictionary = [kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String : true]
-        let accessEnabled = AXIsProcessTrustedWithOptions(options)
-        
-        if !accessEnabled {
-            print("Accessibility access not granted. Prompting user...")
         }
     }
 }

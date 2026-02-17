@@ -45,7 +45,7 @@ enum SettingsPage: String, CaseIterable, Identifiable {
 
 struct SettingsView: View {
     @State private var selectedTopTab: Int = 0 // 0: History, 1: Settings
-    @AppStorage("app_theme") private var appTheme: String = "light"
+    @AppStorage(AppDefaults.Keys.appTheme) private var appTheme: String = AppDefaults.appTheme
     @ObservedObject private var localizationManager = LocalizationManager.shared
     
     var body: some View {
@@ -187,13 +187,13 @@ struct ScreenshotShortcutRecorder: View {
     }
     
     private func resetShortcut() {
-        GlobalShortcutManager.shared.updateScreenshotShortcut(keyCode: 7, modifiers: [.command, .shift])
+        GlobalShortcutManager.shared.updateScreenshotShortcut(keyCode: AppDefaults.screenshotShortcutKeyCode, modifiers: AppDefaults.screenshotShortcutMods)
         updateDisplay()
     }
     
     private func updateDisplay() {
-        let keyCode = UserDefaults.standard.integer(forKey: "screenshot_shortcut_key")
-        let modifiers = UserDefaults.standard.integer(forKey: "screenshot_shortcut_modifiers")
+        let keyCode = UserDefaults.standard.integer(forKey: AppDefaults.Keys.screenshotShortcutKey)
+        let modifiers = UserDefaults.standard.integer(forKey: AppDefaults.Keys.screenshotShortcutModifiers)
         
         if keyCode != 0 {
             currentShortcut = shortcutString(keyCode: UInt16(keyCode), modifiers: NSEvent.ModifierFlags(rawValue: UInt(modifiers)))
@@ -282,16 +282,26 @@ struct SettingsContent: View {
             // Section Content
             TransparentScrollView {
                 VStack(alignment: .leading, spacing: 24) {
-                    if selectedSection == "General" {
+                    ZStack(alignment: .topLeading) {
                         GeneralSettingsView()
-                    } else if selectedSection == "AI Service" {
+                            .opacity(selectedSection == "General" ? 1 : 0)
+                            .allowsHitTesting(selectedSection == "General")
+
                         AIServiceSettingsView()
-                    } else if selectedSection == "Modes" {
+                            .opacity(selectedSection == "AI Service" ? 1 : 0)
+                            .allowsHitTesting(selectedSection == "AI Service")
+
                         ModesSettingsView()
-                    } else if selectedSection == "Translation" {
+                            .opacity(selectedSection == "Modes" ? 1 : 0)
+                            .allowsHitTesting(selectedSection == "Modes")
+
                         TranslationSettingsView()
-                    } else if selectedSection == "About" {
+                            .opacity(selectedSection == "Translation" ? 1 : 0)
+                            .allowsHitTesting(selectedSection == "Translation")
+
                         AboutView()
+                            .opacity(selectedSection == "About" ? 1 : 0)
+                            .allowsHitTesting(selectedSection == "About")
                     }
                 }
                 .padding(24)
@@ -390,8 +400,8 @@ private struct APIConfigForm: View {
 // MARK: - General Settings View
 
 struct GeneralSettingsView: View {
-    @AppStorage("close_mode") private var closeMode: String = "clickOutside"
-    @AppStorage("app_theme") private var appTheme: String = "light"
+    @AppStorage(AppDefaults.Keys.closeMode) private var closeMode: String = AppDefaults.closeMode
+    @AppStorage(AppDefaults.Keys.appTheme) private var appTheme: String = AppDefaults.appTheme
     @ObservedObject private var localizationManager = LocalizationManager.shared
     @State private var launchAtLogin: Bool = SMAppService.mainApp.status == .enabled
     
@@ -523,26 +533,26 @@ struct GeneralSettingsView: View {
 
 struct AIServiceSettingsView: View {
     // Text Mode API Settings (Default)
-    @AppStorage("gemini_api_key") private var geminiKey: String = ""
-    @AppStorage("openai_api_key") private var openaiKey: String = ""
-    @AppStorage("zhipu_api_key") private var zhipuKey: String = ""
-    @AppStorage("gemini_model") private var geminiModel: String = "gemini-2.0-flash-exp"
-    @AppStorage("openai_model") private var openaiModel: String = "gpt-4o-mini"
-    @AppStorage("zhipu_model") private var zhipuModel: String = "GLM-4.5-Air"
-    @AppStorage("api_provider") private var apiProvider: String = "Zhipu AI"
+    @AppStorage(AppDefaults.Keys.geminiApiKey) private var geminiKey: String = ""
+    @AppStorage(AppDefaults.Keys.openaiApiKey) private var openaiKey: String = ""
+    @AppStorage(AppDefaults.Keys.zhipuApiKey) private var zhipuKey: String = ""
+    @AppStorage(AppDefaults.Keys.geminiModel) private var geminiModel: String = AppDefaults.geminiModel
+    @AppStorage(AppDefaults.Keys.openaiModel) private var openaiModel: String = AppDefaults.openaiModel
+    @AppStorage(AppDefaults.Keys.zhipuModel) private var zhipuModel: String = AppDefaults.zhipuModel
+    @AppStorage(AppDefaults.Keys.apiProvider) private var apiProvider: String = AppDefaults.apiProvider
     
     // Image Mode API Settings
-    @AppStorage("apply_api_to_image_mode") private var applyApiToImageMode: Bool = false
-    @AppStorage("image_api_provider") private var imageApiProvider: String = "Zhipu AI"
-    @AppStorage("image_gemini_api_key") private var imageGeminiKey: String = ""
-    @AppStorage("image_gemini_model") private var imageGeminiModel: String = "gemini-2.5-flash"
-    @AppStorage("image_openai_api_key") private var imageOpenaiKey: String = ""
-    @AppStorage("image_openai_model") private var imageOpenaiModel: String = "gpt-4o-mini"
-    @AppStorage("image_zhipu_api_key") private var imageZhipuKey: String = ""
-    @AppStorage("image_zhipu_model") private var imageZhipuModel: String = "GLM-4.5V"
+    @AppStorage(AppDefaults.Keys.applyApiToImageMode) private var applyApiToImageMode: Bool = AppDefaults.applyApiToImageMode
+    @AppStorage(AppDefaults.Keys.imageApiProvider) private var imageApiProvider: String = AppDefaults.imageApiProvider
+    @AppStorage(AppDefaults.Keys.imageGeminiApiKey) private var imageGeminiKey: String = ""
+    @AppStorage(AppDefaults.Keys.imageGeminiModel) private var imageGeminiModel: String = AppDefaults.imageGeminiModel
+    @AppStorage(AppDefaults.Keys.imageOpenaiApiKey) private var imageOpenaiKey: String = ""
+    @AppStorage(AppDefaults.Keys.imageOpenaiModel) private var imageOpenaiModel: String = AppDefaults.imageOpenaiModel
+    @AppStorage(AppDefaults.Keys.imageZhipuApiKey) private var imageZhipuKey: String = ""
+    @AppStorage(AppDefaults.Keys.imageZhipuModel) private var imageZhipuModel: String = AppDefaults.imageZhipuModel
     
     // Feature Toggles
-    @AppStorage("enable_deep_thinking") private var enableDeepThinking: Bool = false
+    @AppStorage(AppDefaults.Keys.enableDeepThinking) private var enableDeepThinking: Bool = AppDefaults.enableDeepThinking
     
     var body: some View {
         VStack(alignment: .leading, spacing: 24) {
@@ -626,8 +636,8 @@ struct AIServiceSettingsView: View {
 // MARK: - Modes Settings View (Renamed from PromptsSection)
 
 struct ModesSettingsView: View {
-    @AppStorage("preset_mode_enabled") private var presetModeEnabled: Bool = true
-    @AppStorage("selected_preset_id") private var selectedPresetId: String = DEFAULT_TRANSLATION_PRESET_ID
+    @AppStorage(AppDefaults.Keys.presetModeEnabled) private var presetModeEnabled: Bool = AppDefaults.presetModeEnabled
+    @AppStorage(AppDefaults.Keys.selectedPresetId) private var selectedPresetId: String = AppDefaults.selectedPresetId
     @State private var presets: [PromptPreset] = []
     @State private var editingPreset: PromptPreset?
     
@@ -658,11 +668,11 @@ struct ModesSettingsView: View {
                     
                     // Default Translation Preset (Built-in)
                     PresetRadioRow(
-                        id: DEFAULT_TRANSLATION_PRESET_ID,
+                        id: AppDefaults.selectedPresetId,
                         name: "Default Translation".localized,
                         description: "",
-                        isSelected: selectedPresetId == DEFAULT_TRANSLATION_PRESET_ID,
-                        onSelect: { selectedPresetId = DEFAULT_TRANSLATION_PRESET_ID }
+                        isSelected: selectedPresetId == AppDefaults.selectedPresetId,
+                        onSelect: { selectedPresetId = AppDefaults.selectedPresetId }
                     )
                     
                     Divider().opacity(0.3)
@@ -729,7 +739,7 @@ struct ModesSettingsView: View {
     }
     
     private func loadPresets() {
-        if let data = UserDefaults.standard.data(forKey: "saved_presets"),
+        if let data = UserDefaults.standard.data(forKey: AppDefaults.Keys.savedPresets),
            let decoded = try? JSONDecoder().decode([PromptPreset].self, from: data) {
             presets = decoded
         }
@@ -751,14 +761,14 @@ struct ModesSettingsView: View {
         presets.removeAll { $0.id == preset.id }
         // Reset to default translation if deleting currently selected preset
         if selectedPresetId == preset.id.uuidString {
-            selectedPresetId = DEFAULT_TRANSLATION_PRESET_ID
+            selectedPresetId = AppDefaults.selectedPresetId
         }
         persistPresets()
     }
     
     private func persistPresets() {
         if let encoded = try? JSONEncoder().encode(presets) {
-            UserDefaults.standard.set(encoded, forKey: "saved_presets")
+            UserDefaults.standard.set(encoded, forKey: AppDefaults.Keys.savedPresets)
         }
     }
 }
@@ -766,10 +776,10 @@ struct ModesSettingsView: View {
 // MARK: - Translation Settings View
 
 struct TranslationSettingsView: View {
-    @AppStorage("translation_engine") private var translationEngine: String = "system"
-    @AppStorage("default_source_language") private var defaultSourceLanguage: String = "Auto Detect"
-    @AppStorage("default_target_language") private var defaultTargetLanguage: String = "Simplified Chinese"
-    @AppStorage("enable_improve_feature") private var enableImproveFeature: Bool = false
+    @AppStorage(AppDefaults.Keys.translationEngine) private var translationEngine: String = AppDefaults.translationEngine
+    @AppStorage(AppDefaults.Keys.defaultSourceLanguage) private var defaultSourceLanguage: String = AppDefaults.defaultSourceLanguage
+    @AppStorage(AppDefaults.Keys.defaultTargetLanguage) private var defaultTargetLanguage: String = AppDefaults.defaultTargetLanguage
+    @AppStorage(AppDefaults.Keys.enableImproveFeature) private var enableImproveFeature: Bool = AppDefaults.enableImproveFeature
     
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -1042,7 +1052,7 @@ class LayoutEditorManager {
         // Load existing frame or default
         var initialFrame = CGRect(x: screenRect.midX - 200, y: screenRect.midY - 150, width: 400, height: 300)
         
-        if let savedData = UserDefaults.standard.data(forKey: "popup_frame_rect"),
+        if let savedData = UserDefaults.standard.data(forKey: AppDefaults.Keys.popupFrameRect),
            let savedRect = try? JSONDecoder().decode(CGRect.self, from: savedData) {
             // Convert Cocoa (Bottom-Left) to SwiftUI (Top-Left)
             // Cocoa Y is from bottom. SwiftUI Y is from top.
@@ -1069,7 +1079,7 @@ class LayoutEditorManager {
                 let cocoaRect = CGRect(x: frame.origin.x, y: cocoaY, width: frame.width, height: frame.height)
                 
                 if let data = try? JSONEncoder().encode(cocoaRect) {
-                    UserDefaults.standard.set(data, forKey: "popup_frame_rect")
+                    UserDefaults.standard.set(data, forKey: AppDefaults.Keys.popupFrameRect)
                 }
                 
                 DispatchQueue.main.async {
@@ -1150,8 +1160,8 @@ struct APIKeyInput: View {
 }
 
 struct PromptsSection: View {
-    @AppStorage("preset_mode_enabled") private var presetModeEnabled: Bool = true
-    @AppStorage("selected_preset_id") private var selectedPresetId: String = DEFAULT_TRANSLATION_PRESET_ID
+    @AppStorage(AppDefaults.Keys.presetModeEnabled) private var presetModeEnabled: Bool = AppDefaults.presetModeEnabled
+    @AppStorage(AppDefaults.Keys.selectedPresetId) private var selectedPresetId: String = AppDefaults.selectedPresetId
     @State private var presets: [PromptPreset] = []
     @State private var editingPreset: PromptPreset?
     
@@ -1184,11 +1194,11 @@ struct PromptsSection: View {
                     
                     // Default Translation Preset (Built-in)
                     PresetRadioRow(
-                        id: DEFAULT_TRANSLATION_PRESET_ID,
+                        id: AppDefaults.selectedPresetId,
                         name: "默认翻译".localized,
                         description: "Standard translation mode".localized,
-                        isSelected: selectedPresetId == DEFAULT_TRANSLATION_PRESET_ID,
-                        onSelect: { selectedPresetId = DEFAULT_TRANSLATION_PRESET_ID }
+                        isSelected: selectedPresetId == AppDefaults.selectedPresetId,
+                        onSelect: { selectedPresetId = AppDefaults.selectedPresetId }
                     )
                     
                     Divider().opacity(0.3)
@@ -1255,7 +1265,7 @@ struct PromptsSection: View {
     }
     
     private func loadPresets() {
-        if let data = UserDefaults.standard.data(forKey: "saved_presets"),
+        if let data = UserDefaults.standard.data(forKey: AppDefaults.Keys.savedPresets),
            let decoded = try? JSONDecoder().decode([PromptPreset].self, from: data) {
             presets = decoded
         }
@@ -1277,14 +1287,14 @@ struct PromptsSection: View {
         presets.removeAll { $0.id == preset.id }
         // Reset to default translation if deleting currently selected preset
         if selectedPresetId == preset.id.uuidString {
-            selectedPresetId = DEFAULT_TRANSLATION_PRESET_ID
+            selectedPresetId = AppDefaults.selectedPresetId
         }
         persistPresets()
     }
     
     private func persistPresets() {
         if let encoded = try? JSONEncoder().encode(presets) {
-            UserDefaults.standard.set(encoded, forKey: "saved_presets")
+            UserDefaults.standard.set(encoded, forKey: AppDefaults.Keys.savedPresets)
         }
     }
 }
@@ -2306,8 +2316,8 @@ struct ShortcutRecorder: View {
     }
     
     private func updateDisplay() {
-        let keyCode = UserDefaults.standard.integer(forKey: "global_shortcut_key")
-        let modifiers = UserDefaults.standard.integer(forKey: "global_shortcut_modifiers")
+        let keyCode = UserDefaults.standard.integer(forKey: AppDefaults.Keys.globalShortcutKey)
+        let modifiers = UserDefaults.standard.integer(forKey: AppDefaults.Keys.globalShortcutModifiers)
         
         if keyCode != 0 {
             currentShortcut = shortcutString(keyCode: UInt16(keyCode), modifiers: NSEvent.ModifierFlags(rawValue: UInt(modifiers)))

@@ -9,13 +9,13 @@ struct TranslationView: View {
     @State private var sourceLanguage: Language
     @State private var targetLanguage: Language
     @FocusState private var isInputFocused: Bool
-    @AppStorage("close_mode") private var closeMode: String = "clickOutside"
+    @AppStorage(AppDefaults.Keys.closeMode) private var closeMode: String = AppDefaults.closeMode
     @ObservedObject private var localizationManager = LocalizationManager.shared
     @State private var isImproving: Bool = false
     @State private var originalAiTranslation: String = ""
     @State private var savedOriginalText: String = ""
-    @AppStorage("enable_improve_feature") private var enableImproveFeature: Bool = false
-    @AppStorage("translation_engine") private var translationEngine: String = "ai"
+    @AppStorage(AppDefaults.Keys.enableImproveFeature) private var enableImproveFeature: Bool = AppDefaults.enableImproveFeature
+    @AppStorage(AppDefaults.Keys.translationEngine) private var translationEngine: String = AppDefaults.translationEngine
     @State private var showAnalysisResult: Bool = false
     @State private var analysisReasoning: String = ""
     @State private var showImproveSuccess: Bool = false
@@ -23,9 +23,9 @@ struct TranslationView: View {
     @State private var missingPackSource: String = ""
     @State private var missingPackTarget: String = ""
     
-    @AppStorage("enable_custom_mode_popup") private var enableCustomModePopup: Bool = false  // Legacy, now="preset_mode_enabled"
-    @AppStorage("preset_mode_enabled") private var presetModeEnabled: Bool = true
-    @AppStorage("selected_preset_id") private var selectedPresetId: String = DEFAULT_TRANSLATION_PRESET_ID
+    @AppStorage("enable_custom_mode_popup") private var enableCustomModePopup: Bool = false
+    @AppStorage(AppDefaults.Keys.presetModeEnabled) private var presetModeEnabled: Bool = AppDefaults.presetModeEnabled
+    @AppStorage(AppDefaults.Keys.selectedPresetId) private var selectedPresetId: String = AppDefaults.selectedPresetId
     @State private var customInputPerception: String = ""
     @State private var customOutputInstruction: String = ""
     @State private var inputPerceptionHeight: CGFloat = 24
@@ -58,12 +58,12 @@ struct TranslationView: View {
             return .temporaryCustom
         }
         
-        if selectedPresetId == DEFAULT_TRANSLATION_PRESET_ID {
+        if selectedPresetId == AppDefaults.selectedPresetId {
             return .defaultTranslation
         }
         
         // Find user preset
-        if let data = UserDefaults.standard.data(forKey: "saved_presets"),
+        if let data = UserDefaults.standard.data(forKey: AppDefaults.Keys.savedPresets),
            let presets = try? JSONDecoder().decode([PromptPreset].self, from: data),
            let selectedUUID = UUID(uuidString: selectedPresetId),
            let preset = presets.first(where: { $0.id == selectedUUID }) {
@@ -79,8 +79,8 @@ struct TranslationView: View {
         _imageContext = State(initialValue: imageContext)
         _isImageMode = State(initialValue: imageContext != nil || startInImageMode)
         
-        let defaultSource = UserDefaults.standard.string(forKey: "default_source_language") ?? Language.auto.rawValue
-        let defaultTarget = UserDefaults.standard.string(forKey: "default_target_language") ?? Language.simplifiedChinese.rawValue
+        let defaultSource = UserDefaults.standard.string(forKey: AppDefaults.Keys.defaultSourceLanguage) ?? Language.auto.rawValue
+        let defaultTarget = UserDefaults.standard.string(forKey: AppDefaults.Keys.defaultTargetLanguage) ?? Language.simplifiedChinese.rawValue
         
         _sourceLanguage = State(initialValue: Language(rawValue: defaultSource) ?? .auto)
         _targetLanguage = State(initialValue: Language(rawValue: defaultTarget) ?? .simplifiedChinese)

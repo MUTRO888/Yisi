@@ -1,54 +1,91 @@
 #!/bin/bash
+set -e
 
-echo "🧹 Cleaning up Yisi installation and state..."
+BUNDLE_ID="com.sonianmu.yisi"
+APP_NAME="Yisi"
 
-# 1. Remove the Application
-if [ -d "/Applications/Yisi.app" ]; then
-    echo "removing /Applications/Yisi.app"
-    rm -rf /Applications/Yisi.app
+echo "Removing all traces of ${APP_NAME}..."
+
+# 1. Quit running instances
+osascript -e "tell application \"${APP_NAME}\" to quit" 2>/dev/null || true
+pkill -f "${APP_NAME}.app" 2>/dev/null || true
+sleep 1
+
+# 2. Unregister login item
+launchctl bootout gui/$(id -u) "com.apple.xpc.launchd.user.${BUNDLE_ID}" 2>/dev/null || true
+
+# 3. Remove application
+for app_path in \
+    "/Applications/${APP_NAME}.app" \
+    "$HOME/Applications/${APP_NAME}.app" \
+    "$HOME/Desktop/${APP_NAME}.app" \
+    "$HOME/Downloads/${APP_NAME}.app"; do
+    if [ -e "$app_path" ]; then
+        echo "  removing $app_path"
+        rm -rf "$app_path"
+    fi
+done
+
+# 4. Remove Application Support
+for dir in \
+    "$HOME/Library/Application Support/${BUNDLE_ID}" \
+    "$HOME/Library/Application Support/${APP_NAME}" \
+    "$HOME/Library/Application Support/com.yisi.app"; do
+    if [ -d "$dir" ]; then
+        echo "  removing $dir"
+        rm -rf "$dir"
+    fi
+done
+
+# 5. Remove Preferences
+if [ -f "$HOME/Library/Preferences/${BUNDLE_ID}.plist" ]; then
+    echo "  removing Preferences plist"
+    rm -f "$HOME/Library/Preferences/${BUNDLE_ID}.plist"
+fi
+defaults delete "$BUNDLE_ID" 2>/dev/null || true
+
+# 6. Remove Caches & HTTP Storage
+for dir in \
+    "$HOME/Library/Caches/${BUNDLE_ID}" \
+    "$HOME/Library/HTTPStorages/${BUNDLE_ID}"; do
+    if [ -d "$dir" ]; then
+        echo "  removing $dir"
+        rm -rf "$dir"
+    fi
+done
+
+# 7. Remove Saved State
+if [ -d "$HOME/Library/Saved Application State/${BUNDLE_ID}.savedState" ]; then
+    echo "  removing Saved Application State"
+    rm -rf "$HOME/Library/Saved Application State/${BUNDLE_ID}.savedState"
 fi
 
-# 2. Remove Application Support data
-if [ -d "$HOME/Library/Application Support/com.sonianmu.yisi" ]; then
-    echo "removing Application Support/com.sonianmu.yisi"
-    rm -rf "$HOME/Library/Application Support/com.sonianmu.yisi"
-fi
-if [ -d "$HOME/Library/Application Support/Yisi" ]; then
-    echo "removing Application Support/Yisi"
-    rm -rf "$HOME/Library/Application Support/Yisi"
+# 8. Remove Sandbox Containers
+for dir in \
+    "$HOME/Library/Containers/${BUNDLE_ID}" \
+    "$HOME/Library/Group Containers/group.${BUNDLE_ID}"; do
+    if [ -d "$dir" ]; then
+        echo "  removing $dir"
+        rm -rf "$dir"
+    fi
+done
+
+# 9. Remove history database
+if [ -f "$HOME/Documents/YisiHistory.sqlite" ]; then
+    echo "  removing Documents/YisiHistory.sqlite"
+    rm -f "$HOME/Documents/YisiHistory.sqlite"
+    rm -f "$HOME/Documents/YisiHistory.sqlite-wal"
+    rm -f "$HOME/Documents/YisiHistory.sqlite-shm"
 fi
 
-# 3. Remove Preferences
-if [ -f "$HOME/Library/Preferences/com.sonianmu.yisi.plist" ]; then
-    echo "removing Preferences"
-    rm -f "$HOME/Library/Preferences/com.sonianmu.yisi.plist"
-fi
-defaults delete com.sonianmu.yisi 2>/dev/null || true
+# 10. Reset TCC permissions (Accessibility, Input Monitoring, Key Events)
+echo "  resetting TCC permissions"
+tccutil reset Accessibility "$BUNDLE_ID" 2>/dev/null || true
+tccutil reset ListenEvent "$BUNDLE_ID" 2>/dev/null || true
+tccutil reset PostEvent "$BUNDLE_ID" 2>/dev/null || true
+tccutil reset ScreenCapture "$BUNDLE_ID" 2>/dev/null || true
 
-# 4. Remove Caches
-if [ -d "$HOME/Library/Caches/com.sonianmu.yisi" ]; then
-    echo "removing Caches"
-    rm -rf "$HOME/Library/Caches/com.sonianmu.yisi"
-fi
-if [ -d "$HOME/Library/HTTPStorages/com.sonianmu.yisi" ]; then
-    echo "removing HTTPStorages"
-    rm -rf "$HOME/Library/HTTPStorages/com.sonianmu.yisi"
-fi
+# 11. Remove DMG artifacts (not source code)
+rm -f "${0%/*}/../${APP_NAME}.dmg"
 
-# 5. Remove Saved State
-if [ -d "$HOME/Library/Saved Application State/com.sonianmu.yisi.savedState" ]; then
-    echo "removing Saved Application State"
-    rm -rf "$HOME/Library/Saved Application State/com.sonianmu.yisi.savedState"
-fi
-
-# 6. Remove Sandbox Containers
-if [ -d "$HOME/Library/Containers/com.sonianmu.yisi" ]; then
-    echo "removing Containers"
-    rm -rf "$HOME/Library/Containers/com.sonianmu.yisi"
-fi
-if [ -d "$HOME/Library/Group Containers/group.com.sonianmu.yisi" ]; then
-    echo "removing Group Containers"
-    rm -rf "$HOME/Library/Group Containers/group.com.sonianmu.yisi"
-fi
-
-echo "✨ All traces of Yisi have been removed from your system."
+echo "Done. All traces of ${APP_NAME} removed."
