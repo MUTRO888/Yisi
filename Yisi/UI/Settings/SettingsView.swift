@@ -282,26 +282,17 @@ struct SettingsContent: View {
             // Section Content
             TransparentScrollView {
                 VStack(alignment: .leading, spacing: 24) {
-                    ZStack(alignment: .topLeading) {
-                        GeneralSettingsView()
-                            .opacity(selectedSection == "General" ? 1 : 0)
-                            .allowsHitTesting(selectedSection == "General")
-
+                    switch selectedSection {
+                    case "AI Service":
                         AIServiceSettingsView()
-                            .opacity(selectedSection == "AI Service" ? 1 : 0)
-                            .allowsHitTesting(selectedSection == "AI Service")
-
+                    case "Modes":
                         ModesSettingsView()
-                            .opacity(selectedSection == "Modes" ? 1 : 0)
-                            .allowsHitTesting(selectedSection == "Modes")
-
+                    case "Translation":
                         TranslationSettingsView()
-                            .opacity(selectedSection == "Translation" ? 1 : 0)
-                            .allowsHitTesting(selectedSection == "Translation")
-
+                    case "About":
                         AboutView()
-                            .opacity(selectedSection == "About" ? 1 : 0)
-                            .allowsHitTesting(selectedSection == "About")
+                    default:
+                        GeneralSettingsView()
                     }
                 }
                 .padding(24)
