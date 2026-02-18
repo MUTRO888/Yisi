@@ -1,73 +1,175 @@
 .hero {
+    height: 100vh;
     display: flex;
     align-items: center;
     justify-content: center;
-    min-height: calc(100vh - var(--header-height));
-    text-align: center;
-}
-
-.hero-inner {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: var(--space-md);
-}
-
-.hero-title {
-    font-family: var(--font-sans);
-    font-weight: 100;
-    font-size: clamp(5rem, 12vw, 10rem);
-    letter-spacing: -0.04em;
-    line-height: 1;
+    position: relative;
+    overflow: hidden;
+    background-color: var(--color-bg);
     color: var(--color-text-primary);
 }
 
-.hero-slogan {
-    font-family: var(--font-serif);
-    font-weight: 500;
-    font-size: clamp(0.875rem, 1.5vw, 1.125rem);
-    color: var(--color-text-secondary);
-    margin-top: calc(-1 * var(--space-sm));
+.hero-content {
+    width: 100%;
+    max-width: var(--max-width);
+    padding: 0 var(--space-lg);
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 60vh;
+    z-index: 1;
+    /* Above particles */
 }
 
-.hero-description {
+/* --- Interaction Zone --- */
+.text-interaction-zone {
+    cursor: pointer;
+    padding: var(--space-xl);
+    border-radius: var(--radius-lg);
+    transition: background-color 0.4s var(--ease-out);
+}
+
+.text-interaction-zone:hover {
+    background-color: rgba(0, 0, 0, 0.02);
+    /* Very subtle highlight */
+}
+
+.poetic-text {
+    font-family: var(--font-serif);
+    font-size: 2.5rem;
+    line-height: 1.5;
+    font-weight: 300;
+    color: var(--color-text-primary);
+    transition: all 0.4s var(--ease-out);
+    margin: 0;
+}
+
+/* Hover Effect: Text becomes slightly sharper/darker or shifts */
+.poetic-text.source.hovered {
+    transform: scale(1.02);
+    color: var(--color-text-primary);
+    text-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+}
+
+.interaction-hint {
+    margin-top: var(--space-md);
+    font-family: var(--font-sans);
+    font-size: 0.85rem;
+    color: var(--color-text-tertiary);
+    opacity: 0;
+    transform: translateY(10px);
+    transition: all 0.3s var(--ease-out);
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+}
+
+.interaction-hint.visible {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+/* --- Flow Container --- */
+.flow-container {
+    width: 100%;
+    display: flex;
+    justify-content: center;
+    animation: fadeIn 0.5s ease-out;
+}
+
+/* --- Result & Footer --- */
+.result-container {
+    animation: fadeInUp 0.8s var(--ease-out);
+    text-align: center;
+}
+
+.poetic-text.target {
+    font-size: 3rem;
+    /* Larger for Chinese characters */
+    font-weight: 400;
+    /* Slightly bolder for legibility */
+}
+
+.hero-footer {
+    margin-top: var(--space-2xl);
+    opacity: 0;
+    transform: translateY(20px);
+    transition: all 1s var(--ease-out);
+}
+
+.hero-footer.visible {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+    }
+
+    to {
+        opacity: 1;
+    }
+}
+
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Mobile Tweaks */
+@media (max-width: 768px) {
+    .poetic-text {
+        font-size: 1.5rem;
+        white-space: normal;
+    }
+
+    .poetic-text.target {
+        font-size: 2rem;
+    }
+}
+
+/* Reusing existing Footer/Button styles... */
+.brand-title {
+    font-family: var(--font-sans);
+    font-weight: 200;
+    font-size: 1.2rem;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    margin-bottom: var(--space-xs);
+    color: var(--color-text-tertiary);
+}
+
+.brand-subtitle {
     font-family: var(--font-serif);
     font-size: 1rem;
-    line-height: 1.8;
-    color: var(--color-text-tertiary);
-    max-width: 480px;
-    margin-top: var(--space-md);
+    color: var(--color-text-secondary);
+    margin-bottom: var(--space-lg);
+    font-style: italic;
 }
 
 .hero-actions {
     display: flex;
     gap: var(--space-md);
-    margin-top: var(--space-lg);
-}
-
-/* Shared Button Styles */
-.btn {
-    display: inline-flex;
-    align-items: center;
     justify-content: center;
-    font-family: var(--font-serif);
-    font-size: 0.875rem;
+}
+
+.btn {
+    padding: 12px 32px;
+    border-radius: 100px;
+    font-size: 0.95rem;
     font-weight: 500;
-    padding: 12px 28px;
-    border-radius: var(--radius-sm);
-    transition:
-        background-color var(--duration-fast) var(--ease-out),
-        color var(--duration-fast) var(--ease-out),
-        transform var(--duration-fast) var(--ease-out),
-        box-shadow var(--duration-fast) var(--ease-out);
-}
-
-.btn:hover {
-    transform: translateY(-1px);
-}
-
-.btn:active {
-    transform: translateY(0);
+    text-decoration: none;
+    transition: all var(--duration-normal) var(--ease-out);
+    border: 1px solid transparent;
 }
 
 .btn-primary {
@@ -76,16 +178,7 @@
 }
 
 .btn-primary:hover {
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
-}
-
-.btn-ghost {
-    color: var(--color-text-secondary);
-    border: 1px solid var(--color-border);
-}
-
-.btn-ghost:hover {
-    border-color: var(--color-border-hover);
-    background-color: var(--color-accent-soft);
-    color: var(--color-text-primary);
+    background-color: var(--color-text-secondary);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
 }

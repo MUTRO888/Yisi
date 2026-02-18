@@ -1,0 +1,47 @@
+.harmonic-flow {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    /* Approx 10px spacing from swift + some for breathing room */
+    width: 600px;
+    /* Fixed width container to anchor the bars */
+    max-width: 90vw;
+    margin: 0 auto;
+    padding: 20px 0;
+}
+
+.harmonic-bar {
+    height: 12px;
+    background-color: var(--color-border);
+    /* "Mist" equivalent */
+    border-radius: 6px;
+    transform-origin: left center;
+    transition: background-color 0.3s ease;
+    will-change: transform, opacity;
+}
+
+.harmonic-bar.animating {
+    animation: flowPulse 1.8s ease-in-out infinite;
+    /* 1.8s speed from Swift */
+}
+
+@keyframes flowPulse {
+    0% {
+        transform: scaleX(0.9);
+        opacity: 0.5;
+        background-color: var(--color-border);
+    }
+
+    50% {
+        transform: scaleX(1.0);
+        opacity: 1;
+        background-color: var(--color-text-secondary);
+        /* "YisiLight" approximation */
+    }
+
+    100% {
+        transform: scaleX(0.9);
+        opacity: 0.5;
+        background-color: var(--color-border);
+    }
+}
