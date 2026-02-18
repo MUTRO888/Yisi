@@ -1,30 +1,36 @@
 import './AppDemo.css'
 import { useI18n, tr } from '../i18n'
+import { useScrollReveal } from '../hooks/useScrollReveal'
+import TextReveal from './TextReveal'
 
-function AppDemo() {
+function WhyYisi() {
     const { lang, t } = useI18n()
+    const { ref, isVisible } = useScrollReveal()
 
     return (
-        <section id="demo" className="app-demo section">
-            <div className="app-demo-inner container">
-                <h2 className="app-demo-heading">
-                    {tr(t.appDemo.heading, lang)}
-                </h2>
-                <p className="app-demo-sub">
-                    {tr(t.appDemo.sub, lang)}
+        <section
+            id="why-yisi"
+            className="why-yisi section"
+            ref={ref as React.RefObject<HTMLElement>}
+        >
+            <div className="why-yisi-inner container">
+                <TextReveal
+                    text={tr(t.whyYisi.heading, lang)}
+                    isVisible={isVisible}
+                    className="why-yisi-heading"
+                />
+                <p className={`why-yisi-sub reveal${isVisible ? ' visible' : ''}`}>
+                    {tr(t.whyYisi.sub, lang)}
                 </p>
-                <div className="app-demo-grid">
-                    {t.appDemo.demos.map((demo) => (
-                        <div key={demo.title.en} className="demo-card">
-                            <div className="demo-preview">
-                                <span className="demo-preview-label">
-                                    {tr(t.appDemo.placeholder, lang)}
-                                </span>
-                            </div>
-                            <div className="demo-info">
-                                <h3 className="demo-title">{tr(demo.title, lang)}</h3>
-                                <p className="demo-desc">{tr(demo.description, lang)}</p>
-                            </div>
+                <div className={`why-yisi-grid reveal-stagger${isVisible ? ' visible' : ''}`}>
+                    {t.whyYisi.items.map((item, i) => (
+                        <div
+                            key={item.title.en}
+                            className="why-yisi-card reveal-child"
+                            style={{ '--reveal-index': i } as React.CSSProperties}
+                        >
+                            <h3 className="why-yisi-title">{tr(item.title, lang)}</h3>
+                            <p className="why-yisi-desc">{tr(item.description, lang)}</p>
                         </div>
                     ))}
                 </div>
@@ -33,4 +39,4 @@ function AppDemo() {
     )
 }
 
-export default AppDemo
+export default WhyYisi

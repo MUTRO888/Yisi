@@ -1,100 +1,62 @@
-.app-demo {
+.why-yisi {
     background-color: var(--color-bg);
 }
 
-.app-demo-inner {
+.why-yisi-inner {
     display: flex;
     flex-direction: column;
     align-items: center;
 }
 
-.app-demo-heading {
+.why-yisi-heading {
     font-family: var(--font-display);
     font-weight: 300;
     font-size: clamp(2rem, 5vw, 3.5rem);
     letter-spacing: -0.02em;
     color: var(--color-text-primary);
     text-align: center;
-    margin-bottom: var(--space-md);
+    margin-bottom: var(--space-lg);
 }
 
-.app-demo-sub {
+.why-yisi-sub {
     font-family: var(--font-serif);
     font-size: clamp(0.95rem, 1.8vw, 1.125rem);
-    line-height: 1.7;
+    line-height: 1.8;
     color: var(--color-text-secondary);
     text-align: center;
-    max-width: 480px;
+    max-width: 640px;
     margin-bottom: var(--space-xl);
 }
 
-.app-demo-grid {
+.why-yisi-grid {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
     gap: var(--space-lg);
     width: 100%;
 }
 
-.demo-card {
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius-md);
-    background-color: var(--color-bg-elevated);
-    overflow: hidden;
-    transition:
-        border-color var(--duration-normal) var(--ease-out),
-        box-shadow var(--duration-normal) var(--ease-out),
-        transform var(--duration-normal) var(--ease-out);
-}
-
-.demo-card:hover {
-    border-color: var(--color-border-hover);
-    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.04);
-    transform: translateY(-2px);
-}
-
-.demo-preview {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    height: 220px;
-    background-color: var(--color-accent-soft);
-    border-bottom: 1px solid var(--color-border);
-}
-
-.demo-preview-label {
-    font-family: var(--font-sans);
-    font-size: 0.75rem;
-    font-weight: 400;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    color: var(--color-text-tertiary);
-}
-
-.demo-info {
+.why-yisi-card {
     padding: var(--space-lg);
+    border-top: 1px solid var(--color-border);
 }
 
-.demo-title {
+.why-yisi-title {
     font-family: var(--font-sans);
     font-weight: 500;
-    font-size: 1rem;
+    font-size: 1.125rem;
     color: var(--color-text-primary);
-    margin-bottom: var(--space-xs);
+    margin-bottom: var(--space-sm);
 }
 
-.demo-desc {
+.why-yisi-desc {
     font-family: var(--font-serif);
-    font-size: 0.875rem;
+    font-size: 0.9375rem;
     line-height: 1.7;
     color: var(--color-text-secondary);
 }
 
 @media (max-width: 768px) {
-    .app-demo-grid {
+    .why-yisi-grid {
         grid-template-columns: 1fr;
-    }
-
-    .demo-preview {
-        height: 180px;
     }
 }

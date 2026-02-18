@@ -1,23 +1,37 @@
 .hero {
-  height: 100vh;
+  height: calc(100vh - var(--header-height));
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
   background-color: var(--color-bg);
   padding: 0 var(--space-lg);
+  position: relative;
+  overflow: hidden;
+  scroll-snap-align: start;
+}
+
+.hero::before {
+  content: '';
+  position: absolute;
+  inset: -20%;
+  background:
+    radial-gradient(ellipse 50% 40% at 50% 20%, rgba(85, 83, 134, 0.08), transparent),
+    radial-gradient(ellipse 40% 30% at 30% 50%, rgba(122, 120, 173, 0.05), transparent);
+  animation: ambientShift 8s ease-in-out infinite;
+  pointer-events: none;
+  z-index: 0;
 }
 
 /* --- Text Stage --- */
 
 .hero-stage {
+  flex: 1;
   position: relative;
   width: 100%;
-  min-height: 160px;
   display: flex;
   align-items: center;
   justify-content: center;
-  margin-bottom: 80px;
+  z-index: 1;
 }
 
 .hero-layer {
@@ -70,6 +84,69 @@
 .hc.sel {
   background-color: var(--color-selection);
   border-radius: 3px;
+}
+
+/* --- Bottom Group (tagline + buttons) --- */
+
+.hero-bottom {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding-bottom: 6vh;
+  z-index: 1;
+  flex-shrink: 0;
+}
+
+/* --- Scroll Indicator --- */
+
+.hero-scroll-hint {
+  position: absolute;
+  bottom: var(--space-md);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  opacity: 0.35;
+  animation: scrollHintPulse 2s ease-in-out infinite;
+}
+
+.hero-scroll-hint::before,
+.hero-scroll-hint::after {
+  content: '';
+  width: 10px;
+  height: 10px;
+  border-right: 1.5px solid var(--color-text-tertiary);
+  border-bottom: 1.5px solid var(--color-text-tertiary);
+  transform: rotate(45deg);
+}
+
+.hero-scroll-hint::after {
+  margin-top: -6px;
+}
+
+@keyframes scrollHintPulse {
+  0%, 100% {
+    opacity: 0.35;
+    transform: translateX(-50%) translateY(0);
+  }
+  50% {
+    opacity: 0.6;
+    transform: translateX(-50%) translateY(4px);
+  }
+}
+
+.hero-tagline {
+  font-family: var(--font-serif);
+  font-size: clamp(0.9375rem, 1.5vw, 1.0625rem);
+  line-height: 1.8;
+  color: var(--color-text-tertiary);
+  text-align: center;
+  margin: 0 0 var(--space-lg);
+  max-width: 720px;
+  white-space: pre-line;
 }
 
 /* --- CTA Buttons --- */

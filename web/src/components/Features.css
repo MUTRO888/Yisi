@@ -33,9 +33,11 @@
 
 .feature-card {
     padding: var(--space-lg);
-    border: 1px solid var(--color-border);
+    border: 1px solid var(--glass-border);
     border-radius: var(--radius-md);
-    background-color: var(--color-bg-elevated);
+    background: var(--glass-bg);
+    backdrop-filter: blur(var(--glass-blur));
+    -webkit-backdrop-filter: blur(var(--glass-blur));
     transition:
         border-color var(--duration-normal) var(--ease-out),
         box-shadow var(--duration-normal) var(--ease-out),
@@ -44,8 +46,11 @@
 
 .feature-card:hover {
     border-color: var(--color-border-hover);
-    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.04);
-    transform: translateY(-2px);
+    box-shadow:
+        0 8px 32px rgba(0, 0, 0, 0.06),
+        0 0 0 1px rgba(85, 83, 134, 0.08),
+        0 4px 24px rgba(85, 83, 134, 0.06);
+    transform: translateY(-4px);
 }
 
 .feature-label {

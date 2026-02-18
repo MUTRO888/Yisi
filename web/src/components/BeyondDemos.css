@@ -1,0 +1,448 @@
+/* ============================================
+   Fixed-Size Demo Containers
+   ============================================ */
+
+.bd-demo-container {
+    width: 100%;
+    overflow: hidden;
+}
+
+.bd-preset-container {
+    min-height: 340px;
+}
+
+.bd-custom-container {
+    min-height: 380px;
+}
+
+.bd-vision-container {
+    min-height: 340px;
+}
+
+/* ============================================
+   Shared Beyond Demo Styles
+   ============================================ */
+
+.bd-demo {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--space-md);
+    width: 100%;
+}
+
+.bd-window {
+    width: 100%;
+    border-radius: var(--radius-md);
+    border: 1px solid var(--color-border);
+    background-color: var(--color-bg-elevated);
+    overflow: hidden;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.04);
+}
+
+.bd-win-bar {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--color-border);
+}
+
+.bd-win-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background-color: var(--color-border);
+}
+
+.bd-win-body {
+    padding: var(--space-sm) var(--space-md);
+}
+
+.bd-doc-text {
+    font-family: var(--font-serif);
+    font-size: 0.8125rem;
+    line-height: 1.7;
+    color: var(--color-text-primary);
+    margin: 0;
+}
+
+.bd-sel {
+    background-color: var(--color-selection);
+    border-radius: 2px;
+}
+
+.bd-sel-all {
+    background-color: var(--color-selection);
+    border-radius: 3px;
+    display: inline;
+    padding: 1px 2px;
+}
+
+/* Keys */
+
+.bd-keys {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    opacity: 0;
+    transform: translateY(6px);
+    transition:
+        opacity 0.25s var(--ease-out),
+        transform 0.25s var(--ease-out);
+}
+
+.bd-keys.visible {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+.bd-key-plus {
+    font-family: var(--font-sans);
+    font-size: 0.625rem;
+    color: var(--color-text-tertiary);
+}
+
+.bd-key-cap {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 28px;
+    height: 24px;
+    padding: 0 7px;
+    border-radius: 5px;
+    font-family: var(--font-sans);
+    font-size: 0.625rem;
+    font-weight: 500;
+    color: var(--color-text-primary);
+    background: var(--color-bg-elevated);
+    border: 1px solid var(--color-border);
+    box-shadow:
+        0 2px 0 var(--color-border),
+        0 2px 4px rgba(0, 0, 0, 0.03);
+    transition:
+        transform 0.1s ease,
+        box-shadow 0.1s ease;
+}
+
+.bd-key-cap.pressed {
+    transform: translateY(2px);
+    box-shadow: none;
+}
+
+/* ============================================
+   Yisi Popup (Faithful Replication)
+   ============================================ */
+
+.bd-popup {
+    width: 100%;
+    border-radius: var(--radius-md);
+    border: 1px solid var(--color-border);
+    background-color: var(--color-bg-elevated);
+    overflow: hidden;
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.06);
+    animation: bdPopupIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1.0) both;
+}
+
+.bd-popup-bar {
+    display: flex;
+    gap: 5px;
+    padding: 7px 10px;
+    border-bottom: 1px solid var(--color-border);
+}
+
+.bd-popup-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background-color: var(--color-border);
+}
+
+.bd-popup-panels {
+    display: flex;
+    min-height: 60px;
+}
+
+.bd-popup-panel {
+    flex: 1;
+    padding: var(--space-sm) var(--space-sm);
+    display: flex;
+    align-items: flex-start;
+}
+
+.bd-popup-divider {
+    width: 1px;
+    background-color: var(--color-border);
+    flex-shrink: 0;
+}
+
+.bd-popup-text {
+    font-family: var(--font-serif);
+    font-size: 0.75rem;
+    line-height: 1.6;
+    color: var(--color-text-primary);
+    margin: 0;
+    white-space: pre-line;
+}
+
+.bd-popup-source {
+    color: var(--color-text-secondary);
+}
+
+.bd-popup-result {
+    animation: bdFadeIn 0.4s var(--ease-out) both;
+}
+
+.bd-popup-loading {
+    width: 100%;
+}
+
+.bd-popup-loading .harmonic-flow {
+    max-width: 100%;
+    padding: 2px 0;
+    gap: 6px;
+}
+
+.bd-popup-loading .harmonic-bar {
+    height: 5px;
+}
+
+/* Popup Footer with Yisi Button */
+
+.bd-popup-footer {
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    padding: 5px 10px;
+    border-top: 1px solid var(--color-border);
+}
+
+.bd-yisi-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    height: 22px;
+    padding: 0 10px;
+    border-radius: 5px;
+    font-family: var(--font-serif);
+    font-size: 0.625rem;
+    font-weight: 500;
+    background-color: var(--color-yisi-purple);
+    color: white;
+    letter-spacing: 0.02em;
+}
+
+/* ============================================
+   Preset Mode Demo
+   ============================================ */
+
+.bd-preset-tag {
+    margin-left: auto;
+    font-family: var(--font-sans);
+    font-size: 0.5625rem;
+    font-weight: 500;
+    color: var(--color-yisi-purple);
+    background-color: var(--color-accent-soft);
+    padding: 2px 8px;
+    border-radius: 100px;
+    letter-spacing: 0.03em;
+}
+
+/* ============================================
+   Custom Mode Demo
+   ============================================ */
+
+.bd-custom-source-window {
+    margin-bottom: 0;
+}
+
+.bd-custom-popup {
+    width: 100%;
+}
+
+.bd-custom-narrative {
+    padding: var(--space-sm) var(--space-md);
+    font-family: var(--font-serif);
+    font-size: 0.8125rem;
+    line-height: 2;
+    color: var(--color-text-secondary);
+    border-bottom: 1px solid var(--color-border);
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.bd-narrative-line {
+    display: flex;
+    align-items: baseline;
+    gap: 2px;
+}
+
+.bd-narrative-input {
+    display: inline;
+    border-bottom: 2px solid var(--color-yisi-purple);
+    color: var(--color-yisi-purple);
+    font-weight: 500;
+    padding-bottom: 1px;
+    min-width: 40px;
+}
+
+.bd-input-placeholder {
+    display: inline-block;
+    width: 48px;
+}
+
+.bd-cursor {
+    display: inline-block;
+    width: 1.5px;
+    height: 1em;
+    background-color: var(--color-yisi-purple);
+    vertical-align: text-bottom;
+    margin-left: 1px;
+    animation: bdBlink 0.6s steps(2) infinite;
+}
+
+.bd-custom-result-area {
+    padding: var(--space-sm) var(--space-md);
+    min-height: 40px;
+}
+
+/* ============================================
+   Vision Demo
+   ============================================ */
+
+.bd-vision-screen {
+    width: 100%;
+    border-radius: var(--radius-md);
+    border: 1px solid var(--color-border);
+    background-color: var(--color-bg-elevated);
+    overflow: hidden;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.04);
+}
+
+.bd-vision-mock {
+    position: relative;
+    padding: var(--space-md);
+    min-height: 140px;
+}
+
+.bd-mock-toolbar {
+    display: flex;
+    gap: 6px;
+    margin-bottom: var(--space-md);
+}
+
+.bd-mock-block {
+    height: 8px;
+    border-radius: 4px;
+    background-color: var(--color-border);
+}
+
+.bd-mock-w1 { width: 40px; }
+.bd-mock-w2 { width: 60px; }
+.bd-mock-w3 { width: 32px; }
+
+.bd-mock-content {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.bd-mock-line {
+    height: 6px;
+    border-radius: 3px;
+    background-color: var(--color-accent-soft);
+}
+
+.bd-mock-l1 { width: 85%; }
+.bd-mock-l2 { width: 70%; }
+.bd-mock-l3 { width: 50%; }
+
+.bd-mock-btn-row {
+    display: flex;
+    gap: 6px;
+    margin-top: var(--space-sm);
+}
+
+.bd-mock-btn {
+    font-family: var(--font-sans);
+    font-size: 0.5625rem;
+    font-weight: 500;
+    padding: 3px 10px;
+    border-radius: 4px;
+    background-color: var(--color-yisi-purple);
+    color: white;
+}
+
+.bd-mock-btn-ghost {
+    background-color: transparent;
+    border: 1px solid var(--color-border);
+    color: var(--color-text-secondary);
+}
+
+.bd-capture-rect {
+    position: absolute;
+    top: 10%;
+    left: 5%;
+    border: 2px dashed var(--color-yisi-purple);
+    border-radius: 4px;
+    background-color: rgba(85, 83, 134, 0.06);
+    transition: width 0.05s linear, height 0.05s linear;
+    pointer-events: none;
+}
+
+.bd-vision-img-panel {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.bd-vision-thumb {
+    width: 100%;
+    height: 48px;
+    border-radius: 4px;
+    background:
+        repeating-linear-gradient(
+            45deg,
+            var(--color-accent-soft),
+            var(--color-accent-soft) 4px,
+            transparent 4px,
+            transparent 8px
+        );
+    border: 1px solid var(--color-border);
+}
+
+.bd-vision-result {
+    font-size: 0.6875rem;
+}
+
+/* ============================================
+   Keyframes
+   ============================================ */
+
+@keyframes bdPopupIn {
+    from {
+        opacity: 0;
+        transform: scale(0.94) translateY(8px);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1) translateY(0);
+    }
+}
+
+@keyframes bdFadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(6px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes bdBlink {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0; }
+}

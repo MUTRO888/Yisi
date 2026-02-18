@@ -1,0 +1,63 @@
+.yisi-app-icon {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    background: linear-gradient(135deg, #555386, #474575);
+    flex-shrink: 0;
+    transition:
+        transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1.0),
+        box-shadow 0.3s var(--ease-out);
+    cursor: pointer;
+}
+
+.yisi-bar {
+    display: block;
+    height: 2.5px;
+    border-radius: 1.5px;
+    background-color: white;
+    transform-origin: center;
+    transition: transform 1.2s cubic-bezier(0.34, 1.56, 0.64, 1.0);
+}
+
+.yisi-bar-1 {
+    width: 60%;
+    opacity: 0.5;
+}
+
+.yisi-bar-2 {
+    width: 40%;
+    opacity: 0.75;
+}
+
+.yisi-bar-3 {
+    width: 24%;
+    opacity: 1.0;
+    box-shadow: 0 0 4px rgba(255, 255, 255, 0.5);
+}
+
+.yisi-app-icon:hover {
+    transform: scale(1.05) translateY(-2px);
+}
+
+.yisi-app-icon:hover .yisi-bar-1 {
+    animation: barBreathe 1.2s ease-in-out infinite;
+}
+
+.yisi-app-icon:hover .yisi-bar-2 {
+    animation: barBreathe 1.2s ease-in-out 0.15s infinite;
+}
+
+.yisi-app-icon:hover .yisi-bar-3 {
+    animation: barBreathe 1.2s ease-in-out 0.3s infinite;
+}
+
+@keyframes barBreathe {
+    0%, 100% {
+        transform: scaleX(1);
+    }
+    50% {
+        transform: scaleX(1.3);
+    }
+}

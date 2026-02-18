@@ -15,22 +15,46 @@
     letter-spacing: -0.02em;
     color: var(--color-text-primary);
     text-align: center;
+    margin-bottom: var(--space-md);
+}
+
+.workflow-sub {
+    font-family: var(--font-serif);
+    font-size: clamp(0.95rem, 1.8vw, 1.125rem);
+    line-height: 1.7;
+    color: var(--color-text-secondary);
+    text-align: center;
+    max-width: 540px;
     margin-bottom: var(--space-xl);
 }
 
-.workflow-steps {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: var(--space-xl);
+.workflow-items {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2xl);
     width: 100%;
-    position: relative;
 }
 
-.workflow-step {
-    position: relative;
+.workflow-item {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--space-xl);
+    align-items: start;
+}
+
+.workflow-item:nth-child(even) {
+    direction: rtl;
+}
+
+.workflow-item:nth-child(even) > * {
+    direction: ltr;
+}
+
+.workflow-item-text {
     display: flex;
     flex-direction: column;
     align-items: flex-start;
+    padding-top: var(--space-md);
 }
 
 .workflow-number {
@@ -57,35 +81,23 @@
     color: var(--color-text-secondary);
 }
 
-.workflow-connector {
-    display: none;
-}
-
-@media (min-width: 769px) {
-    .workflow-connector {
-        display: block;
-        position: absolute;
-        top: 6px;
-        right: calc(-1 * var(--space-xl) / 2);
-        width: var(--space-xl);
-        height: 1px;
-        background: linear-gradient(
-            to right,
-            var(--color-border-hover),
-            transparent
-        );
-        transform: translateX(50%);
-    }
+.workflow-item-demo {
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
 }
 
 @media (max-width: 768px) {
-    .workflow-steps {
+    .workflow-items {
+        gap: var(--space-xl);
+    }
+
+    .workflow-item {
         grid-template-columns: 1fr;
         gap: var(--space-lg);
     }
 
-    .workflow-step {
-        padding-left: var(--space-lg);
-        border-left: 1px solid var(--color-border);
+    .workflow-item:nth-child(even) {
+        direction: ltr;
     }
 }

@@ -15,74 +15,62 @@
     font-size: clamp(2rem, 5vw, 3.5rem);
     letter-spacing: -0.02em;
     color: var(--color-text-primary);
-    margin-bottom: var(--space-md);
+    margin-bottom: var(--space-xl);
 }
 
-.download-cta-sub {
-    font-family: var(--font-serif);
-    font-size: clamp(0.95rem, 1.8vw, 1.125rem);
-    line-height: 1.7;
-    color: var(--color-text-secondary);
-    margin-bottom: var(--space-lg);
-}
-
-.download-cta-btn {
-    display: inline-flex;
-    align-items: center;
-    padding: 16px 40px;
-    border-radius: 100px;
-    font-family: var(--font-sans);
-    font-size: 1rem;
-    font-weight: 500;
-    background-color: var(--color-text-primary);
-    color: var(--color-bg);
-    text-decoration: none;
-    transition: all 0.2s ease;
-    margin-bottom: var(--space-lg);
-}
-
-.download-cta-btn:hover {
-    transform: translateY(-1px);
-    box-shadow: 0 6px 24px rgba(0, 0, 0, 0.12);
-}
-
-.download-cta-meta {
+.download-cta-steps {
     display: flex;
-    align-items: center;
-    gap: var(--space-md);
+    gap: var(--space-xl);
+    margin-bottom: var(--space-xl);
+    width: 100%;
+    max-width: 800px;
 }
 
-.download-cta-req {
+.cta-step {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    text-align: left;
+}
+
+.cta-step-number {
     font-family: var(--font-sans);
-    font-size: 0.8125rem;
-    color: var(--color-text-tertiary);
+    font-size: 0.75rem;
+    font-weight: 500;
+    letter-spacing: 0.1em;
+    color: var(--color-yisi-purple);
+    margin-bottom: var(--space-sm);
 }
 
-.download-cta-sep {
-    width: 1px;
-    height: 14px;
-    background-color: var(--color-border);
+.cta-step-content {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-xs);
 }
 
-.download-cta-source {
+.cta-step-label {
     font-family: var(--font-sans);
-    font-size: 0.8125rem;
-    color: var(--color-text-secondary);
-    text-decoration: none;
-    transition: color var(--duration-fast) var(--ease-out);
-}
-
-.download-cta-source:hover {
+    font-weight: 500;
+    font-size: 1rem;
     color: var(--color-text-primary);
 }
 
-@media (max-width: 768px) {
-    .download-cta-meta {
-        flex-direction: column;
-        gap: var(--space-sm);
-    }
+.cta-step-desc {
+    font-family: var(--font-serif);
+    font-size: 0.875rem;
+    line-height: 1.6;
+    color: var(--color-text-secondary);
+}
 
-    .download-cta-sep {
-        display: none;
+.download-cta-demo {
+    width: 100%;
+    max-width: 720px;
+}
+
+@media (max-width: 768px) {
+    .download-cta-steps {
+        flex-direction: column;
+        gap: var(--space-lg);
     }
 }

@@ -14,19 +14,27 @@
     align-items: center;
     justify-content: space-between;
     height: 100%;
+    padding: 0 var(--space-xl);
 }
 
 .header-logo {
-    font-family: var(--font-sans);
-    font-weight: 200;
-    font-size: 1.5rem;
-    letter-spacing: -0.02em;
-    color: var(--color-text-primary);
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+    text-decoration: none;
     transition: opacity var(--duration-fast) var(--ease-out);
 }
 
 .header-logo:hover {
     opacity: 0.7;
+}
+
+.header-logo-text {
+    font-family: var(--font-sans);
+    font-weight: 200;
+    font-size: 1.5rem;
+    letter-spacing: -0.02em;
+    color: var(--color-text-primary);
 }
 
 .header-nav {
@@ -64,4 +72,31 @@
 .header-lang:hover {
     color: var(--color-text-primary);
     border-color: var(--color-border-hover);
+}
+
+.header-download {
+    display: inline-flex;
+    align-items: center;
+    padding: 6px 16px;
+    border-radius: 100px;
+    font-family: var(--font-sans);
+    font-size: 0.8125rem;
+    font-weight: 500;
+    background-color: var(--color-text-primary);
+    color: var(--color-bg);
+    text-decoration: none;
+    transition:
+        opacity 0.3s var(--ease-out),
+        transform 0.2s ease;
+    opacity: 0;
+    pointer-events: none;
+}
+
+.header-download.visible {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+.header-download:hover {
+    transform: translateY(-1px);
 }

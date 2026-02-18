@@ -1,18 +1,31 @@
 import './Principles.css'
 import { useI18n, tr } from '../i18n'
+import { useScrollReveal } from '../hooks/useScrollReveal'
+import TextReveal from './TextReveal'
 
 function Principles() {
     const { lang, t } = useI18n()
+    const { ref, isVisible } = useScrollReveal()
 
     return (
-        <section id="principles" className="principles section">
+        <section
+            id="principles"
+            className="principles section"
+            ref={ref as React.RefObject<HTMLElement>}
+        >
             <div className="principles-inner container">
-                <h2 className="principles-heading">
-                    {tr(t.principles.heading, lang)}
-                </h2>
-                <div className="principles-list">
+                <TextReveal
+                    text={tr(t.principles.heading, lang)}
+                    isVisible={isVisible}
+                    className="principles-heading"
+                />
+                <div className={`principles-list reveal-stagger${isVisible ? ' visible' : ''}`}>
                     {t.principles.items.map((p, i) => (
-                        <div key={p.title.en} className="principle-row">
+                        <div
+                            key={p.title.en}
+                            className="principle-row reveal-child"
+                            style={{ '--reveal-index': i } as React.CSSProperties}
+                        >
                             <span className="principle-index">
                                 {String(i + 1).padStart(2, '0')}
                             </span>

@@ -23,11 +23,11 @@ function Footer() {
                             <a href="#features" className="footer-link">
                                 {tr(t.footer.features, lang)}
                             </a>
-                            <a href="#workflow" className="footer-link">
-                                {tr(t.footer.workflow, lang)}
+                            <a href="#beyond" className="footer-link">
+                                {tr(t.footer.beyond, lang)}
                             </a>
-                            <a href="#demo" className="footer-link">
-                                {tr(t.footer.demo, lang)}
+                            <a href="#why-yisi" className="footer-link">
+                                {tr(t.footer.whyYisi, lang)}
                             </a>
                         </div>
                         <div className="footer-col">

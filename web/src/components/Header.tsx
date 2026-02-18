@@ -1,22 +1,55 @@
+import { useState, useEffect } from 'react'
 import './Header.css'
 import { useI18n, tr } from '../i18n'
+import YisiAppIcon from './YisiAppIcon'
 
 function Header() {
     const { lang, toggle, t } = useI18n()
+    const [showDownload, setShowDownload] = useState(false)
+
+    useEffect(() => {
+        const heroActions = document.querySelector('.hero-actions')
+        const bottomCta = document.querySelector('.bottom-cta')
+        if (!heroActions && !bottomCta) return
+
+        const visible = new Set<Element>()
+
+        const observer = new IntersectionObserver(
+            (entries) => {
+                for (const entry of entries) {
+                    if (entry.isIntersecting) {
+                        visible.add(entry.target)
+                    } else {
+                        visible.delete(entry.target)
+                    }
+                }
+                setShowDownload(visible.size === 0)
+            },
+            { threshold: 0 }
+        )
+
+        if (heroActions) observer.observe(heroActions)
+        if (bottomCta) observer.observe(bottomCta)
+
+        return () => observer.disconnect()
+    }, [])
 
     return (
         <header className="header">
-            <div className="header-inner container">
-                <a href="/" className="header-logo">Yisi</a>
+            <div className="header-inner">
+                <a href="/" className="header-logo">
+                    <YisiAppIcon size={28} />
+                    <span className="header-logo-text">Yisi</span>
+                </a>
                 <nav className="header-nav">
                     <a href="#features" className="header-link">
                         {tr(t.header.features, lang)}
                     </a>
-                    <a href="#workflow" className="header-link">
-                        {tr(t.header.workflow, lang)}
+                    <a href="#beyond" className="header-link">
+                        {tr(t.header.beyond, lang)}
                     </a>
-                    <a href="#demo" className="header-link">
-                        {tr(t.header.demo, lang)}
+                    <a href="#why-yisi" className="header-link">
+                        {tr(t.header.whyYisi, lang)}
                     </a>
                     <a
                         href="https://github.com/MUTRO888/Yisi"
@@ -33,6 +66,14 @@ function Header() {
                     >
                         {lang === 'en' ? '中文' : 'EN'}
                     </button>
+                    <a
+                        href="https://github.com/MUTRO888/Yisi/releases"
+                        className={`header-download${showDownload ? ' visible' : ''}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                    >
+                        {tr(t.hero.download, lang)}
+                    </a>
                 </nav>
             </div>
         </header>

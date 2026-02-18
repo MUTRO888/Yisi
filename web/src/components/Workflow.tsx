@@ -1,32 +1,56 @@
 import './Workflow.css'
 import { useI18n, tr } from '../i18n'
+import { useScrollReveal } from '../hooks/useScrollReveal'
+import TextReveal from './TextReveal'
+import { PresetModeDemo, CustomModeDemo, VisionDemo } from './BeyondDemos'
 
-function Workflow() {
+const demos = [PresetModeDemo, CustomModeDemo, VisionDemo]
+
+function Beyond() {
     const { lang, t } = useI18n()
+    const { ref, isVisible } = useScrollReveal()
 
     return (
-        <section id="workflow" className="workflow section">
+        <section
+            id="beyond"
+            className="workflow section"
+            ref={ref as React.RefObject<HTMLElement>}
+        >
             <div className="workflow-inner container">
-                <h2 className="workflow-heading">
-                    {tr(t.workflow.heading, lang)}
-                </h2>
-                <div className="workflow-steps">
-                    {t.workflow.steps.map((step, i) => (
-                        <div key={step.title.en} className="workflow-step">
-                            <span className="workflow-number">
-                                {String(i + 1).padStart(2, '0')}
-                            </span>
-                            <h3 className="workflow-title">{tr(step.title, lang)}</h3>
-                            <p className="workflow-desc">{tr(step.description, lang)}</p>
-                            {i < t.workflow.steps.length - 1 && (
-                                <div className="workflow-connector" aria-hidden="true" />
-                            )}
-                        </div>
-                    ))}
+                <TextReveal
+                    text={tr(t.beyond.heading, lang)}
+                    isVisible={isVisible}
+                    className="workflow-heading"
+                />
+                <p className={`workflow-sub reveal${isVisible ? ' visible' : ''}`}>
+                    {tr(t.beyond.sub, lang)}
+                </p>
+                <div className={`workflow-items reveal-stagger${isVisible ? ' visible' : ''}`}>
+                    {t.beyond.items.map((item, i) => {
+                        const Demo = demos[i]
+                        return (
+                            <div
+                                key={item.title.en}
+                                className="workflow-item reveal-child"
+                                style={{ '--reveal-index': i } as React.CSSProperties}
+                            >
+                                <div className="workflow-item-text">
+                                    <span className="workflow-number">
+                                        {String(i + 1).padStart(2, '0')}
+                                    </span>
+                                    <h3 className="workflow-title">{tr(item.title, lang)}</h3>
+                                    <p className="workflow-desc">{tr(item.description, lang)}</p>
+                                </div>
+                                <div className="workflow-item-demo">
+                                    <Demo />
+                                </div>
+                            </div>
+                        )
+                    })}
                 </div>
             </div>
         </section>
     )
 }
 
-export default Workflow
+export default Beyond

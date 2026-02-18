@@ -103,19 +103,26 @@ function Hero() {
                 </div>
             </div>
 
-            <div className="hero-actions">
-                <a
-                    href="https://github.com/MUTRO888/Yisi/releases"
-                    className="btn-primary"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                >
-                    {tr(t.hero.download, lang)}
-                </a>
-                <a href="#features" className="btn-ghost">
-                    {tr(t.hero.explore, lang)}
-                </a>
+            <div className="hero-bottom">
+                <p className="hero-tagline">
+                    {tr(t.showcase.heading, lang)}{'\n'}{tr(t.showcase.sub, lang)}
+                </p>
+                <div className="hero-actions">
+                    <a
+                        href="https://github.com/MUTRO888/Yisi/releases"
+                        className="btn-primary"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                    >
+                        {tr(t.hero.download, lang)}
+                    </a>
+                    <a href="#features" className="btn-ghost">
+                        {tr(t.hero.explore, lang)}
+                    </a>
+                </div>
             </div>
+
+            <div className="hero-scroll-hint" />
         </section>
     )
 }
