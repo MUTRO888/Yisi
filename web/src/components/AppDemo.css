@@ -58,5 +58,18 @@
 @media (max-width: 768px) {
     .why-yisi-grid {
         grid-template-columns: 1fr;
+        gap: var(--space-md);
+    }
+
+    .why-yisi-card {
+        padding: var(--space-md);
+    }
+
+    .why-yisi-title {
+        font-size: 1rem;
+    }
+
+    .why-yisi-desc {
+        font-size: 0.875rem;
     }
 }

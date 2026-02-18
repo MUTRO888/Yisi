@@ -255,3 +255,29 @@ button {
   opacity: 1;
   transform: translateY(0);
 }
+
+/* ============================================
+   Mobile Responsive
+   ============================================ */
+
+@media (max-width: 768px) {
+  :root {
+    --space-xl: 40px;
+    --space-2xl: 64px;
+    --header-height: 56px;
+  }
+
+  html {
+    scroll-snap-type: none;
+  }
+
+  .section {
+    min-height: auto;
+    padding: var(--space-xl) 0;
+    scroll-snap-align: none;
+  }
+
+  .container {
+    padding: 0 var(--space-md);
+  }
+}

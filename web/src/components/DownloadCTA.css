@@ -73,4 +73,8 @@
         flex-direction: column;
         gap: var(--space-lg);
     }
+
+    .download-cta-heading {
+        font-size: clamp(1.6rem, 6vw, 2.5rem);
+    }
 }

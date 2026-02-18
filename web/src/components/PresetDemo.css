@@ -256,6 +256,11 @@
 }
 
 @media (max-width: 768px) {
+    .preset-demo {
+        min-height: 340px;
+        padding: var(--space-md) 0 var(--space-sm);
+    }
+
     .pd-popup-panels {
         flex-direction: column;
     }
@@ -263,5 +268,13 @@
     .pd-popup-divider {
         width: 100%;
         height: 1px;
+    }
+
+    .pd-doc-body {
+        padding: var(--space-sm) var(--space-md);
+    }
+
+    .pd-doc-text {
+        font-size: 0.875rem;
     }
 }

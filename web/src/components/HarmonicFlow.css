@@ -39,3 +39,14 @@
     background-color: var(--color-yisi-mist);
   }
 }
+
+@media (max-width: 768px) {
+  .harmonic-flow {
+    gap: 10px;
+    padding: 12px 0;
+  }
+
+  .harmonic-bar {
+    height: 8px;
+  }
+}

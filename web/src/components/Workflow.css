@@ -94,10 +94,14 @@
 
     .workflow-item {
         grid-template-columns: 1fr;
-        gap: var(--space-lg);
+        gap: var(--space-md);
     }
 
     .workflow-item:nth-child(even) {
         direction: ltr;
+    }
+
+    .workflow-title {
+        font-size: 1.125rem;
     }
 }

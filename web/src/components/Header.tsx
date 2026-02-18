@@ -6,6 +6,7 @@ import YisiAppIcon from './YisiAppIcon'
 function Header() {
     const { lang, toggle, t } = useI18n()
     const [showDownload, setShowDownload] = useState(false)
+    const [menuOpen, setMenuOpen] = useState(false)
 
     useEffect(() => {
         const heroActions = document.querySelector('.hero-actions')
@@ -34,6 +35,17 @@ function Header() {
         return () => observer.disconnect()
     }, [])
 
+    useEffect(() => {
+        if (!menuOpen) return
+        const onResize = () => {
+            if (window.innerWidth > 768) setMenuOpen(false)
+        }
+        window.addEventListener('resize', onResize)
+        return () => window.removeEventListener('resize', onResize)
+    }, [menuOpen])
+
+    const closeMenu = () => setMenuOpen(false)
+
     return (
         <header className="header">
             <div className="header-inner">
@@ -41,14 +53,23 @@ function Header() {
                     <YisiAppIcon size={28} />
                     <span className="header-logo-text">Yisi</span>
                 </a>
-                <nav className="header-nav">
-                    <a href="#features" className="header-link">
+                <button
+                    className={`header-burger${menuOpen ? ' active' : ''}`}
+                    onClick={() => setMenuOpen(!menuOpen)}
+                    aria-label="Toggle menu"
+                >
+                    <span />
+                    <span />
+                    <span />
+                </button>
+                <nav className={`header-nav${menuOpen ? ' open' : ''}`}>
+                    <a href="#features" className="header-link" onClick={closeMenu}>
                         {tr(t.header.features, lang)}
                     </a>
-                    <a href="#beyond" className="header-link">
+                    <a href="#beyond" className="header-link" onClick={closeMenu}>
                         {tr(t.header.beyond, lang)}
                     </a>
-                    <a href="#why-yisi" className="header-link">
+                    <a href="#why-yisi" className="header-link" onClick={closeMenu}>
                         {tr(t.header.whyYisi, lang)}
                     </a>
                     <a
@@ -56,6 +77,7 @@ function Header() {
                         className="header-link"
                         target="_blank"
                         rel="noopener noreferrer"
+                        onClick={closeMenu}
                     >
                         GitHub
                     </a>
@@ -71,6 +93,7 @@ function Header() {
                         className={`header-download${showDownload ? ' visible' : ''}`}
                         target="_blank"
                         rel="noopener noreferrer"
+                        onClick={closeMenu}
                     >
                         {tr(t.hero.download, lang)}
                     </a>

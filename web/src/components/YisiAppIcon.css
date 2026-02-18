@@ -1,7 +1,7 @@
 .yisi-app-icon {
     display: flex;
     flex-direction: column;
-    align-items: center;
+    align-items: flex-start;
     justify-content: center;
     gap: 2px;
     background: linear-gradient(135deg, #555386, #474575);
@@ -22,17 +22,17 @@
 }
 
 .yisi-bar-1 {
-    width: 60%;
-    opacity: 0.5;
+    width: 100%;
+    opacity: 0.3;
 }
 
 .yisi-bar-2 {
-    width: 40%;
-    opacity: 0.75;
+    width: 65%;
+    opacity: 0.55;
 }
 
 .yisi-bar-3 {
-    width: 24%;
+    width: 40%;
     opacity: 1.0;
     box-shadow: 0 0 4px rgba(255, 255, 255, 0.5);
 }

@@ -75,5 +75,19 @@
 @media (max-width: 768px) {
     .principle-row {
         gap: var(--space-md);
+        padding: var(--space-md) 0;
+        padding-left: var(--space-sm);
+    }
+
+    .principle-row:hover {
+        padding-left: calc(var(--space-sm) + 4px);
+    }
+
+    .principle-title {
+        font-size: 1rem;
+    }
+
+    .principle-desc {
+        font-size: 0.875rem;
     }
 }

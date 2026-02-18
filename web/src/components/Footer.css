@@ -88,9 +88,21 @@
 }
 
 @media (max-width: 768px) {
+    .footer {
+        padding: var(--space-lg) 0 var(--space-md);
+    }
+
+    .footer-inner {
+        gap: var(--space-lg);
+    }
+
     .footer-top {
         flex-direction: column;
         gap: var(--space-lg);
+    }
+
+    .footer-links {
+        gap: var(--space-xl);
     }
 
     .footer-bottom {
