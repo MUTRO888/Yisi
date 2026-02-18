@@ -13,6 +13,7 @@ enum AppDefaults {
         static let hasLaunchedBefore = "has_launched_before"
         static let welcomeCompleted = "welcome_completed"
         static let launchAtLogin = "launch_at_login"
+        static let autoCheckUpdates = "auto_check_updates"
 
         // Translation
         static let translationEngine = "translation_engine"
@@ -60,6 +61,7 @@ enum AppDefaults {
     static let appLanguage = "zh"
     static let closeMode = "clickOutside"
     static let launchAtLogin = true
+    static let autoCheckUpdates = true
 
     // Translation
     static let translationEngine = "system"
@@ -103,6 +105,7 @@ enum AppDefaults {
             Keys.appLanguage: appLanguage,
             Keys.closeMode: closeMode,
             Keys.launchAtLogin: launchAtLogin,
+            Keys.autoCheckUpdates: autoCheckUpdates,
             Keys.translationEngine: translationEngine,
             Keys.defaultSourceLanguage: defaultSourceLanguage,
             Keys.defaultTargetLanguage: defaultTargetLanguage,

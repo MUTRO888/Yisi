@@ -393,6 +393,7 @@ private struct APIConfigForm: View {
 struct GeneralSettingsView: View {
     @AppStorage(AppDefaults.Keys.closeMode) private var closeMode: String = AppDefaults.closeMode
     @AppStorage(AppDefaults.Keys.appTheme) private var appTheme: String = AppDefaults.appTheme
+    @AppStorage(AppDefaults.Keys.autoCheckUpdates) private var autoCheckUpdates: Bool = AppDefaults.autoCheckUpdates
     @ObservedObject private var localizationManager = LocalizationManager.shared
     @State private var launchAtLogin: Bool = SMAppService.mainApp.status == .enabled
     
@@ -452,6 +453,31 @@ struct GeneralSettingsView: View {
                     } else {
                         try? SMAppService.mainApp.unregister()
                     }
+                }
+
+                HStack {
+                    Text("Auto Update".localized)
+                        .font(.system(size: 13, design: .serif))
+                        .foregroundColor(.secondary)
+                        .frame(width: 80, alignment: .leading)
+
+                    ElegantToggle(isOn: $autoCheckUpdates)
+
+                    Spacer()
+
+                    Button(action: {
+                        UpdateManager.shared.checkForUpdates(silent: false)
+                    }) {
+                        Text("Check for Updates".localized)
+                            .font(.system(size: 12, design: .serif))
+                            .foregroundColor(.primary)
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 5)
+                            .background(Color.primary.opacity(0.05))
+                            .cornerRadius(4)
+                            .overlay(RoundedRectangle(cornerRadius: 4).stroke(Color.primary.opacity(0.1), lineWidth: 0.5))
+                    }
+                    .buttonStyle(.plain)
                 }
                 
                 HStack {

@@ -237,7 +237,22 @@ class LocalizationManager: ObservableObject {
         "Requires restart after enabling": "Requires restart after enabling",
         "Enable Accessibility to continue": "Enable Accessibility to continue",
         "有Yisi，才有意思。": "With Yisi, everything gets interesting.",
-        "Begin": "Begin"
+        "Begin": "Begin",
+
+        // Updates
+        "Auto Update": "Auto Update",
+        "Check for Updates": "Check for Updates",
+        "Update Available": "Update Available",
+        "A new version %@ is available. Current version: %@": "A new version %@ is available. Current version: %@",
+        "You're up to date": "You're up to date",
+        "Yisi %@ is the latest version.": "Yisi %@ is the latest version.",
+        "Later": "Later",
+        "Update Now": "Update Now",
+        "Update Failed": "Update Failed",
+        "Auto update failed. You can download manually from GitHub.": "Auto update failed. You can download manually from GitHub.",
+        "Downloading...": "Downloading...",
+        "Installing...": "Installing...",
+        "Restarting...": "Restarting..."
     ]
     
     private let zhStrings: [String: String] = [
@@ -460,7 +475,22 @@ class LocalizationManager: ObservableObject {
         "Requires restart after enabling": "启用后需重启应用",
         "Enable Accessibility to continue": "请先开启辅助功能",
         "有Yisi，才有意思。": "有Yisi，才有意思。",
-        "Begin": "开始"
+        "Begin": "开始",
+
+        // Updates
+        "Auto Update": "自动更新",
+        "Check for Updates": "检查更新",
+        "Update Available": "发现新版本",
+        "A new version %@ is available. Current version: %@": "新版本 %@ 已发布，当前版本：%@",
+        "You're up to date": "已是最新版本",
+        "Yisi %@ is the latest version.": "Yisi %@ 已是最新版本。",
+        "Later": "稍后",
+        "Update Now": "立即更新",
+        "Update Failed": "更新失败",
+        "Auto update failed. You can download manually from GitHub.": "自动更新失败，您可以前往 GitHub 手动下载。",
+        "Downloading...": "正在下载...",
+        "Installing...": "正在安装...",
+        "Restarting...": "正在重启..."
     ]
 }
 
