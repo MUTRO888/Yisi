@@ -6,6 +6,9 @@
   /* Typography */
   --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   --font-serif: 'Noto Serif', 'Georgia', serif;
+  --font-cjk: 'Noto Sans SC', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  --font-display: 'Cormorant Garamond', 'Georgia', serif;
+  --font-cjk-serif: 'Noto Serif SC', 'STSong', 'SimSun', serif;
 
   /* Palette — Light */
   --color-bg: #fafafa;
@@ -17,6 +20,12 @@
   --color-border-hover: rgba(0, 0, 0, 0.15);
   --color-accent: #3d3d3d;
   --color-accent-soft: rgba(61, 61, 61, 0.06);
+
+  /* Yisi Brand Palette */
+  --color-yisi-purple: #555386;
+  --color-yisi-light: #7A78AD;
+  --color-yisi-mist: #EBEAF5;
+  --color-selection: rgba(85, 83, 134, 0.18);
 
   /* Spacing Scale */
   --space-xs: 4px;
@@ -54,6 +63,12 @@
     --color-border-hover: rgba(255, 255, 255, 0.15);
     --color-accent: #e0e0e0;
     --color-accent-soft: rgba(224, 224, 224, 0.06);
+
+    /* Yisi Brand Palette */
+    --color-yisi-purple: #9D9AC6;
+    --color-yisi-light: #B0AED6;
+    --color-yisi-mist: #2A2836;
+    --color-selection: rgba(157, 154, 198, 0.25);
   }
 }
 

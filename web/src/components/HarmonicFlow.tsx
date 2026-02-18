@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useMemo } from 'react'
 import './HarmonicFlow.css'
 
 interface HarmonicFlowProps {
@@ -8,8 +8,33 @@ interface HarmonicFlowProps {
 }
 
 function HarmonicFlow({ text, onComplete, duration = 2000 }: HarmonicFlowProps) {
-    // Generate visual lines similar to the Swift implementation
-    const textLines = text.split('\n').filter(line => line.trim().length > 0)
+    const textLines = useMemo(() => {
+        const maxChars = 45
+        const rawLines = text.split('\n').filter(l => l.trim())
+        const result: string[] = []
+
+        for (const line of rawLines) {
+            if (line.length <= maxChars) {
+                result.push(line)
+                continue
+            }
+            const words = line.split(/\s+/)
+            let current = ''
+            for (const word of words) {
+                if (current.length + word.length + 1 > maxChars && current) {
+                    result.push(current)
+                    current = word
+                } else {
+                    current = current ? `${current} ${word}` : word
+                }
+            }
+            if (current) result.push(current)
+        }
+
+        return result.length ? result : ['']
+    }, [text])
+
+    const maxLen = Math.max(...textLines.map(l => l.length))
 
     useEffect(() => {
         if (onComplete) {
@@ -24,8 +49,8 @@ function HarmonicFlow({ text, onComplete, duration = 2000 }: HarmonicFlowProps) 
                 <HarmonicBar
                     key={index}
                     lineLength={line.length}
-                    delay={index * 0.1}
-                    maxLen={Math.max(...textLines.map(l => l.length))}
+                    delay={index * 0.08}
+                    maxLen={maxLen}
                 />
             ))}
         </div>
@@ -33,27 +58,20 @@ function HarmonicFlow({ text, onComplete, duration = 2000 }: HarmonicFlowProps) 
 }
 
 function HarmonicBar({ lineLength, delay, maxLen }: { lineLength: number, delay: number, maxLen: number }) {
-    // Calculate width ratio basically same as Swift logic
-    // Normalizing against max length, clamping between 0.2 and 1.0
     const denominator = Math.max(20, maxLen)
     const ratio = Math.min(1.0, Math.max(0.2, lineLength / denominator))
 
-    const [animationStarted, setAnimationStarted] = useState(false)
+    const [animating, setAnimating] = useState(false)
 
     useEffect(() => {
-        const timer = setTimeout(() => {
-            setAnimationStarted(true)
-        }, delay * 1000)
+        const timer = setTimeout(() => setAnimating(true), delay * 1000)
         return () => clearTimeout(timer)
     }, [delay])
 
     return (
         <div
-            className={`harmonic-bar ${animationStarted ? 'animating' : ''}`}
-            style={{
-                width: `${ratio * 100}%`,
-                animationDelay: `${delay}s`
-            }}
+            className={`harmonic-bar${animating ? ' animating' : ''}`}
+            style={{ width: `${ratio * 100}%` }}
         />
     )
 }

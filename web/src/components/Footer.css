@@ -1,24 +1,101 @@
 .footer {
-    padding: var(--space-xl) 0;
+    padding: var(--space-xl) 0 var(--space-lg);
     border-top: 1px solid var(--color-border);
-    text-align: center;
 }
 
 .footer-inner {
     display: flex;
     flex-direction: column;
-    align-items: center;
+    gap: var(--space-xl);
+}
+
+.footer-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+}
+
+.footer-brand {
+    display: flex;
+    flex-direction: column;
     gap: var(--space-xs);
 }
 
-.footer-copyright {
+.footer-logo {
+    font-family: var(--font-sans);
+    font-weight: 200;
+    font-size: 1.25rem;
+    letter-spacing: -0.02em;
+    color: var(--color-text-primary);
+}
+
+.footer-tagline {
     font-family: var(--font-serif);
+    font-size: 0.8125rem;
+    color: var(--color-text-tertiary);
+}
+
+.footer-links {
+    display: flex;
+    gap: var(--space-xl);
+}
+
+.footer-col {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-sm);
+}
+
+.footer-col-title {
+    font-family: var(--font-sans);
     font-size: 0.75rem;
+    font-weight: 500;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--color-text-primary);
+    margin-bottom: var(--space-xs);
+}
+
+.footer-link {
+    font-family: var(--font-serif);
+    font-size: 0.8125rem;
     color: var(--color-text-secondary);
+    transition: color var(--duration-fast) var(--ease-out);
+}
+
+.footer-link:hover {
+    color: var(--color-text-primary);
+}
+
+.footer-bottom {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding-top: var(--space-lg);
+    border-top: 1px solid var(--color-border);
+}
+
+.footer-copyright {
+    font-family: var(--font-sans);
+    font-size: 0.75rem;
+    color: var(--color-text-tertiary);
 }
 
 .footer-license {
-    font-family: var(--font-serif);
-    font-size: 0.6875rem;
+    font-family: var(--font-sans);
+    font-size: 0.75rem;
     color: var(--color-text-tertiary);
+}
+
+@media (max-width: 768px) {
+    .footer-top {
+        flex-direction: column;
+        gap: var(--space-lg);
+    }
+
+    .footer-bottom {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: var(--space-xs);
+    }
 }

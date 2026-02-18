@@ -1,88 +1,120 @@
-import { useState } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import './Hero.css'
-import Particles from './Particles'
 import HarmonicFlow from './HarmonicFlow'
+import { useI18n, tr } from '../i18n'
 
-type HeroState = 'english' | 'processing' | 'chinese' | 'fully-revealed'
+type Phase = 'en' | 'en-sel' | 'en-flow' | 'cn' | 'cn-sel' | 'cn-flow'
+
+const EN = 'Waters hush on jagged rocks, cold light rests on pine'
+const CN = '泉声咽危石，日色冷青松'
+
+function easeInOutCubic(t: number) {
+    return t < 0.5 ? 4 * t * t * t : 1 - (-2 * t + 2) ** 3 / 2
+}
 
 function Hero() {
-    const [heroState, setHeroState] = useState<HeroState>('english')
-    const [isHovering, setIsHovering] = useState(false)
+    const { lang, t } = useI18n()
+    const [phase, setPhase] = useState<Phase>('en')
+    const [selProg, setSelProg] = useState(0)
+    const rafRef = useRef(0)
 
-    const handleInteraction = () => {
-        if (heroState === 'english') {
-            setHeroState('processing')
+    useEffect(() => {
+        let timer: number
+
+        const runSel = (dur: number, next: Phase) => {
+            const t0 = performance.now()
+            const tick = (now: number) => {
+                const p = Math.min(1, (now - t0) / dur)
+                setSelProg(easeInOutCubic(p))
+                if (p < 1) {
+                    rafRef.current = requestAnimationFrame(tick)
+                } else {
+                    timer = window.setTimeout(() => setPhase(next), 350)
+                }
+            }
+            rafRef.current = requestAnimationFrame(tick)
         }
-    }
 
-    const handleFlowComplete = () => {
-        setHeroState('chinese')
-        // Small delay before showing the final brand elements
-        setTimeout(() => setHeroState('fully-revealed'), 800)
-    }
+        switch (phase) {
+            case 'en':
+                setSelProg(0)
+                timer = window.setTimeout(() => setPhase('en-sel'), 2000)
+                break
+            case 'en-sel':
+                runSel(700, 'en-flow')
+                break
+            case 'cn':
+                setSelProg(0)
+                timer = window.setTimeout(() => setPhase('cn-sel'), 2000)
+                break
+            case 'cn-sel':
+                runSel(500, 'cn-flow')
+                break
+        }
 
-    const englishText = `The sound of the spring sobs among the perilous stones;\nthe color of the sun chills the green pines.`
+        return () => {
+            clearTimeout(timer)
+            cancelAnimationFrame(rafRef.current)
+        }
+    }, [phase])
+
+    const onEnFlowDone = useCallback(() => setPhase('cn'), [])
+    const onCnFlowDone = useCallback(() => setPhase('en'), [])
+
+    const enVisible = phase === 'en' || phase === 'en-sel'
+    const cnVisible = phase === 'cn' || phase === 'cn-sel'
+    const flowVisible = phase === 'en-flow' || phase === 'cn-flow'
+
+    const enSel = phase === 'en-sel' ? Math.floor(selProg * EN.length) : 0
+    const cnSel = phase === 'cn-sel' ? Math.floor(selProg * CN.length) : 0
 
     return (
-        <section className="hero section">
-            <Particles />
+        <section className="hero">
+            <div className="hero-stage">
+                <div className={`hero-layer${enVisible ? ' active' : ''}`}>
+                    <h1 className="hero-headline hero-en">
+                        {Array.from(EN).map((ch, i) => (
+                            <span
+                                key={i}
+                                className={`hc${i < enSel ? ' sel' : ''}`}
+                            >{ch}</span>
+                        ))}
+                    </h1>
+                </div>
 
-            <div className={`hero-content ${heroState}`}>
+                <div className={`hero-layer${flowVisible ? ' active' : ''}`}>
+                    {phase === 'en-flow' && (
+                        <HarmonicFlow text={EN} duration={1000} onComplete={onEnFlowDone} />
+                    )}
+                    {phase === 'cn-flow' && (
+                        <HarmonicFlow text={EN} duration={1000} onComplete={onCnFlowDone} />
+                    )}
+                </div>
 
-                {/* State 1: English Text (Interactive) */}
-                {heroState === 'english' && (
-                    <div
-                        className="text-interaction-zone"
-                        onMouseEnter={() => setIsHovering(true)}
-                        onMouseLeave={() => setIsHovering(false)}
-                        onClick={handleInteraction}
-                    >
-                        <p className={`poetic-text source ${isHovering ? 'hovered' : ''}`}>
-                            The sound of the spring sobs among the perilous stones;<br />
-                            the color of the sun chills the green pines.
-                        </p>
-                        <div className={`interaction-hint ${isHovering ? 'visible' : ''}`}>
-                            <span>Click to translate like flowing water</span>
-                        </div>
-                    </div>
-                )}
+                <div className={`hero-layer${cnVisible ? ' active' : ''}`}>
+                    <h1 className="hero-headline hero-cn">
+                        {Array.from(CN).map((ch, i) => (
+                            <span
+                                key={i}
+                                className={`hc${i < cnSel ? ' sel' : ''}`}
+                            >{ch}</span>
+                        ))}
+                    </h1>
+                </div>
+            </div>
 
-                {/* State 2: Harmonic Flow (Processing) */}
-                {heroState === 'processing' && (
-                    <div className="flow-container">
-                        <HarmonicFlow
-                            text={englishText}
-                            duration={2200}
-                            onComplete={handleFlowComplete}
-                        />
-                    </div>
-                )}
-
-                {/* State 3: Chinese Text (Result) & Footer */}
-                {(heroState === 'chinese' || heroState === 'fully-revealed') && (
-                    <div className="result-container">
-                        <p className="poetic-text target">
-                            泉声咽危石，<br />
-                            日色冷青松。
-                        </p>
-
-                        <div className={`hero-footer ${heroState === 'fully-revealed' ? 'visible' : ''}`}>
-                            <h1 className="brand-title">Yisi</h1>
-                            <p className="brand-subtitle">Everything gains meaning in translation.</p>
-                            <div className="hero-actions">
-                                <a
-                                    href="https://github.com/MUTRO888/Yisi/releases"
-                                    className="btn btn-primary"
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                >
-                                    Download
-                                </a>
-                            </div>
-                        </div>
-                    </div>
-                )}
-
+            <div className="hero-actions">
+                <a
+                    href="https://github.com/MUTRO888/Yisi/releases"
+                    className="btn-primary"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                >
+                    {tr(t.hero.download, lang)}
+                </a>
+                <a href="#features" className="btn-ghost">
+                    {tr(t.hero.explore, lang)}
+                </a>
             </div>
         </section>
     )

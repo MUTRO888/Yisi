@@ -31,6 +31,7 @@
 
 .header-nav {
     display: flex;
+    align-items: center;
     gap: var(--space-lg);
 }
 
@@ -43,4 +44,24 @@
 
 .header-link:hover {
     color: var(--color-text-primary);
+}
+
+.header-lang {
+    font-family: var(--font-sans);
+    font-size: 0.8125rem;
+    font-weight: 500;
+    color: var(--color-text-secondary);
+    padding: 6px 14px;
+    border-radius: 100px;
+    border: 1px solid var(--color-border);
+    background-color: transparent;
+    cursor: pointer;
+    transition:
+        color var(--duration-fast) var(--ease-out),
+        border-color var(--duration-fast) var(--ease-out);
+}
+
+.header-lang:hover {
+    color: var(--color-text-primary);
+    border-color: var(--color-border-hover);
 }
