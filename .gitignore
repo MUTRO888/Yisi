@@ -52,3 +52,10 @@ DerivedData
 #
 .idea/
 .vscode/
+
+# Playwright MCP (browser automation cache)
+.playwright-mcp/
+
+# Development screenshots (Playwright MCP artifacts)
+*.png
+!web/public/**/*.png

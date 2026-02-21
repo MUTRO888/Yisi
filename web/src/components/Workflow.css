@@ -1,107 +1,130 @@
 .workflow {
-    background-color: var(--color-bg);
+  background-color: var(--color-bg);
+  position: relative;
+  height: auto;
+  overflow: visible;
 }
 
-.workflow-inner {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
+.workflow-intro {
+  height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  scroll-snap-align: start;
+  position: relative;
+  overflow: hidden;
+}
+
+.workflow-intro .container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  position: relative;
+  z-index: 10;
+  mix-blend-mode: multiply;
 }
 
 .workflow-heading {
-    font-family: var(--font-display);
-    font-weight: 300;
-    font-size: clamp(2rem, 5vw, 3.5rem);
-    letter-spacing: -0.02em;
-    color: var(--color-text-primary);
-    text-align: center;
-    margin-bottom: var(--space-md);
+  font-family: var(--font-display);
+  font-weight: 300;
+  font-size: var(--text-hero);
+  letter-spacing: -0.02em;
+  color: var(--color-text-primary);
+  text-align: center;
+  margin-bottom: var(--space-lg);
 }
 
 .workflow-sub {
-    font-family: var(--font-serif);
-    font-size: clamp(0.95rem, 1.8vw, 1.125rem);
-    line-height: 1.7;
-    color: var(--color-text-secondary);
-    text-align: center;
-    max-width: 540px;
-    margin-bottom: var(--space-xl);
+  font-family: var(--font-serif);
+  font-size: clamp(0.95rem, 1.8vw, 1.125rem);
+  line-height: 1.8;
+  color: var(--color-text-secondary);
+  text-align: center;
+  max-width: 540px;
 }
 
 .workflow-items {
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-2xl);
-    width: 100%;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
 }
 
 .workflow-item {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: var(--space-xl);
-    align-items: start;
+  display: grid;
+  grid-template-columns: 2fr 3fr;
+  gap: var(--space-xl);
+  align-items: center;
+  height: 100vh;
+  scroll-snap-align: start;
+  padding: var(--space-lg) 0;
 }
 
 .workflow-item:nth-child(even) {
-    direction: rtl;
+  direction: rtl;
 }
 
 .workflow-item:nth-child(even) > * {
-    direction: ltr;
+  direction: ltr;
 }
 
 .workflow-item-text {
-    display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-    padding-top: var(--space-md);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
 }
 
 .workflow-number {
-    font-family: var(--font-sans);
-    font-size: 0.75rem;
-    font-weight: 500;
-    letter-spacing: 0.1em;
-    color: var(--color-yisi-purple);
-    margin-bottom: var(--space-md);
+  font-family: var(--font-sans);
+  font-size: 0.75rem;
+  font-weight: 500;
+  letter-spacing: 0.1em;
+  color: var(--color-yisi-purple);
+  margin-bottom: var(--space-md);
 }
 
 .workflow-title {
-    font-family: var(--font-sans);
-    font-weight: 500;
-    font-size: 1.25rem;
-    color: var(--color-text-primary);
-    margin-bottom: var(--space-sm);
+  font-family: var(--font-sans);
+  font-weight: 500;
+  font-size: 1.375rem;
+  color: var(--color-text-primary);
+  margin-bottom: var(--space-sm);
 }
 
 .workflow-desc {
-    font-family: var(--font-serif);
-    font-size: 0.9375rem;
-    line-height: 1.7;
-    color: var(--color-text-secondary);
+  font-family: var(--font-serif);
+  font-size: 0.9375rem;
+  line-height: 1.7;
+  color: var(--color-text-secondary);
 }
 
 .workflow-item-demo {
-    display: flex;
-    align-items: flex-start;
-    justify-content: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 @media (max-width: 768px) {
-    .workflow-items {
-        gap: var(--space-xl);
-    }
+  .workflow-intro {
+    height: auto;
+    min-height: 100vh;
+    min-height: 100svh;
+    padding: var(--space-xl) 0;
+  }
 
-    .workflow-item {
-        grid-template-columns: 1fr;
-        gap: var(--space-md);
-    }
+  .workflow-item {
+    grid-template-columns: 1fr;
+    gap: var(--space-md);
+    height: auto;
+    min-height: 100vh;
+    min-height: 100svh;
+    padding: var(--space-lg) 0;
+  }
 
-    .workflow-item:nth-child(even) {
-        direction: ltr;
-    }
+  .workflow-item:nth-child(even) {
+    direction: ltr;
+  }
 
-    .workflow-title {
-        font-size: 1.125rem;
-    }
+  .workflow-title {
+    font-size: 1.125rem;
+  }
 }

@@ -4,11 +4,12 @@
     flex-direction: column;
     align-items: center;
     gap: var(--space-lg);
-    padding: var(--space-xl) 0 var(--space-lg);
+    padding: var(--space-lg) 0 var(--space-lg);
     width: 100%;
     max-width: 680px;
     margin: 0 auto;
-    min-height: 400px;
+    height: 440px;
+    overflow: hidden;
 }
 
 .pd-document {
@@ -107,7 +108,19 @@
     background-color: var(--color-bg-elevated);
     overflow: hidden;
     box-shadow: 0 16px 48px rgba(0, 0, 0, 0.08);
-    animation: pdPopupIn 0.35s cubic-bezier(0.34, 1.56, 0.64, 1.0) both;
+    opacity: 0;
+    visibility: hidden;
+    transform: translateY(10px);
+    transition:
+        opacity 0.35s var(--ease-out),
+        visibility 0.35s,
+        transform 0.35s var(--ease-out);
+}
+
+.pd-popup.visible {
+    opacity: 1;
+    visibility: visible;
+    transform: translateY(0);
 }
 
 .pd-popup-bar {
@@ -173,7 +186,8 @@
 
 .pd-popup-panels {
     display: flex;
-    min-height: 80px;
+    height: 80px;
+    overflow: hidden;
 }
 
 .pd-popup-panel {
@@ -205,6 +219,17 @@
     animation: tdFadeIn 0.4s var(--ease-out) both;
 }
 
+@keyframes tdFadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(4px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
 .pd-popup-loading {
     width: 100%;
 }
@@ -225,7 +250,7 @@
     display: flex;
     justify-content: flex-end;
     align-items: center;
-    padding: 6px 12px;
+    padding: 8px 16px;
     border-top: 1px solid var(--color-border);
 }
 
@@ -244,25 +269,16 @@
     letter-spacing: 0.02em;
 }
 
-@keyframes pdPopupIn {
-    from {
-        opacity: 0;
-        transform: scale(0.92) translateY(12px);
-    }
-    to {
-        opacity: 1;
-        transform: scale(1) translateY(0);
-    }
-}
-
 @media (max-width: 768px) {
     .preset-demo {
-        min-height: 340px;
+        height: auto;
+        overflow: visible;
         padding: var(--space-md) 0 var(--space-sm);
     }
 
     .pd-popup-panels {
         flex-direction: column;
+        height: auto;
     }
 
     .pd-popup-divider {

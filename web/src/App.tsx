@@ -14,8 +14,8 @@ function App() {
       <Header />
       <main>
         <Hero />
-        <DownloadCTA />
         <Features />
+        <DownloadCTA />
         <Beyond />
         <WhyYisi />
         <Principles />

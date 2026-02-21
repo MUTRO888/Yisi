@@ -96,47 +96,45 @@ function PresetDemo() {
                 <kbd className={`pd-key-cap${keysPressed ? ' pressed' : ''}`}>C</kbd>
             </div>
 
-            {(phase === 'popup' || phase === 'result') && (
-                <div className="pd-popup">
-                    <div className="pd-popup-bar">
-                        <span className="pd-popup-dot" />
-                        <span className="pd-popup-dot" />
-                        <span className="pd-popup-dot" />
+            <div className={`pd-popup${phase === 'popup' || phase === 'result' ? ' visible' : ''}`}>
+                <div className="pd-popup-bar">
+                    <span className="pd-popup-dot" />
+                    <span className="pd-popup-dot" />
+                    <span className="pd-popup-dot" />
+                </div>
+                <div className="pd-lang-bar">
+                    <span className="pd-lang-label">{sourceLang}</span>
+                    <span className="pd-lang-arrow" aria-hidden="true" />
+                    <span className="pd-lang-label">{targetLang}</span>
+                </div>
+                <div className="pd-popup-panels">
+                    <div className="pd-popup-panel">
+                        <p className="pd-popup-text pd-popup-source">
+                            {sourceText.slice(0, 60)}{sourceText.length > 60 ? '...' : ''}
+                        </p>
                     </div>
-                    <div className="pd-lang-bar">
-                        <span className="pd-lang-label">{sourceLang}</span>
-                        <span className="pd-lang-arrow" aria-hidden="true" />
-                        <span className="pd-lang-label">{targetLang}</span>
-                    </div>
-                    <div className="pd-popup-panels">
-                        <div className="pd-popup-panel">
-                            <p className="pd-popup-text pd-popup-source">
-                                {sourceText.slice(0, 60)}{sourceText.length > 60 ? '...' : ''}
+                    <div className="pd-popup-divider" />
+                    <div className="pd-popup-panel">
+                        {phase === 'popup' && (
+                            <div className="pd-popup-loading">
+                                <HarmonicFlow
+                                    text={targetText}
+                                    duration={1500}
+                                    onComplete={onLoadingDone}
+                                />
+                            </div>
+                        )}
+                        {(phase === 'result' || phase === 'idle') && (
+                            <p className="pd-popup-text pd-popup-result">
+                                {targetText.slice(0, 60)}{targetText.length > 60 ? '...' : ''}
                             </p>
-                        </div>
-                        <div className="pd-popup-divider" />
-                        <div className="pd-popup-panel">
-                            {phase === 'popup' && (
-                                <div className="pd-popup-loading">
-                                    <HarmonicFlow
-                                        text={targetText}
-                                        duration={1500}
-                                        onComplete={onLoadingDone}
-                                    />
-                                </div>
-                            )}
-                            {phase === 'result' && (
-                                <p className="pd-popup-text pd-popup-result">
-                                    {targetText.slice(0, 60)}{targetText.length > 60 ? '...' : ''}
-                                </p>
-                            )}
-                        </div>
-                    </div>
-                    <div className="pd-popup-footer">
-                        <span className="pd-yisi-btn">Yisi</span>
+                        )}
                     </div>
                 </div>
-            )}
+                <div className="pd-popup-footer">
+                    <span className="pd-yisi-btn">Yisi</span>
+                </div>
+            </div>
         </div>
     )
 }

@@ -14,12 +14,12 @@ const translations = {
     },
     showcase: {
         heading: {
-            en: 'At first, you just wanted a good translator. Then you realized \u2014 any information can take the form you need.',
-            zh: '最初，你只想要一个好用的翻译工具。然后发现，任何信息都可以以你需要的形式呈现。',
+            en: 'It starts with translation \u2014 but information has no fixed form. Whatever you need, it becomes.',
+            zh: '从翻译出发，但信息本无形式，你需要什么，它就是什么。',
         },
         sub: {
-            en: 'Yisi is a semantic transformation tool built for macOS. Starting from translation, silent and elegant.',
-            zh: 'Yisi 是为 macOS 打造的智能语义转换工具。从翻译出发，无声，优雅。',
+            en: 'Yisi, a semantic transformation tool built for macOS.',
+            zh: 'Yisi，为 macOS 打造的智能语义转换工具。',
         },
         placeholder: { en: 'App Preview', zh: '应用预览' },
         demoSourceLang: { en: 'English', zh: '中文' },
@@ -69,20 +69,20 @@ const translations = {
             zh: '翻译是语言到语言的转换。但信息需要的转换，远不止于此。',
         },
         demoSourceText: {
-            en: 'The committee has unanimously decided to postpone the implementation of the proposed regulatory framework pending further review.',
-            zh: '委员会一致决定推迟实施拟议的监管框架，等待进一步审查。',
+            en: 'Enter through the narrow gate. For wide is the gate and broad is the road that leads to destruction, and many enter through it.',
+            zh: '你们要进窄门。因为引到灭亡，那门是宽的，路是大的，进去的人也多。',
         },
         demoTargetText: {
-            en: '委员会一致决定推迟实施拟议的监管框架，等待进一步审查。',
-            zh: 'The committee has unanimously decided to postpone the implementation of the proposed regulatory framework pending further review.',
+            en: '你们要进窄门。因为引到灭亡，那门是宽的，路是大的，进去的人也多。',
+            zh: 'Enter through the narrow gate. For wide is the gate and broad is the road that leads to destruction, and many enter through it.',
         },
         narrativePrefix: {
             en: 'This is',
             zh: '这是',
         },
         narrativeField1: {
-            en: 'Ancient Poetry',
-            zh: '古诗词',
+            en: 'a famous quote',
+            zh: '一句名言',
         },
         narrativeComma: {
             en: ',',
@@ -93,24 +93,24 @@ const translations = {
             zh: '请',
         },
         narrativeField2: {
-            en: 'translate to modern English',
-            zh: '翻译为现代白话文',
+            en: 'find its origin',
+            zh: '查找出处',
         },
         narrativeSuffix: {
             en: '.',
             zh: '。',
         },
         presetTag: {
-            en: 'Prompt Refiner',
-            zh: '指令精炼',
+            en: 'Bug Refiner',
+            zh: 'Bug 精炼',
         },
         presetSourceText: {
-            en: 'make this email sound more professional and less casual',
-            zh: '帮我把这封邮件改得更专业一点，别太随意',
+            en: 'login sometimes gets stuck, not sure why',
+            zh: '登录有时候会卡住，不知道什么原因',
         },
         presetResultText: {
-            en: 'Rewrite the email in formal business English. Maintain the core message. Use complete sentences, proper salutations, and professional closings.',
-            zh: '将邮件改写为正式商务中文。保留核心信息。使用完整句式、规范称谓和专业落款。去除口语化表达。',
+            en: 'Repro: rapid-click login on slow network. Root cause: no request debounce, Promise race locks loading state. Fix: add debounce, cancel pending requests.',
+            zh: '复现：弱网下连续点击登录。根因：请求未做防抖，Promise 竞态锁死 loading 状态。修复：添加防抖，取消未完成请求。',
         },
         popupSourceLang: {
             en: 'Auto Detect',
@@ -121,12 +121,12 @@ const translations = {
             zh: '简体中文',
         },
         customSourceText: {
-            en: 'Waters hush on jagged rocks, cold light rests on pine',
-            zh: '泉声咽危石，日色冷青松',
+            en: 'I think, therefore I am.',
+            zh: '我思故我在。',
         },
         customResultText: {
-            en: 'Spring water gurgles softly over steep rocks,\nsunlight casts a cold glow on the green pines.',
-            zh: '泉水在陡峭的岩石上轻轻流淌，\n日光给苍翠的松林披上清冷的光。',
+            en: 'Ren\u00E9 Descartes, Meditations on First Philosophy, 1641.\nOriginal Latin: Cogito, ergo sum.',
+            zh: '勒内\u00B7笛卡尔，《第一哲学沉思集》，1641年。\n拉丁原文：Cogito, ergo sum。',
         },
         visionImageAlt: {
             en: 'Screenshot region',

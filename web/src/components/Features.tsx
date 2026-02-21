@@ -23,7 +23,7 @@ function Features() {
                     {t.features.items.map((f, i) => (
                         <article
                             key={f.title.en}
-                            className="feature-card reveal-child"
+                            className={`feature-card reveal-child`}
                             style={{ '--reveal-index': i } as React.CSSProperties}
                         >
                             <span className="feature-label">{tr(f.label, lang)}</span>

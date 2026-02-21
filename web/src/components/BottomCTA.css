@@ -1,94 +1,121 @@
 .bottom-cta {
-    background-color: var(--color-bg);
+  background-color: var(--color-bg);
+}
+
+.bottom-cta-glow {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 600px;
+  height: 400px;
+  border-radius: 50%;
+  background: radial-gradient(
+    ellipse at center,
+    rgba(85, 83, 134, 0.06) 0%,
+    rgba(85, 83, 134, 0.02) 40%,
+    transparent 70%
+  );
+  pointer-events: none;
 }
 
 .bottom-cta-inner {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  position: relative;
+  z-index: 1;
+}
+
+.bottom-cta-tagline {
+  font-family: var(--font-serif);
+  font-size: clamp(1rem, 2vw, 1.25rem);
+  line-height: 1.6;
+  color: var(--color-text-secondary);
+  margin-bottom: var(--space-xl);
+  letter-spacing: 0.02em;
 }
 
 .bottom-cta-btn {
-    display: inline-flex;
-    align-items: center;
-    padding: 16px 40px;
-    border-radius: 100px;
-    font-family: var(--font-sans);
-    font-size: 1rem;
-    font-weight: 500;
-    background-color: var(--color-text-primary);
-    color: var(--color-bg);
-    text-decoration: none;
-    transition: all 0.2s ease;
-    margin-bottom: var(--space-lg);
-    position: relative;
+  display: inline-flex;
+  align-items: center;
+  padding: 18px 48px;
+  border-radius: 100px;
+  font-family: var(--font-sans);
+  font-size: 1.0625rem;
+  font-weight: 500;
+  background-color: var(--color-text-primary);
+  color: var(--color-bg);
+  text-decoration: none;
+  transition: all 0.3s ease;
+  margin-bottom: var(--space-xl);
+  position: relative;
 }
 
 .bottom-cta-btn::after {
-    content: '';
-    position: absolute;
-    inset: -4px;
-    border-radius: 100px;
-    border: 2px solid var(--color-yisi-purple);
-    opacity: 0;
-    animation: bottomCtaPulse 2.5s ease-in-out infinite;
-    pointer-events: none;
+  content: '';
+  position: absolute;
+  inset: -4px;
+  border-radius: 100px;
+  background: linear-gradient(135deg, rgba(85, 83, 134, 0.2), rgba(85, 83, 134, 0.05));
+  opacity: 0;
+  z-index: -1;
+  transition: opacity 0.4s ease;
+  filter: blur(12px);
 }
 
 .bottom-cta-btn:hover {
-    transform: translateY(-1px);
-    box-shadow: 0 6px 24px rgba(0, 0, 0, 0.12);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
 }
 
-@keyframes bottomCtaPulse {
-    0%, 100% {
-        opacity: 0;
-        transform: scale(1);
-    }
-    50% {
-        opacity: 0.4;
-        transform: scale(1.02);
-    }
+.bottom-cta-btn:hover::after {
+  opacity: 1;
 }
 
 .bottom-cta-meta {
-    display: flex;
-    align-items: center;
-    gap: var(--space-md);
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
 }
 
 .bottom-cta-req {
-    font-family: var(--font-sans);
-    font-size: 0.8125rem;
-    color: var(--color-text-tertiary);
+  font-family: var(--font-sans);
+  font-size: 0.8125rem;
+  color: var(--color-text-tertiary);
 }
 
 .bottom-cta-sep {
-    width: 1px;
-    height: 14px;
-    background-color: var(--color-border);
+  width: 1px;
+  height: 14px;
+  background-color: var(--color-border);
 }
 
 .bottom-cta-source {
-    font-family: var(--font-sans);
-    font-size: 0.8125rem;
-    color: var(--color-text-secondary);
-    text-decoration: none;
-    transition: color var(--duration-fast) var(--ease-out);
+  font-family: var(--font-sans);
+  font-size: 0.8125rem;
+  color: var(--color-text-secondary);
+  text-decoration: none;
+  transition: color var(--duration-fast) var(--ease-out);
 }
 
 .bottom-cta-source:hover {
-    color: var(--color-text-primary);
+  color: var(--color-text-primary);
 }
 
 @media (max-width: 768px) {
-    .bottom-cta-meta {
-        flex-direction: column;
-        gap: var(--space-sm);
-    }
+  .bottom-cta-btn {
+    padding: 14px 36px;
+    font-size: 1rem;
+  }
 
-    .bottom-cta-sep {
-        display: none;
-    }
+  .bottom-cta-meta {
+    flex-direction: column;
+    gap: var(--space-sm);
+  }
+
+  .bottom-cta-sep {
+    display: none;
+  }
 }

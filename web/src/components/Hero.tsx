@@ -104,9 +104,10 @@ function Hero() {
             </div>
 
             <div className="hero-bottom">
-                <p className="hero-tagline">
-                    {tr(t.showcase.heading, lang)}{'\n'}{tr(t.showcase.sub, lang)}
-                </p>
+                <div className="hero-tagline">
+                    <p className="hero-tagline-heading">{tr(t.showcase.heading, lang)}</p>
+                    <p className="hero-tagline-sub">{tr(t.showcase.sub, lang)}</p>
+                </div>
                 <div className="hero-actions">
                     <a
                         href="https://github.com/MUTRO888/Yisi/releases"

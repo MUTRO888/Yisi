@@ -20,11 +20,18 @@ function TextReveal({
     const isCJK = useMemo(() => CJK_RANGE.test(text), [text])
 
     if (isCJK) {
+        const chars = [...text]
         return (
-            <Tag
-                className={`text-reveal ${className}${isVisible ? ' text-reveal-visible' : ''}`}
-            >
-                {text}
+            <Tag className={`text-reveal-wrap ${className}`}>
+                {chars.map((char, i) => (
+                    <span
+                        key={i}
+                        className={`text-reveal-word${isVisible ? ' text-reveal-visible' : ''}`}
+                        style={{ transitionDelay: `${i * delayBase}ms` }}
+                    >
+                        {char}
+                    </span>
+                ))}
             </Tag>
         )
     }

@@ -3,8 +3,8 @@
     top: 0;
     z-index: 100;
     height: var(--header-height);
-    backdrop-filter: blur(20px);
-    -webkit-backdrop-filter: blur(20px);
+    backdrop-filter: blur(24px) saturate(1.2);
+    -webkit-backdrop-filter: blur(24px) saturate(1.2);
     background-color: color-mix(in srgb, var(--color-bg) 80%, transparent);
     border-bottom: 1px solid var(--color-border);
 }
@@ -44,10 +44,12 @@
 }
 
 .header-link {
-    font-family: var(--font-serif);
-    font-size: 0.875rem;
+    font-family: var(--font-sans);
+    font-size: 0.8125rem;
+    font-weight: 400;
     color: var(--color-text-secondary);
     transition: color var(--duration-fast) var(--ease-out);
+    letter-spacing: 0.01em;
 }
 
 .header-link:hover {
@@ -77,7 +79,7 @@
 .header-download {
     display: inline-flex;
     align-items: center;
-    padding: 6px 16px;
+    white-space: nowrap;
     border-radius: 100px;
     font-family: var(--font-sans);
     font-size: 0.8125rem;
@@ -85,20 +87,22 @@
     background-color: var(--color-text-primary);
     color: var(--color-bg);
     text-decoration: none;
-    transition:
-        opacity 0.3s var(--ease-out),
-        transform 0.2s ease;
+    overflow: hidden;
+    max-width: 0;
+    padding: 6px 0;
     opacity: 0;
     pointer-events: none;
+    transition:
+        max-width 0.35s var(--ease-out),
+        padding 0.35s var(--ease-out),
+        opacity 0.3s var(--ease-out);
 }
 
 .header-download.visible {
+    max-width: 200px;
+    padding: 6px 16px;
     opacity: 1;
     pointer-events: auto;
-}
-
-.header-download:hover {
-    transform: translateY(-1px);
 }
 
 /* --- Hamburger Button --- */

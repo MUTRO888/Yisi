@@ -96,8 +96,7 @@ export function PresetModeDemo() {
                     <kbd className={`bd-key-cap${keysPressed ? ' pressed' : ''}`}>C</kbd>
                 </div>
 
-                {(phase === 'popup' || phase === 'result') && (
-                    <div className="bd-popup">
+                <div className={`bd-popup${phase === 'popup' || phase === 'result' ? ' visible' : ''}`}>
                         <div className="bd-popup-bar">
                             <span className="bd-popup-dot" />
                             <span className="bd-popup-dot" />
@@ -114,7 +113,7 @@ export function PresetModeDemo() {
                                         <HarmonicFlow text={resultText} duration={1500} onComplete={onLoadingDone} />
                                     </div>
                                 )}
-                                {phase === 'result' && (
+                                {(phase === 'result' || phase === 'idle') && (
                                     <p className="bd-popup-text bd-popup-result">{resultText}</p>
                                 )}
                             </div>
@@ -123,20 +122,21 @@ export function PresetModeDemo() {
                             <span className="bd-yisi-btn">Yisi</span>
                         </div>
                     </div>
-                )}
             </div>
         </div>
     )
 }
 
-type CustomPhase = 'idle' | 'showPopup' | 'typeField1' | 'typeField2' | 'loading' | 'result'
+type CustomPhase = 'idle' | 'selecting' | 'showPopup' | 'typeField1' | 'typeField2' | 'loading' | 'result'
 
 export function CustomModeDemo() {
     const { lang, t } = useI18n()
     const [phase, setPhase] = useState<CustomPhase>('idle')
+    const [selProgress, setSelProgress] = useState(0)
     const [typed1, setTyped1] = useState(0)
     const [typed2, setTyped2] = useState(0)
     const timerRef = useRef<number>(0)
+    const rafRef = useRef<number>(0)
 
     const field1 = tr(t.beyond.narrativeField1, lang)
     const field2 = tr(t.beyond.narrativeField2, lang)
@@ -149,6 +149,7 @@ export function CustomModeDemo() {
 
     useEffect(() => {
         setPhase('idle')
+        setSelProgress(0)
         setTyped1(0)
         setTyped2(0)
     }, [lang])
@@ -156,11 +157,27 @@ export function CustomModeDemo() {
     useEffect(() => {
         switch (phase) {
             case 'idle':
+                setSelProgress(0)
+                timerRef.current = window.setTimeout(() => setPhase('selecting'), 1500)
+                break
+            case 'selecting': {
+                const t0 = performance.now()
+                const dur = 600
+                const tick = (now: number) => {
+                    const p = Math.min(1, (now - t0) / dur)
+                    setSelProgress(p)
+                    if (p < 1) {
+                        rafRef.current = requestAnimationFrame(tick)
+                    } else {
+                        timerRef.current = window.setTimeout(() => setPhase('showPopup'), 400)
+                    }
+                }
+                rafRef.current = requestAnimationFrame(tick)
+                break
+            }
+            case 'showPopup':
                 setTyped1(0)
                 setTyped2(0)
-                timerRef.current = window.setTimeout(() => setPhase('showPopup'), 1500)
-                break
-            case 'showPopup':
                 timerRef.current = window.setTimeout(() => setPhase('typeField1'), 600)
                 break
             case 'typeField1': {
@@ -197,14 +214,21 @@ export function CustomModeDemo() {
                 timerRef.current = window.setTimeout(() => setPhase('idle'), 3000)
                 break
         }
-        return () => clearTimeout(timerRef.current)
+        return () => {
+            clearTimeout(timerRef.current)
+            cancelAnimationFrame(rafRef.current)
+        }
     }, [phase, field1.length, field2.length])
 
     const onLoadingDone = useCallback(() => setPhase('result'), [])
 
-    const showPopup = phase !== 'idle'
-    const field1Text = phase === 'typeField1' ? field1.slice(0, typed1) : (phase === 'idle' || phase === 'showPopup') ? '' : field1
-    const field2Text = phase === 'typeField2' ? field2.slice(0, typed2) : (phase === 'idle' || phase === 'showPopup' || phase === 'typeField1') ? '' : field2
+    const selChars = phase === 'selecting'
+        ? Math.floor(selProgress * sourceText.length)
+        : (phase === 'idle' ? 0 : sourceText.length)
+
+    const popupVisible = phase !== 'idle' && phase !== 'selecting'
+    const field1Text = phase === 'typeField1' ? field1.slice(0, typed1) : (phase === 'idle' || phase === 'selecting' || phase === 'showPopup') ? '' : field1
+    const field2Text = phase === 'typeField2' ? field2.slice(0, typed2) : (phase === 'idle' || phase === 'selecting' || phase === 'showPopup' || phase === 'typeField1') ? '' : field2
     const showCursor1 = phase === 'typeField1'
     const showCursor2 = phase === 'typeField2'
 
@@ -218,58 +242,63 @@ export function CustomModeDemo() {
                         <span className="bd-win-dot" />
                     </div>
                     <div className="bd-win-body">
-                        <p className="bd-doc-text bd-sel-all">{sourceText}</p>
+                        <p className="bd-doc-text">
+                            {Array.from(sourceText).map((ch, i) => (
+                                <span
+                                    key={i}
+                                    className={i < selChars ? 'bd-sel' : ''}
+                                >{ch}</span>
+                            ))}
+                        </p>
                     </div>
                 </div>
 
-                {showPopup && (
-                    <div className="bd-popup bd-custom-popup">
-                        <div className="bd-popup-bar">
-                            <span className="bd-popup-dot" />
-                            <span className="bd-popup-dot" />
-                            <span className="bd-popup-dot" />
+                <div className={`bd-popup${popupVisible ? ' visible' : ''}`}>
+                    <div className="bd-popup-bar">
+                        <span className="bd-popup-dot" />
+                        <span className="bd-popup-dot" />
+                        <span className="bd-popup-dot" />
+                    </div>
+                    <div className="bd-custom-narrative">
+                        <div className="bd-narrative-line">
+                            <span className="bd-narrative-text">{prefix} </span>
+                            <span className="bd-narrative-input">
+                                {field1Text}
+                                {showCursor1 && <span className="bd-cursor" />}
+                                {!field1Text && !showCursor1 && <span className="bd-input-placeholder" />}
+                            </span>
+                            <span className="bd-narrative-text"> {comma}</span>
                         </div>
-                        <div className="bd-custom-narrative">
-                            <div className="bd-narrative-line">
-                                <span className="bd-narrative-text">{prefix} </span>
-                                <span className="bd-narrative-input">
-                                    {field1Text}
-                                    {showCursor1 && <span className="bd-cursor" />}
-                                    {!field1Text && !showCursor1 && <span className="bd-input-placeholder" />}
-                                </span>
-                                <span className="bd-narrative-text"> {comma}</span>
-                            </div>
-                            <div className="bd-narrative-line">
-                                <span className="bd-narrative-text">{middle} </span>
-                                <span className="bd-narrative-input">
-                                    {field2Text}
-                                    {showCursor2 && <span className="bd-cursor" />}
-                                    {!field2Text && !showCursor2 && <span className="bd-input-placeholder" />}
-                                </span>
-                                <span className="bd-narrative-text"> {suffix}</span>
-                            </div>
-                        </div>
-                        <div className="bd-popup-panels">
-                            <div className="bd-popup-panel">
-                                <p className="bd-popup-text bd-popup-source">{sourceText}</p>
-                            </div>
-                            <div className="bd-popup-divider" />
-                            <div className="bd-popup-panel">
-                                {phase === 'loading' && (
-                                    <div className="bd-popup-loading">
-                                        <HarmonicFlow text={resultText} duration={1500} onComplete={onLoadingDone} />
-                                    </div>
-                                )}
-                                {phase === 'result' && (
-                                    <p className="bd-popup-text bd-popup-result">{resultText}</p>
-                                )}
-                            </div>
-                        </div>
-                        <div className="bd-popup-footer">
-                            <span className="bd-yisi-btn">Yisi</span>
+                        <div className="bd-narrative-line">
+                            <span className="bd-narrative-text">{middle} </span>
+                            <span className="bd-narrative-input">
+                                {field2Text}
+                                {showCursor2 && <span className="bd-cursor" />}
+                                {!field2Text && !showCursor2 && <span className="bd-input-placeholder" />}
+                            </span>
+                            <span className="bd-narrative-text"> {suffix}</span>
                         </div>
                     </div>
-                )}
+                    <div className="bd-popup-panels">
+                        <div className="bd-popup-panel">
+                            <p className="bd-popup-text bd-popup-source">{sourceText}</p>
+                        </div>
+                        <div className="bd-popup-divider" />
+                        <div className="bd-popup-panel">
+                            {phase === 'loading' && (
+                                <div className="bd-popup-loading">
+                                    <HarmonicFlow text={resultText} duration={1500} onComplete={onLoadingDone} />
+                                </div>
+                            )}
+                            {(phase === 'result' || phase === 'idle') && (
+                                <p className="bd-popup-text bd-popup-result">{resultText}</p>
+                            )}
+                        </div>
+                    </div>
+                    <div className="bd-popup-footer">
+                        <span className="bd-yisi-btn">Yisi</span>
+                    </div>
+                </div>
             </div>
         </div>
     )
@@ -372,34 +401,32 @@ export function VisionDemo() {
                     <kbd className={`bd-key-cap${showKeys ? ' pressed' : ''}`}>X</kbd>
                 </div>
 
-                {(phase === 'popup' || phase === 'result') && (
-                    <div className="bd-popup">
-                        <div className="bd-popup-bar">
-                            <span className="bd-popup-dot" />
-                            <span className="bd-popup-dot" />
-                            <span className="bd-popup-dot" />
+                <div className={`bd-popup${phase === 'popup' || phase === 'result' ? ' visible' : ''}`}>
+                    <div className="bd-popup-bar">
+                        <span className="bd-popup-dot" />
+                        <span className="bd-popup-dot" />
+                        <span className="bd-popup-dot" />
+                    </div>
+                    <div className="bd-popup-panels">
+                        <div className="bd-popup-panel bd-vision-img-panel">
+                            <div className="bd-vision-thumb" />
                         </div>
-                        <div className="bd-popup-panels">
-                            <div className="bd-popup-panel bd-vision-img-panel">
-                                <div className="bd-vision-thumb" />
-                            </div>
-                            <div className="bd-popup-divider" />
-                            <div className="bd-popup-panel">
-                                {phase === 'popup' && (
-                                    <div className="bd-popup-loading">
-                                        <HarmonicFlow text={resultText} duration={1500} onComplete={onLoadingDone} />
-                                    </div>
-                                )}
-                                {phase === 'result' && (
-                                    <p className="bd-popup-text bd-popup-result bd-vision-result">{resultText}</p>
-                                )}
-                            </div>
-                        </div>
-                        <div className="bd-popup-footer">
-                            <span className="bd-yisi-btn">Yisi</span>
+                        <div className="bd-popup-divider" />
+                        <div className="bd-popup-panel">
+                            {phase === 'popup' && (
+                                <div className="bd-popup-loading">
+                                    <HarmonicFlow text={resultText} duration={1500} onComplete={onLoadingDone} />
+                                </div>
+                            )}
+                            {(phase === 'result' || phase === 'idle') && (
+                                <p className="bd-popup-text bd-popup-result bd-vision-result">{resultText}</p>
+                            )}
                         </div>
                     </div>
-                )}
+                    <div className="bd-popup-footer">
+                        <span className="bd-yisi-btn">Yisi</span>
+                    </div>
+                </div>
             </div>
         </div>
     )
