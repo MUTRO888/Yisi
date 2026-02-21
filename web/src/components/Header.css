@@ -37,13 +37,18 @@
     color: var(--color-text-primary);
 }
 
-.header-nav {
+/* --- Actions Group (GitHub, Lang, Download) --- */
+
+.header-actions {
     display: flex;
     align-items: center;
     gap: var(--space-lg);
 }
 
-.header-link {
+.header-github {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
     font-family: var(--font-sans);
     font-size: 0.8125rem;
     font-weight: 400;
@@ -52,7 +57,7 @@
     letter-spacing: 0.01em;
 }
 
-.header-link:hover {
+.header-github:hover {
     color: var(--color-text-primary);
 }
 
@@ -105,46 +110,6 @@
     pointer-events: auto;
 }
 
-/* --- Hamburger Button --- */
-
-.header-burger {
-    display: none;
-    flex-direction: column;
-    justify-content: center;
-    gap: 5px;
-    width: 32px;
-    height: 32px;
-    padding: 6px;
-    cursor: pointer;
-    background: none;
-    border: none;
-    z-index: 101;
-}
-
-.header-burger span {
-    display: block;
-    width: 100%;
-    height: 1.5px;
-    background-color: var(--color-text-primary);
-    border-radius: 1px;
-    transition:
-        transform 0.3s var(--ease-out),
-        opacity 0.2s var(--ease-out);
-    transform-origin: center;
-}
-
-.header-burger.active span:nth-child(1) {
-    transform: translateY(6.5px) rotate(45deg);
-}
-
-.header-burger.active span:nth-child(2) {
-    opacity: 0;
-}
-
-.header-burger.active span:nth-child(3) {
-    transform: translateY(-6.5px) rotate(-45deg);
-}
-
 /* --- Mobile --- */
 
 @media (max-width: 768px) {
@@ -152,54 +117,33 @@
         padding: 0 var(--space-md);
     }
 
-    .header-burger {
-        display: flex;
+    .header-actions {
+        gap: var(--space-md);
     }
 
-    .header-nav {
-        position: fixed;
-        top: var(--header-height);
-        left: 0;
-        right: 0;
-        bottom: 0;
-        flex-direction: column;
-        align-items: center;
-        justify-content: flex-start;
-        gap: 0;
-        padding: var(--space-lg) var(--space-md);
-        background-color: var(--color-bg);
-        opacity: 0;
-        pointer-events: none;
-        transform: translateY(-8px);
-        transition:
-            opacity 0.25s var(--ease-out),
-            transform 0.25s var(--ease-out);
+    .header-github-label {
+        display: none;
     }
 
-    .header-nav.open {
-        opacity: 1;
-        pointer-events: auto;
-        transform: translateY(0);
+    .header-github {
+        font-size: 0;
     }
 
-    .header-link {
-        display: block;
-        width: 100%;
-        text-align: center;
-        padding: var(--space-md) 0;
-        font-size: 1rem;
-        border-bottom: 1px solid var(--color-border);
+    .header-github svg {
+        width: 20px;
+        height: 20px;
     }
 
     .header-lang {
-        margin-top: var(--space-md);
+        padding: 5px 12px;
+        font-size: 0.75rem;
     }
 
     .header-download {
-        margin-top: var(--space-md);
+        font-size: 0.75rem;
     }
 
     .header-download.visible {
-        display: inline-flex;
+        padding: 5px 14px;
     }
 }

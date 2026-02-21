@@ -451,6 +451,10 @@
 /* --- Mobile --- */
 
 @media (max-width: 768px) {
+    .bd-demo {
+        gap: var(--space-sm);
+    }
+
     .bd-popup-panels {
         flex-direction: column;
         height: auto;
