@@ -1,7 +1,7 @@
 # Yisi
 
 <div align="center">
-  <img src="assets/icon.png" width="120" height="120" alt="Yisi Icon">
+  <img src="./assets/icon.png" width="120" height="120" alt="Yisi Icon">
   <p>An intelligent semantic conversion tool built for macOS | <a href="README.md">简体中文</a></p>
   <p>Starting with translation, letting any information be presented in the form you need—silently, without interruption.</p>
   <p><a href="https://yisi.pages.dev/">yisi.pages.dev</a></p>

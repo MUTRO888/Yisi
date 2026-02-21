@@ -1,7 +1,7 @@
-# Yisi (意思)
+# Yisi
 
 <div align="center">
-  <img src="assets/icon.png" width="120" height="120" alt="Yisi Icon">
+  <img src="./assets/icon.png" width="120" height="120" alt="Yisi Icon">
   <p>Yisi 是为 macOS 打造的智能语义转换工具 | <a href="README_en.md">English</a></p>
   <p>从翻译出发，让任何信息以你需要的形式呈现——无声地，不打扰地。</p>
   <p><a href="https://yisi.pages.dev/">yisi.pages.dev</a></p>
