@@ -74,43 +74,6 @@
   --header-height: 64px;
 }
 
-/* Dark Mode */
-@media (prefers-color-scheme: dark) {
-  :root {
-    --color-bg: #0a0a0a;
-    --color-bg-elevated: #141414;
-    --color-text-primary: #f0f0f0;
-    --color-text-secondary: #999999;
-    --color-text-tertiary: #666666;
-    --color-border: rgba(255, 255, 255, 0.08);
-    --color-border-hover: rgba(255, 255, 255, 0.15);
-    --color-accent: #e0e0e0;
-    --color-accent-soft: rgba(224, 224, 224, 0.06);
-
-    /* Yisi Brand Palette */
-    --color-yisi-purple: #9D9AC6;
-    --color-yisi-light: #B0AED6;
-    --color-yisi-mist: #2A2836;
-    --color-selection: rgba(157, 154, 198, 0.25);
-
-    /* Extended Palette */
-    --color-surface-dark: #0a0917;
-    --color-surface-dark-elevated: #15142a;
-
-    /* Shadows */
-    --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.15);
-    --shadow-md: 0 8px 32px rgba(0, 0, 0, 0.2);
-    --shadow-lg: 0 16px 48px rgba(0, 0, 0, 0.25);
-    --shadow-xl: 0 24px 80px rgba(0, 0, 0, 0.3);
-    --shadow-glow: 0 0 80px rgba(157, 154, 198, 0.15);
-
-    /* Glass */
-    --glass-bg: rgba(20, 20, 20, 0.55);
-    --glass-border: rgba(255, 255, 255, 0.08);
-    --glass-blur: 16px;
-  }
-}
-
 /* Reset */
 *,
 *::before,
