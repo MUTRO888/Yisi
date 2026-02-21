@@ -17,10 +17,8 @@ function BottomCTA() {
                     {tr(t.footer.tagline, lang)}
                 </p>
                 <a
-                    href="https://github.com/MUTRO888/Yisi/releases"
+                    href="https://github.com/MUTRO888/Yisi/releases/latest/download/Yisi.dmg"
                     className={`bottom-cta-btn reveal${isVisible ? ' visible' : ''}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
                     style={{ transitionDelay: '100ms' }}
                 >
                     {tr(t.downloadCTA.button, lang)}

@@ -61,10 +61,8 @@ function Header() {
                         {lang === 'en' ? '中文' : 'EN'}
                     </button>
                     <a
-                        href="https://github.com/MUTRO888/Yisi/releases"
+                        href="https://github.com/MUTRO888/Yisi/releases/latest/download/Yisi.dmg"
                         className={`header-download${showDownload ? ' visible' : ''}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
                     >
                         {tr(t.hero.download, lang)}
                     </a>

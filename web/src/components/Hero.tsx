@@ -110,10 +110,8 @@ function Hero() {
                 </div>
                 <div className="hero-actions">
                     <a
-                        href="https://github.com/MUTRO888/Yisi/releases"
+                        href="https://github.com/MUTRO888/Yisi/releases/latest/download/Yisi.dmg"
                         className="btn-primary"
-                        target="_blank"
-                        rel="noopener noreferrer"
                     >
                         {tr(t.hero.download, lang)}
                     </a>
