@@ -14,7 +14,18 @@ class UpdateManager: ObservableObject {
     private let repo = "Yisi"
     private var progressWindow: NSWindow?
     private var updateAlertWindow: NSWindow?
-    private var alertedVersion: String?
+
+    private static let alertedVersionKey = "update_alerted_version"
+    private static let alertedForCurrentKey = "update_alerted_for_current"
+
+    private var alertedVersion: String? {
+        get { UserDefaults.standard.string(forKey: Self.alertedVersionKey) }
+        set { UserDefaults.standard.set(newValue, forKey: Self.alertedVersionKey) }
+    }
+    private var alertedForCurrent: String? {
+        get { UserDefaults.standard.string(forKey: Self.alertedForCurrentKey) }
+        set { UserDefaults.standard.set(newValue, forKey: Self.alertedForCurrentKey) }
+    }
 
     var currentVersion: String {
         Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "0.0.0"
@@ -71,8 +82,11 @@ class UpdateManager: ObservableObject {
 
                 if self.isNewer(remote: remote, local: self.currentVersion) {
                     self.updateAvailable = true
-                    if silent && self.alertedVersion == remote { return }
+                    let alreadyAlerted = self.alertedVersion == remote
+                        && self.alertedForCurrent == self.currentVersion
+                    if silent && alreadyAlerted { return }
                     self.alertedVersion = remote
+                    self.alertedForCurrent = self.currentVersion
                     self.showUpdateAlert(version: remote, htmlURL: htmlURL, dmgURL: dmgURL, releaseNotes: releaseNotes)
                 } else {
                     self.updateAvailable = false
