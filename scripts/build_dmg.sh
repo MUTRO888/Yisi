@@ -3,7 +3,16 @@ set -e
 
 APP_NAME="Yisi"
 BUNDLE_ID="com.sonianmu.yisi"
-VERSION="${VERSION:-1.0.0}"
+# Auto-detect version from latest git tag (strips leading "v")
+if [ -z "${VERSION}" ]; then
+    GIT_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+    VERSION="${GIT_TAG#v}"
+fi
+if [ -z "${VERSION}" ]; then
+    echo "ERROR: No VERSION set and no git tag found. Usage: VERSION=x.y.z bash $0"
+    exit 1
+fi
+echo "Building ${APP_NAME} v${VERSION}"
 BUILD_DIR=".build_app"
 APP_BUNDLE="${BUILD_DIR}/${APP_NAME}.app"
 
