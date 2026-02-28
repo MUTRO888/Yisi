@@ -95,6 +95,8 @@ class UpdateManager: ObservableObject {
     // MARK: - Alerts
 
     private func showUpdateAlert(version: String, htmlURL: String, dmgURL: String?, releaseNotes: String) {
+        guard updateAlertWindow == nil, progressWindow == nil else { return }
+
         let window = NSWindow(
             contentRect: NSRect(x: 0, y: 0, width: 320, height: 300),
             styleMask: [.borderless],
