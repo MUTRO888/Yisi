@@ -14,6 +14,7 @@ class UpdateManager: ObservableObject {
     private let repo = "Yisi"
     private var progressWindow: NSWindow?
     private var updateAlertWindow: NSWindow?
+    private var alertedVersion: String?
 
     var currentVersion: String {
         Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "0.0.0"
@@ -70,6 +71,8 @@ class UpdateManager: ObservableObject {
 
                 if self.isNewer(remote: remote, local: self.currentVersion) {
                     self.updateAvailable = true
+                    if silent && self.alertedVersion == remote { return }
+                    self.alertedVersion = remote
                     self.showUpdateAlert(version: remote, htmlURL: htmlURL, dmgURL: dmgURL, releaseNotes: releaseNotes)
                 } else {
                     self.updateAvailable = false
