@@ -75,8 +75,11 @@ class PromptCoordinator {
     ///   - mode: 提示词模式
     /// - Returns: 用户提示词
     func generateUserPrompt(text: String, sourceLanguage: String, targetLanguage: String, mode: PromptMode = .defaultTranslation) -> String {
-        // 如果是临时自定义模式，不要添加"Translate..."指令，因为System Prompt里已经有了用户自定义的任务
-        if mode == .temporaryCustom {
+        // 自定义模式和预设模式：不添加"Translate..."指令，System Prompt 已定义了用户任务
+        if case .temporaryCustom = mode {
+            return "Input Text:\n\(text)"
+        }
+        if case .userPreset = mode {
             return "Input Text:\n\(text)"
         }
         
