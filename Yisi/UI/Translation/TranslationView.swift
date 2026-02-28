@@ -668,19 +668,45 @@ struct TranslationView: View {
                 )
                 print("[SystemEngine] Translation success!")
             } else {
-                // Use AI for image recognition + translation
-                let enableCoT = AIService.shared.shouldEnableCoT(for: mode, usage: .image)
-                
-                let instruction = PromptCoordinator.shared.generateImageSystemPrompt(
-                    mode: mode,
-                    sourceLanguage: sourceLanguage.rawValue,
-                    targetLanguage: targetLanguage.rawValue,
-                    enableCoT: enableCoT,
-                    customPerception: mode == .temporaryCustom ? customInputPerception : nil,
-                    customInstruction: mode == .temporaryCustom ? customOutputInstruction : nil
-                )
-                
-                translatedText = try await AIService.shared.processImage(image, instruction: instruction, mode: mode)
+                let imageStrategy = UserDefaults.standard.string(forKey: AppDefaults.Keys.imageProcessingStrategy) ?? "ai_vision"
+
+                if imageStrategy == "local_ocr" {
+                    let extractedText = try await LocalVisionService.shared.recognizeText(from: image)
+
+                    let wrappedText = """
+                    [The user sent an image for the task above, \
+                    but you are running in a text-only container and cannot view it directly. \
+                    The system has extracted all text from the image via OCR as shown below. \
+                    Please fulfill the user's task based solely on this text. \
+                    If the task requires visual judgments (layout, color, etc.) that cannot be \
+                    determined from text alone, state this clearly in your response.]
+
+                    \(extractedText)
+                    """
+
+                    translatedText = try await AIService.shared.processText(
+                        wrappedText,
+                        mode: mode,
+                        sourceLanguage: sourceLanguage.rawValue,
+                        targetLanguage: targetLanguage.rawValue,
+                        userPerception: mode == .temporaryCustom ? customInputPerception : nil,
+                        userInstruction: mode == .temporaryCustom ? customOutputInstruction : nil
+                    )
+                } else {
+                    // AI Vision (unchanged)
+                    let enableCoT = AIService.shared.shouldEnableCoT(for: mode, usage: .image)
+
+                    let instruction = PromptCoordinator.shared.generateImageSystemPrompt(
+                        mode: mode,
+                        sourceLanguage: sourceLanguage.rawValue,
+                        targetLanguage: targetLanguage.rawValue,
+                        enableCoT: enableCoT,
+                        customPerception: mode == .temporaryCustom ? customInputPerception : nil,
+                        customInstruction: mode == .temporaryCustom ? customOutputInstruction : nil
+                    )
+
+                    translatedText = try await AIService.shared.processImage(image, instruction: instruction, mode: mode)
+                }
             }
             
             originalAiTranslation = translatedText

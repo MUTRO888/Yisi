@@ -37,6 +37,7 @@ enum AppDefaults {
         static let enableDeepThinking = "enable_deep_thinking"
 
         // AI Service - Image
+        static let imageProcessingStrategy = "image_processing_strategy"
         static let applyApiToImageMode = "apply_api_to_image_mode"
         static let imageApiProvider = "image_api_provider"
         static let imageGeminiApiKey = "image_gemini_api_key"
@@ -82,6 +83,7 @@ enum AppDefaults {
     static let enableDeepThinking = false
 
     // AI Service - Image
+    static let imageProcessingStrategy = "ai_vision"
     static let applyApiToImageMode = false
     static let imageApiProvider = "Zhipu AI"
     static let imageGeminiModel = "gemini-2.5-flash"
@@ -121,6 +123,7 @@ enum AppDefaults {
             Keys.zhipuModel: zhipuModel,
             Keys.minimaxModel: minimaxModel,
             Keys.enableDeepThinking: enableDeepThinking,
+            Keys.imageProcessingStrategy: imageProcessingStrategy,
             Keys.applyApiToImageMode: applyApiToImageMode,
             Keys.imageApiProvider: imageApiProvider,
             Keys.imageGeminiModel: imageGeminiModel,

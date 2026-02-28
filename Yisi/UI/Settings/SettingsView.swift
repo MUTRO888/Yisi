@@ -567,6 +567,7 @@ struct AIServiceSettingsView: View {
     @AppStorage(AppDefaults.Keys.apiProvider) private var apiProvider: String = AppDefaults.apiProvider
     
     // Image Mode API Settings
+    @AppStorage(AppDefaults.Keys.imageProcessingStrategy) private var imageStrategy: String = AppDefaults.imageProcessingStrategy
     @AppStorage(AppDefaults.Keys.applyApiToImageMode) private var applyApiToImageMode: Bool = AppDefaults.applyApiToImageMode
     @AppStorage(AppDefaults.Keys.imageApiProvider) private var imageApiProvider: String = AppDefaults.imageApiProvider
     @AppStorage(AppDefaults.Keys.imageGeminiApiKey) private var imageGeminiKey: String = ""
@@ -604,46 +605,59 @@ struct AIServiceSettingsView: View {
             VStack(alignment: .leading, spacing: 12) {
                 SectionHeader(title: "Image Mode".localized)
 
-                HStack {
-                    Text("Same API".localized)
-                        .font(.system(size: 13, design: .serif))
-                        .foregroundColor(.secondary)
-                        .frame(width: 80, alignment: .leading)
+                Picker("", selection: $imageStrategy) {
+                    Text("System OCR".localized).tag("local_ocr")
+                    Text("AI Vision".localized).tag("ai_vision")
+                }
+                .pickerStyle(.segmented)
+                .labelsHidden()
 
-                    let isMiniMax = apiProvider == "MiniMax"
-
-                    ElegantToggle(isOn: $applyApiToImageMode)
-                        .opacity(isMiniMax ? 0.4 : 1)
-                        .allowsHitTesting(!isMiniMax)
-
-                    Text(isMiniMax
-                         ? "MiniMax does not support image mode".localized
-                         : "Apply text settings to image mode".localized)
+                if imageStrategy == "local_ocr" {
+                    Text("Only recognizes pure text structures in images".localized)
                         .font(.system(size: 12, design: .serif))
                         .foregroundColor(.secondary.opacity(0.7))
+                } else {
+                    HStack {
+                        Text("Same API".localized)
+                            .font(.system(size: 13, design: .serif))
+                            .foregroundColor(.secondary)
+                            .frame(width: 80, alignment: .leading)
 
-                    Spacer()
-                }
-                .onChange(of: apiProvider) { _, newValue in
-                    if newValue == "MiniMax" {
-                        applyApiToImageMode = false
+                        let isMiniMax = apiProvider == "MiniMax"
+
+                        ElegantToggle(isOn: $applyApiToImageMode)
+                            .opacity(isMiniMax ? 0.4 : 1)
+                            .allowsHitTesting(!isMiniMax)
+
+                        Text(isMiniMax
+                             ? "MiniMax does not support image mode".localized
+                             : "Apply text settings to image mode".localized)
+                            .font(.system(size: 12, design: .serif))
+                            .foregroundColor(.secondary.opacity(0.7))
+
+                        Spacer()
                     }
-                }
-                
-                // Separate Image API Configuration (shown when toggle is OFF)
-                if !applyApiToImageMode {
-                    Divider().opacity(0.2)
-                    
-                    APIConfigForm(
-                        provider: $imageApiProvider,
-                        geminiKey: $imageGeminiKey,
-                        geminiModel: $imageGeminiModel,
-                        openaiKey: $imageOpenaiKey,
-                        openaiModel: $imageOpenaiModel,
-                        zhipuKey: $imageZhipuKey,
-                        zhipuModel: $imageZhipuModel,
-                        providerOptions: ["Gemini", "OpenAI", "Zhipu AI"]
-                    )
+                    .onChange(of: apiProvider) { _, newValue in
+                        if newValue == "MiniMax" {
+                            applyApiToImageMode = false
+                        }
+                    }
+
+                    // Separate Image API Configuration (shown when toggle is OFF)
+                    if !applyApiToImageMode {
+                        Divider().opacity(0.2)
+
+                        APIConfigForm(
+                            provider: $imageApiProvider,
+                            geminiKey: $imageGeminiKey,
+                            geminiModel: $imageGeminiModel,
+                            openaiKey: $imageOpenaiKey,
+                            openaiModel: $imageOpenaiModel,
+                            zhipuKey: $imageZhipuKey,
+                            zhipuModel: $imageZhipuModel,
+                            providerOptions: ["Gemini", "OpenAI", "Zhipu AI"]
+                        )
+                    }
                 }
             }
             

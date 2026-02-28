@@ -66,6 +66,9 @@ class LocalizationManager: ObservableObject {
         // Image Mode
         "Image": "Image",
         "Image Mode": "Image Mode",
+        "System OCR": "System OCR",
+        "AI Vision": "AI Vision",
+        "Only recognizes pure text structures in images": "Only recognizes pure text structures in images",
         "Same API": "Same API",
         "Apply to Image Mode": "Apply to image mode",
         "Apply text settings to image mode": "Apply text settings to image mode",
@@ -304,6 +307,9 @@ class LocalizationManager: ObservableObject {
         // Image Mode
         "Image": "图片",
         "Image Mode": "图片模式",
+        "System OCR": "系统 OCR",
+        "AI Vision": "AI 视觉",
+        "Only recognizes pure text structures in images": "仅识别图像中的纯文字结构",
         "Same API": "保持一致",
         "Apply to Image Mode": "应用于图片模式",
         "Apply text settings to image mode": "应用文本模式的配置",
