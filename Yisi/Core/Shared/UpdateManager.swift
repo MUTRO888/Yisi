@@ -13,6 +13,7 @@ class UpdateManager: ObservableObject {
     private let owner = "MUTRO888"
     private let repo = "Yisi"
     private var progressWindow: NSWindow?
+    private var updateAlertWindow: NSWindow?
 
     var currentVersion: String {
         Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "0.0.0"
@@ -65,9 +66,11 @@ class UpdateManager: ObservableObject {
                     }
                 }
 
+                let releaseNotes = json["body"] as? String ?? ""
+
                 if self.isNewer(remote: remote, local: self.currentVersion) {
                     self.updateAvailable = true
-                    self.showUpdateAlert(version: remote, htmlURL: htmlURL, dmgURL: dmgURL)
+                    self.showUpdateAlert(version: remote, htmlURL: htmlURL, dmgURL: dmgURL, releaseNotes: releaseNotes)
                 } else {
                     self.updateAvailable = false
                     if !silent { self.showUpToDate() }
@@ -91,31 +94,52 @@ class UpdateManager: ObservableObject {
 
     // MARK: - Alerts
 
-    private func showUpdateAlert(version: String, htmlURL: String, dmgURL: String?) {
-        let alert = NSAlert()
-        alert.messageText = "Update Available".localized
-        alert.informativeText = String(
-            format: "A new version %@ is available. Current version: %@".localized,
-            "v\(version)", "v\(currentVersion)"
+    private func showUpdateAlert(version: String, htmlURL: String, dmgURL: String?, releaseNotes: String) {
+        let window = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 320, height: 300),
+            styleMask: [.borderless],
+            backing: .buffered,
+            defer: false
         )
-        alert.alertStyle = .informational
+        window.center()
+        window.isMovableByWindowBackground = true
+        window.isOpaque = false
+        window.backgroundColor = .clear
+        window.level = .floating
 
-        if dmgURL != nil {
-            alert.addButton(withTitle: "Update Now".localized)
-        } else {
-            alert.addButton(withTitle: "Download".localized)
-        }
-        alert.addButton(withTitle: "Later".localized)
+        let cleanedNotes = cleanMarkdown(releaseNotes)
+        let hasDMG = dmgURL != nil
 
+        let view = NSHostingView(rootView:
+            UpdateAlertView(
+                newVersion: version,
+                currentVersion: currentVersion,
+                releaseNotes: cleanedNotes,
+                hasDMG: hasDMG,
+                onLater: { [weak self] in
+                    self?.closeUpdateAlertWindow()
+                },
+                onUpdate: { [weak self] in
+                    self?.closeUpdateAlertWindow()
+                    if let dmgURL {
+                        self?.downloadAndInstall(dmgURL: dmgURL, htmlURL: htmlURL)
+                    } else if let url = URL(string: htmlURL) {
+                        NSWorkspace.shared.open(url)
+                    }
+                }
+            )
+        )
+        window.contentView = view
+        window.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
-        let response = alert.runModal()
+        updateAlertWindow = window
+    }
 
-        if response == .alertFirstButtonReturn {
-            if let dmgURL {
-                downloadAndInstall(dmgURL: dmgURL, htmlURL: htmlURL)
-            } else if let url = URL(string: htmlURL) {
-                NSWorkspace.shared.open(url)
-            }
+    private func closeUpdateAlertWindow() {
+        let window = updateAlertWindow
+        updateAlertWindow = nil
+        DispatchQueue.main.async {
+            window?.orderOut(nil)
         }
     }
 
@@ -284,6 +308,36 @@ class UpdateManager: ObservableObject {
         }
     }
 
+    // MARK: - Markdown Cleanup
+
+    private func cleanMarkdown(_ text: String) -> String {
+        text.components(separatedBy: .newlines)
+            .map { line in
+                var l = line
+                // Strip heading markers
+                while l.hasPrefix("#") { l = String(l.dropFirst()) }
+                l = l.trimmingCharacters(in: .whitespaces)
+                // Strip blockquote markers
+                if l.hasPrefix(">") { l = String(l.dropFirst()).trimmingCharacters(in: .whitespaces) }
+                // Strip bold/italic/code inline markers
+                l = l.replacingOccurrences(of: "**", with: "")
+                l = l.replacingOccurrences(of: "__", with: "")
+                l = l.replacingOccurrences(of: "`", with: "")
+                // Single * that is inline emphasis (not list bullet)
+                if !l.hasPrefix("* ") && !l.hasPrefix("- ") {
+                    l = l.replacingOccurrences(of: "*", with: "")
+                }
+                return l
+            }
+            // Collapse multiple consecutive blank lines into one
+            .reduce(into: [String]()) { result, line in
+                if line.isEmpty && result.last?.isEmpty == true { return }
+                result.append(line)
+            }
+            .joined(separator: "\n")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
     // MARK: - Cleanup Helpers
 
     private func detach(_ mountPoint: String) {
@@ -316,5 +370,80 @@ private struct UpdateProgressView: View {
                 .foregroundColor(.secondary)
         }
         .frame(width: 260, height: 80)
+    }
+}
+
+// MARK: - Update Alert View
+
+private struct UpdateAlertView: View {
+    let newVersion: String
+    let currentVersion: String
+    let releaseNotes: String
+    let hasDMG: Bool
+    let onLater: () -> Void
+    let onUpdate: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            // Header
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Yisi v\(newVersion) \("Update Available".localized)")
+                    .font(.system(size: 18, weight: .medium, design: .serif))
+                    .foregroundColor(.primary)
+
+                Text("\("Current Version".localized): v\(currentVersion)")
+                    .font(.system(size: 12, design: .serif))
+                    .foregroundColor(.secondary)
+            }
+            .padding(.bottom, 16)
+
+            // Release Notes
+            if !releaseNotes.isEmpty {
+                ScrollView(.vertical) {
+                    Text(releaseNotes)
+                        .font(.system(size: 12, design: .serif))
+                        .foregroundColor(.secondary)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(10)
+                }
+                .frame(maxHeight: 140)
+                .background(
+                    RoundedRectangle(cornerRadius: 8)
+                        .fill(Color.primary.opacity(0.04))
+                )
+                .clipShape(RoundedRectangle(cornerRadius: 8))
+            }
+
+            Spacer()
+
+            // Buttons
+            HStack(spacing: 12) {
+                Button(action: onLater) {
+                    Text("Later".localized)
+                        .font(.system(size: 13, design: .serif))
+                        .foregroundColor(.secondary)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 8)
+                }
+                .buttonStyle(.plain)
+
+                Button(action: onUpdate) {
+                    Text((hasDMG ? "Update Now" : "Download").localized)
+                        .font(.system(size: 13, weight: .medium, design: .serif))
+                        .foregroundColor(.white)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 8)
+                        .background(
+                            RoundedRectangle(cornerRadius: 6)
+                                .fill(AppColors.primary)
+                        )
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(24)
+        .frame(width: 320, height: 300)
+        .background(ThemeBackground())
+        .clipShape(RoundedRectangle(cornerRadius: 12))
     }
 }
