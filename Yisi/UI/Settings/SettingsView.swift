@@ -325,30 +325,45 @@ struct SidebarButton: View {
     }
 }
 
-// MARK: - Engine Button (Custom Segmented Control)
+// MARK: - Elegant Segmented Picker (Sliding Capsule)
 
-struct EngineButton: View {
-    let title: String
-    let isSelected: Bool
-    let action: () -> Void
-    
+struct ElegantSegmentedPicker: View {
+    @Binding var selection: String
+    let options: [(tag: String, label: String)]
+
+    @Namespace private var namespace
+
     var body: some View {
-        Button(action: action) {
-            Text(title)
-                .font(.system(size: 13, weight: isSelected ? .medium : .regular, design: .serif))
-                .foregroundColor(isSelected ? AppColors.primary : .secondary)
-                .padding(.horizontal, 16)
-                .padding(.vertical, 8)
-                .background(
-                    RoundedRectangle(cornerRadius: 6)
-                        .fill(isSelected ? AppColors.primary.opacity(0.12) : Color.clear)
-                )
-                .overlay(
-                    RoundedRectangle(cornerRadius: 6)
-                        .stroke(isSelected ? AppColors.primary.opacity(0.3) : Color.clear, lineWidth: 1)
-                )
+        HStack(spacing: 2) {
+            ForEach(options, id: \.tag) { option in
+                Button(action: {
+                    withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
+                        selection = option.tag
+                    }
+                }) {
+                    Text(option.label)
+                        .font(.system(size: 13, weight: selection == option.tag ? .medium : .regular, design: .serif))
+                        .foregroundColor(selection == option.tag ? AppColors.primary : .secondary)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 7)
+                        .background(
+                            Group {
+                                if selection == option.tag {
+                                    RoundedRectangle(cornerRadius: 6)
+                                        .fill(AppColors.primary.opacity(0.1))
+                                        .matchedGeometryEffect(id: "indicator", in: namespace)
+                                }
+                            }
+                        )
+                }
+                .buttonStyle(.plain)
+            }
         }
-        .buttonStyle(.plain)
+        .padding(3)
+        .background(
+            RoundedRectangle(cornerRadius: 8)
+                .fill(AppColors.primary.opacity(0.04))
+        )
     }
 }
 
@@ -605,12 +620,10 @@ struct AIServiceSettingsView: View {
             VStack(alignment: .leading, spacing: 12) {
                 SectionHeader(title: "Image Mode".localized)
 
-                Picker("", selection: $imageStrategy) {
-                    Text("System OCR".localized).tag("local_ocr")
-                    Text("AI Vision".localized).tag("ai_vision")
-                }
-                .pickerStyle(.segmented)
-                .labelsHidden()
+                ElegantSegmentedPicker(
+                    selection: $imageStrategy,
+                    options: [("local_ocr", "System OCR".localized), ("ai_vision", "AI Vision".localized)]
+                )
 
                 if imageStrategy == "local_ocr" {
                     Text("Only recognizes pure text structures in images".localized)
@@ -874,12 +887,10 @@ struct TranslationSettingsView: View {
                 SectionHeader(title: "Engine".localized)
                 
                 HStack(spacing: 0) {
-                    EngineButton(title: "System Translation".localized, isSelected: translationEngine == "system") {
-                        translationEngine = "system"
-                    }
-                    EngineButton(title: "AI Translation".localized, isSelected: translationEngine == "ai") {
-                        translationEngine = "ai"
-                    }
+                    ElegantSegmentedPicker(
+                        selection: $translationEngine,
+                        options: [("system", "System Translation".localized), ("ai", "AI Translation".localized)]
+                    )
                 }
             }
             
