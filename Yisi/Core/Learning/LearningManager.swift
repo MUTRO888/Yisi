@@ -391,9 +391,11 @@ class LearningManager {
             return UserDefaults.standard.string(forKey: "zhipu_api_key")
         case .openai:
             return UserDefaults.standard.string(forKey: "openai_api_key")
+        case .minimax:
+            return UserDefaults.standard.string(forKey: "minimax_api_key")
         }
     }
-    
+
     deinit {
         sqlite3_close(db)
     }

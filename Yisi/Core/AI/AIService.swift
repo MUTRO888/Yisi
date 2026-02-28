@@ -5,6 +5,7 @@ enum APIProvider: String {
     case openai = "OpenAI"
     case gemini = "Gemini"
     case zhipu = "Zhipu AI"
+    case minimax = "MiniMax"
 }
 
 class AIService: ObservableObject {
@@ -23,6 +24,8 @@ class AIService: ObservableObject {
             return OpenAIProvider()
         case .zhipu:
             return ZhipuProvider()
+        case .minimax:
+            return MiniMaxProvider()
         }
     }
     
@@ -329,6 +332,8 @@ class AIService: ObservableObject {
             return UserDefaults.standard.string(forKey: "\(prefix)openai_api_key")
         case .zhipu:
             return UserDefaults.standard.string(forKey: "\(prefix)zhipu_api_key")
+        case .minimax:
+            return UserDefaults.standard.string(forKey: "\(prefix)minimax_api_key")
         }
     }
     
@@ -341,6 +346,8 @@ class AIService: ObservableObject {
             return "openai_api_key"
         case .zhipu:
             return "zhipu_api_key"
+        case .minimax:
+            return "minimax_api_key"
         }
     }
     
@@ -356,6 +363,8 @@ class AIService: ObservableObject {
         case .zhipu:
             let defaultModel = (usage == .image) ? "GLM-4.5V" : "GLM-4.5-Air"
             return UserDefaults.standard.string(forKey: "\(prefix)zhipu_model") ?? defaultModel
+        case .minimax:
+            return UserDefaults.standard.string(forKey: "\(prefix)minimax_model") ?? "MiniMax-M2.5"
         }
     }
     

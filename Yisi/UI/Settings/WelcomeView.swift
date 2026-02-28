@@ -14,6 +14,7 @@ struct WelcomeView: View {
     @AppStorage(AppDefaults.Keys.geminiApiKey) private var geminiKey: String = ""
     @AppStorage(AppDefaults.Keys.openaiApiKey) private var openaiKey: String = ""
     @AppStorage(AppDefaults.Keys.zhipuApiKey) private var zhipuKey: String = ""
+    @AppStorage(AppDefaults.Keys.minimaxApiKey) private var minimaxKey: String = ""
 
     var onComplete: () -> Void
 
@@ -38,6 +39,7 @@ struct WelcomeView: View {
         switch apiProvider {
         case "Gemini": return !geminiKey.isEmpty
         case "OpenAI": return !openaiKey.isEmpty
+        case "MiniMax": return !minimaxKey.isEmpty
         default: return !zhipuKey.isEmpty
         }
     }
@@ -176,6 +178,7 @@ struct WelcomeView: View {
                     Text("Gemini").tag("Gemini")
                     Text("OpenAI").tag("OpenAI")
                     Text("Zhipu AI").tag("Zhipu AI")
+                    Text("MiniMax").tag("MiniMax")
                 }
                 .pickerStyle(.segmented)
                 .frame(width: 280)
@@ -185,6 +188,8 @@ struct WelcomeView: View {
                         SecureField("Gemini API Key", text: $geminiKey)
                     } else if apiProvider == "OpenAI" {
                         SecureField("OpenAI API Key", text: $openaiKey)
+                    } else if apiProvider == "MiniMax" {
+                        SecureField("MiniMax API Key", text: $minimaxKey)
                     } else {
                         SecureField("Zhipu API Key", text: $zhipuKey)
                     }

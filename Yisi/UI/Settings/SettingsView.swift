@@ -362,7 +362,10 @@ private struct APIConfigForm: View {
     @Binding var openaiModel: String
     @Binding var zhipuKey: String
     @Binding var zhipuModel: String
-    
+    var minimaxKey: Binding<String>? = nil
+    var minimaxModel: Binding<String>? = nil
+    var providerOptions: [String] = ["Gemini", "OpenAI", "Zhipu AI", "MiniMax"]
+
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack {
@@ -370,10 +373,10 @@ private struct APIConfigForm: View {
                     .font(.system(size: 13, design: .serif))
                     .foregroundColor(.secondary)
                     .frame(width: 80, alignment: .leading)
-                
-                CustomDropdown(selection: $provider, options: ["Gemini", "OpenAI", "Zhipu AI"])
+
+                CustomDropdown(selection: $provider, options: providerOptions)
             }
-            
+
             if provider == "Gemini" {
                 APIKeyInput(label: "API Key".localized, text: $geminiKey, placeholder: "Gemini API Key")
                 APIKeyInput(label: "Model".localized, text: $geminiModel, placeholder: "gemini-2.5-flash", isSecure: false)
@@ -383,6 +386,9 @@ private struct APIConfigForm: View {
             } else if provider == "Zhipu AI" {
                 APIKeyInput(label: "API Key".localized, text: $zhipuKey, placeholder: "Zhipu API Key")
                 APIKeyInput(label: "Model".localized, text: $zhipuModel, placeholder: "glm-4.5-air", isSecure: false)
+            } else if provider == "MiniMax", let minimaxKey = minimaxKey, let minimaxModel = minimaxModel {
+                APIKeyInput(label: "API Key".localized, text: minimaxKey, placeholder: "MiniMax API Key")
+                APIKeyInput(label: "Model".localized, text: minimaxModel, placeholder: "MiniMax-M2.5", isSecure: false)
             }
         }
     }
@@ -553,9 +559,11 @@ struct AIServiceSettingsView: View {
     @AppStorage(AppDefaults.Keys.geminiApiKey) private var geminiKey: String = ""
     @AppStorage(AppDefaults.Keys.openaiApiKey) private var openaiKey: String = ""
     @AppStorage(AppDefaults.Keys.zhipuApiKey) private var zhipuKey: String = ""
+    @AppStorage(AppDefaults.Keys.minimaxApiKey) private var minimaxKey: String = ""
     @AppStorage(AppDefaults.Keys.geminiModel) private var geminiModel: String = AppDefaults.geminiModel
     @AppStorage(AppDefaults.Keys.openaiModel) private var openaiModel: String = AppDefaults.openaiModel
     @AppStorage(AppDefaults.Keys.zhipuModel) private var zhipuModel: String = AppDefaults.zhipuModel
+    @AppStorage(AppDefaults.Keys.minimaxModel) private var minimaxModel: String = AppDefaults.minimaxModel
     @AppStorage(AppDefaults.Keys.apiProvider) private var apiProvider: String = AppDefaults.apiProvider
     
     // Image Mode API Settings
@@ -584,29 +592,42 @@ struct AIServiceSettingsView: View {
                     openaiKey: $openaiKey,
                     openaiModel: $openaiModel,
                     zhipuKey: $zhipuKey,
-                    zhipuModel: $zhipuModel
+                    zhipuModel: $zhipuModel,
+                    minimaxKey: $minimaxKey,
+                    minimaxModel: $minimaxModel
                 )
             }
-            
+
             Divider().opacity(0.3)
-            
+
             // Image Mode Toggle
             VStack(alignment: .leading, spacing: 12) {
                 SectionHeader(title: "Image Mode".localized)
-                
+
                 HStack {
                     Text("Same API".localized)
                         .font(.system(size: 13, design: .serif))
                         .foregroundColor(.secondary)
                         .frame(width: 80, alignment: .leading)
-                    
+
+                    let isMiniMax = apiProvider == "MiniMax"
+
                     ElegantToggle(isOn: $applyApiToImageMode)
-                    
-                    Text("Apply text settings to image mode".localized)
+                        .opacity(isMiniMax ? 0.4 : 1)
+                        .allowsHitTesting(!isMiniMax)
+
+                    Text(isMiniMax
+                         ? "MiniMax does not support image mode".localized
+                         : "Apply text settings to image mode".localized)
                         .font(.system(size: 12, design: .serif))
                         .foregroundColor(.secondary.opacity(0.7))
-                    
+
                     Spacer()
+                }
+                .onChange(of: apiProvider) { _, newValue in
+                    if newValue == "MiniMax" {
+                        applyApiToImageMode = false
+                    }
                 }
                 
                 // Separate Image API Configuration (shown when toggle is OFF)
@@ -620,7 +641,8 @@ struct AIServiceSettingsView: View {
                         openaiKey: $imageOpenaiKey,
                         openaiModel: $imageOpenaiModel,
                         zhipuKey: $imageZhipuKey,
-                        zhipuModel: $imageZhipuModel
+                        zhipuModel: $imageZhipuModel,
+                        providerOptions: ["Gemini", "OpenAI", "Zhipu AI"]
                     )
                 }
             }
