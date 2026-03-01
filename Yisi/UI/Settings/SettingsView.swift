@@ -115,7 +115,8 @@ struct ScreenshotShortcutRecorder: View {
     @State private var isRecording = false
     @State private var currentShortcut: String = ""
     @State private var monitor: Any?
-    
+    @State private var showHint = false
+
     var body: some View {
         Button(action: {
             if isRecording {
@@ -126,9 +127,9 @@ struct ScreenshotShortcutRecorder: View {
         }) {
             HStack {
                 if isRecording {
-                    Text("Press keys...".localized)
+                    Text(showHint ? "Requires Cmd/Ctrl/Opt".localized : "Press keys...".localized)
                         .font(.system(size: 13, design: .serif))
-                        .foregroundColor(.accentColor)
+                        .foregroundColor(showHint ? .orange : .accentColor)
                     Spacer()
                     Image(systemName: "record.circle")
                         .font(.system(size: 12))
@@ -205,10 +206,19 @@ struct ScreenshotShortcutRecorder: View {
     private func handleKeyDown(_ event: NSEvent) {
         let flags = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
         let keyCode = event.keyCode
-        
+
         if event.type == .flagsChanged { return }
         if keyCode == 53 { stopRecording(); return }
-        
+
+        let hasPrimaryModifier = flags.contains(.command)
+            || flags.contains(.control)
+            || flags.contains(.option)
+        guard hasPrimaryModifier else {
+            showHint = true
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { showHint = false }
+            return
+        }
+
         GlobalShortcutManager.shared.updateScreenshotShortcut(keyCode: keyCode, modifiers: flags)
         updateDisplay()
         stopRecording()
@@ -2301,7 +2311,8 @@ struct ShortcutRecorder: View {
     @State private var isRecording = false
     @State private var currentShortcut: String = ""
     @State private var monitor: Any?
-    
+    @State private var showHint = false
+
     var body: some View {
         Button(action: {
             if isRecording {
@@ -2312,9 +2323,9 @@ struct ShortcutRecorder: View {
         }) {
             HStack {
                 if isRecording {
-                    Text("Press keys...".localized)
+                    Text(showHint ? "Requires Cmd/Ctrl/Opt".localized : "Press keys...".localized)
                         .font(.system(size: 13, design: .serif))
-                        .foregroundColor(.accentColor)
+                        .foregroundColor(showHint ? .orange : .accentColor)
                     Spacer()
                     Image(systemName: "record.circle")
                         .font(.system(size: 12))
@@ -2393,18 +2404,27 @@ struct ShortcutRecorder: View {
     private func handleKeyDown(_ event: NSEvent) {
         let flags = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
         let keyCode = event.keyCode
-        
+
         // Ignore standalone modifier presses
         if event.type == .flagsChanged {
             return
         }
-        
+
         // Escape to cancel
         if keyCode == 53 {
             stopRecording()
             return
         }
-        
+
+        let hasPrimaryModifier = flags.contains(.command)
+            || flags.contains(.control)
+            || flags.contains(.option)
+        guard hasPrimaryModifier else {
+            showHint = true
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { showHint = false }
+            return
+        }
+
         // Save shortcut
         GlobalShortcutManager.shared.updateShortcut(keyCode: keyCode, modifiers: flags)
         updateDisplay()

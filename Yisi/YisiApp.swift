@@ -172,9 +172,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         // 截图界面双击 -> 打开图片上传窗口
         ScreenCaptureManager.shared.onOpenUploadWindow = {
-            print("DEBUG: AppDelegate received onOpenUploadWindow callback")
             DispatchQueue.main.async {
-                print("DEBUG: Calling showImageUploadWindow")
                 WindowManager.shared.showImageUploadWindow()
             }
         }
@@ -183,7 +181,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
     
     private func handleScreenshotShortcut() {
-        print("Screenshot shortcut triggered")
         ScreenCaptureManager.shared.startCapture { image in
             // 截图完成，显示翻译窗口（带图片上下文）
             DispatchQueue.main.async {
@@ -264,8 +261,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func handleShortcut() {
-        print("Shortcut detected in App")
-        
         Task {
             let result = await TextCaptureService.shared.captureSelectedText()
             

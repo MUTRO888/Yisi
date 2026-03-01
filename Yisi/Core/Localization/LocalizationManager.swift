@@ -126,6 +126,7 @@ class LocalizationManager: ObservableObject {
         "Activate": "Activate",
         "Record Shortcut": "Record Shortcut",
         "Press keys...": "Press keys...",
+        "Requires Cmd/Ctrl/Opt": "Requires Cmd/Ctrl/Opt",
         "Press the key combination you want to use to activate Yisi.": "Press the key combination you want to use to activate Yisi.",
         "Press the key combination you want to use.": "Press the key combination you want to use.",
         
@@ -368,6 +369,7 @@ class LocalizationManager: ObservableObject {
         "Activate": "激活",
         "Record Shortcut": "录制快捷键",
         "Press keys...": "按下按键...",
+        "Requires Cmd/Ctrl/Opt": "需要 Cmd/Ctrl/Opt 修饰键",
         "Press the key combination you want to use to activate Yisi.": "按下您想要用于激活 Yisi 的组合键。",
         "Press the key combination you want to use.": "按下您想要使用的组合键。",
         
