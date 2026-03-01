@@ -31,6 +31,13 @@ class TextCaptureService {
     
     // MARK: - Accessibility API
     
+    /// Public synchronous accessor for immediate AX text capture.
+    /// Must be called on the main thread while the source app still has focus.
+    func captureViaAccessibilityPublic() -> String? {
+        guard AXIsProcessTrusted() else { return nil }
+        return captureViaAccessibility()
+    }
+    
     private func captureViaAccessibility() -> String? {
         let systemWide = AXUIElementCreateSystemWide()
         var focused: AnyObject?

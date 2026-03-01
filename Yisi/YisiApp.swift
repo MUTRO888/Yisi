@@ -261,21 +261,27 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func handleShortcut() {
+        // Capture text synchronously on main thread BEFORE any async work.
+        // AX API must read the focused element while the source app still has focus.
+        let immediateResult = TextCaptureService.shared.captureViaAccessibilityPublic()
+        
         Task {
-            let result = await TextCaptureService.shared.captureSelectedText()
-            
-            var text = ""
+            var text = immediateResult ?? ""
             var error: String? = nil
             
-            switch result {
-            case .success(let capturedText):
-                text = capturedText
-            case .failure(let captureError):
-                switch captureError {
-                case .permissionDenied:
-                    error = "Accessibility permission required to capture text."
-                case .noSelection:
-                    break
+            // If synchronous AX capture failed, fall back to clipboard simulation
+            if text.isEmpty {
+                let result = await TextCaptureService.shared.captureSelectedText()
+                switch result {
+                case .success(let capturedText):
+                    text = capturedText
+                case .failure(let captureError):
+                    switch captureError {
+                    case .permissionDenied:
+                        error = "Accessibility permission required to capture text."
+                    case .noSelection:
+                        break
+                    }
                 }
             }
             
