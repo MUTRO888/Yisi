@@ -6,6 +6,7 @@ enum APIProvider: String {
     case gemini = "Gemini"
     case zhipu = "Zhipu AI"
     case minimax = "MiniMax"
+    case deepseek = "DeepSeek"
 }
 
 class AIService: ObservableObject {
@@ -26,6 +27,8 @@ class AIService: ObservableObject {
             return ZhipuProvider()
         case .minimax:
             return MiniMaxProvider()
+        case .deepseek:
+            return DeepSeekProvider()
         }
     }
     
@@ -334,6 +337,8 @@ class AIService: ObservableObject {
             return UserDefaults.standard.string(forKey: "\(prefix)zhipu_api_key")
         case .minimax:
             return UserDefaults.standard.string(forKey: "\(prefix)minimax_api_key")
+        case .deepseek:
+            return UserDefaults.standard.string(forKey: "\(prefix)deepseek_api_key")
         }
     }
     
@@ -348,6 +353,8 @@ class AIService: ObservableObject {
             return "zhipu_api_key"
         case .minimax:
             return "minimax_api_key"
+        case .deepseek:
+            return "deepseek_api_key"
         }
     }
     
@@ -365,6 +372,8 @@ class AIService: ObservableObject {
             return UserDefaults.standard.string(forKey: "\(prefix)zhipu_model") ?? defaultModel
         case .minimax:
             return UserDefaults.standard.string(forKey: "\(prefix)minimax_model") ?? "MiniMax-M2.5"
+        case .deepseek:
+            return UserDefaults.standard.string(forKey: "\(prefix)deepseek_model") ?? "deepseek-chat"
         }
     }
     

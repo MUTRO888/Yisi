@@ -389,7 +389,9 @@ private struct APIConfigForm: View {
     @Binding var zhipuModel: String
     var minimaxKey: Binding<String>? = nil
     var minimaxModel: Binding<String>? = nil
-    var providerOptions: [String] = ["Gemini", "OpenAI", "Zhipu AI", "MiniMax"]
+    var deepseekKey: Binding<String>? = nil
+    var deepseekModel: Binding<String>? = nil
+    var providerOptions: [String] = ["Gemini", "OpenAI", "Zhipu AI", "MiniMax", "DeepSeek"]
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -414,6 +416,9 @@ private struct APIConfigForm: View {
             } else if provider == "MiniMax", let minimaxKey = minimaxKey, let minimaxModel = minimaxModel {
                 APIKeyInput(label: "API Key".localized, text: minimaxKey, placeholder: "MiniMax API Key")
                 APIKeyInput(label: "Model".localized, text: minimaxModel, placeholder: "MiniMax-M2.5", isSecure: false)
+            } else if provider == "DeepSeek", let deepseekKey = deepseekKey, let deepseekModel = deepseekModel {
+                APIKeyInput(label: "API Key".localized, text: deepseekKey, placeholder: "DeepSeek API Key")
+                APIKeyInput(label: "Model".localized, text: deepseekModel, placeholder: "deepseek-chat", isSecure: false)
             }
         }
     }
@@ -585,10 +590,12 @@ struct AIServiceSettingsView: View {
     @AppStorage(AppDefaults.Keys.openaiApiKey) private var openaiKey: String = ""
     @AppStorage(AppDefaults.Keys.zhipuApiKey) private var zhipuKey: String = ""
     @AppStorage(AppDefaults.Keys.minimaxApiKey) private var minimaxKey: String = ""
+    @AppStorage(AppDefaults.Keys.deepseekApiKey) private var deepseekKey: String = ""
     @AppStorage(AppDefaults.Keys.geminiModel) private var geminiModel: String = AppDefaults.geminiModel
     @AppStorage(AppDefaults.Keys.openaiModel) private var openaiModel: String = AppDefaults.openaiModel
     @AppStorage(AppDefaults.Keys.zhipuModel) private var zhipuModel: String = AppDefaults.zhipuModel
     @AppStorage(AppDefaults.Keys.minimaxModel) private var minimaxModel: String = AppDefaults.minimaxModel
+    @AppStorage(AppDefaults.Keys.deepseekModel) private var deepseekModel: String = AppDefaults.deepseekModel
     @AppStorage(AppDefaults.Keys.apiProvider) private var apiProvider: String = AppDefaults.apiProvider
     
     // Image Mode API Settings
@@ -620,7 +627,9 @@ struct AIServiceSettingsView: View {
                     zhipuKey: $zhipuKey,
                     zhipuModel: $zhipuModel,
                     minimaxKey: $minimaxKey,
-                    minimaxModel: $minimaxModel
+                    minimaxModel: $minimaxModel,
+                    deepseekKey: $deepseekKey,
+                    deepseekModel: $deepseekModel
                 )
             }
 
@@ -646,14 +655,14 @@ struct AIServiceSettingsView: View {
                             .foregroundColor(.secondary)
                             .frame(width: 80, alignment: .leading)
 
-                        let isMiniMax = apiProvider == "MiniMax"
+                        let isImageUnsupported = apiProvider == "MiniMax" || apiProvider == "DeepSeek"
 
                         ElegantToggle(isOn: $applyApiToImageMode)
-                            .opacity(isMiniMax ? 0.4 : 1)
-                            .allowsHitTesting(!isMiniMax)
+                            .opacity(isImageUnsupported ? 0.4 : 1)
+                            .allowsHitTesting(!isImageUnsupported)
 
-                        Text(isMiniMax
-                             ? "MiniMax does not support image mode".localized
+                        Text(isImageUnsupported
+                             ? "This provider does not support image mode".localized
                              : "Apply text settings to image mode".localized)
                             .font(.system(size: 12, design: .serif))
                             .foregroundColor(.secondary.opacity(0.7))
@@ -661,7 +670,7 @@ struct AIServiceSettingsView: View {
                         Spacer()
                     }
                     .onChange(of: apiProvider) { _, newValue in
-                        if newValue == "MiniMax" {
+                        if newValue == "MiniMax" || newValue == "DeepSeek" {
                             applyApiToImageMode = false
                         }
                     }

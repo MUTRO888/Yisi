@@ -34,6 +34,8 @@ enum AppDefaults {
         static let zhipuModel = "zhipu_model"
         static let minimaxApiKey = "minimax_api_key"
         static let minimaxModel = "minimax_model"
+        static let deepseekApiKey = "deepseek_api_key"
+        static let deepseekModel = "deepseek_model"
         static let enableDeepThinking = "enable_deep_thinking"
 
         // AI Service - Image
@@ -80,6 +82,7 @@ enum AppDefaults {
     static let openaiModel = "gpt-4o-mini"
     static let zhipuModel = "GLM-4.5-Air"
     static let minimaxModel = "MiniMax-M2.5"
+    static let deepseekModel = "deepseek-chat"
     static let enableDeepThinking = false
 
     // AI Service - Image
@@ -122,6 +125,7 @@ enum AppDefaults {
             Keys.openaiModel: openaiModel,
             Keys.zhipuModel: zhipuModel,
             Keys.minimaxModel: minimaxModel,
+            Keys.deepseekModel: deepseekModel,
             Keys.enableDeepThinking: enableDeepThinking,
             Keys.imageProcessingStrategy: imageProcessingStrategy,
             Keys.applyApiToImageMode: applyApiToImageMode,

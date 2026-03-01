@@ -175,6 +175,8 @@ class LearningManager {
             return try await callGeminiAnalysis(prompt: prompt, apiKey: apiKey)
         case .zhipu:
             return try await callZhipuAnalysis(prompt: prompt, apiKey: apiKey)
+        case .deepseek:
+            return try await callDeepSeekAnalysis(prompt: prompt, apiKey: apiKey)
         default:
             throw NSError(domain: "LearningError", code: 2, userInfo: [NSLocalizedDescriptionKey: "Unsupported provider for analysis"])
         }
@@ -248,7 +250,38 @@ class LearningManager {
         
         throw NSError(domain: "LearningError", code: 4, userInfo: [NSLocalizedDescriptionKey: "Failed to parse analysis"])
     }
-    
+
+    private func callDeepSeekAnalysis(prompt: String, apiKey: String) async throws -> String {
+        let body: [String: Any] = [
+            "model": "deepseek-chat",
+            "messages": [
+                ["role": "user", "content": prompt]
+            ],
+            "temperature": 0.3
+        ]
+
+        let jsonData = try JSONSerialization.data(withJSONObject: body)
+
+        var request = URLRequest(url: URL(string: "https://api.deepseek.com/chat/completions")!)
+        request.httpMethod = "POST"
+        request.addValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
+        request.addValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = jsonData
+        request.timeoutInterval = 30
+
+        let (data, _) = try await URLSession.shared.data(for: request)
+
+        if let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+           let choices = json["choices"] as? [[String: Any]],
+           let firstChoice = choices.first,
+           let message = firstChoice["message"] as? [String: Any],
+           let content = message["content"] as? String {
+            return content
+        }
+
+        throw NSError(domain: "LearningError", code: 4, userInfo: [NSLocalizedDescriptionKey: "Failed to parse analysis"])
+    }
+
     // MARK: - Database Operations
     
     func saveRule(_ rule: UserLearnedRule) throws {
@@ -393,6 +426,8 @@ class LearningManager {
             return UserDefaults.standard.string(forKey: "openai_api_key")
         case .minimax:
             return UserDefaults.standard.string(forKey: "minimax_api_key")
+        case .deepseek:
+            return UserDefaults.standard.string(forKey: "deepseek_api_key")
         }
     }
 

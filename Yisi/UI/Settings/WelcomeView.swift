@@ -15,6 +15,7 @@ struct WelcomeView: View {
     @AppStorage(AppDefaults.Keys.openaiApiKey) private var openaiKey: String = ""
     @AppStorage(AppDefaults.Keys.zhipuApiKey) private var zhipuKey: String = ""
     @AppStorage(AppDefaults.Keys.minimaxApiKey) private var minimaxKey: String = ""
+    @AppStorage(AppDefaults.Keys.deepseekApiKey) private var deepseekKey: String = ""
 
     var onComplete: () -> Void
 
@@ -40,6 +41,7 @@ struct WelcomeView: View {
         case "Gemini": return !geminiKey.isEmpty
         case "OpenAI": return !openaiKey.isEmpty
         case "MiniMax": return !minimaxKey.isEmpty
+        case "DeepSeek": return !deepseekKey.isEmpty
         default: return !zhipuKey.isEmpty
         }
     }
@@ -179,8 +181,9 @@ struct WelcomeView: View {
                     Text("OpenAI").tag("OpenAI")
                     Text("Zhipu AI").tag("Zhipu AI")
                     Text("MiniMax").tag("MiniMax")
+                    Text("DeepSeek").tag("DeepSeek")
                 }
-                .pickerStyle(.segmented)
+                .pickerStyle(.menu)
                 .frame(width: 280)
 
                 Group {
@@ -190,6 +193,8 @@ struct WelcomeView: View {
                         SecureField("OpenAI API Key", text: $openaiKey)
                     } else if apiProvider == "MiniMax" {
                         SecureField("MiniMax API Key", text: $minimaxKey)
+                    } else if apiProvider == "DeepSeek" {
+                        SecureField("DeepSeek API Key", text: $deepseekKey)
                     } else {
                         SecureField("Zhipu API Key", text: $zhipuKey)
                     }
